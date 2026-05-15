@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ContextFit Demo — Agent Memory That Finds What Matters</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#080d18; --surface:#0f1724; --surface2:#151e30; --border:#1e2d45; --border2:#253550;
+      --sky:#38bdf8; --cyan:#67e8f9; --green:#10b981; --amber:#f59e0b; --red:#f43f5e;
+      --text:#e2eaf5; --muted:#6b8299; --muted2:#9ab0c8; --code-bg:#060b14;
+    }
+    html { scroll-behavior:smooth; }
+    body {
+      font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); line-height:1.65; overflow-x:hidden;
+      background-image:
+        radial-gradient(circle at 20% 10%, rgba(56,189,248,0.12), transparent 28rem),
+        radial-gradient(circle at 80% 0%, rgba(16,185,129,0.08), transparent 24rem),
+        linear-gradient(180deg, #080d18 0%, #090f1b 52%, #080d18 100%);
+    }
+    a { color:inherit; }
+    .gh-banner {
+      position:fixed; top:0; left:0; right:0; z-index:110; min-height:42px; padding:.55rem 1.5rem;
+      background:rgba(8,13,24,.94); backdrop-filter:blur(14px);
+      display:flex; align-items:center; justify-content:center; gap:1.25rem; flex-wrap:wrap; font-size:.8rem;
+    }
+    .gh-banner strong { color:var(--sky); }
+    .gh-banner span { color:var(--muted2); }
+    .gh-star-btn { text-decoration:none; color:var(--sky); border:1px solid rgba(56,189,248,.25); border-radius:6px; padding:.3rem .8rem; background:rgba(56,189,248,.1); font-weight:700; }
+    nav {
+      position:fixed; top:42px; left:0; right:0; z-index:100; height:64px; padding:0 2rem;
+      display:flex; align-items:center; justify-content:space-between; background:rgba(8,13,24,.86); backdrop-filter:blur(14px); border-bottom:1px solid var(--border);
+    }
+    .nav-logo { display:inline-flex; align-items:center; gap:.62rem; font-family:'JetBrains Mono',monospace; text-decoration:none; font-size:1.08rem; font-weight:700; line-height:1; letter-spacing:-.045em; }
+    .nav-logo img { width:34px; height:34px; object-fit:cover; border-radius:8px; }
+    .nav-logo .a { color:var(--text); } .nav-logo .b { color:var(--sky); }
+    .nav-links { display:flex; gap:1.75rem; align-items:center; height:100%; }
+    .nav-section-links,.nav-page-links { display:inline-flex; align-items:center; gap:1.35rem; height:100%; }
+    .nav-page-links { gap:.65rem; padding-left:.3rem; margin-left:.25rem; }
+    .nav-links a { color:var(--muted2); text-decoration:none; font-size:.875rem; font-weight:600; display:inline-flex; align-items:center; height:100%; line-height:1; }
+    .nav-links a:hover, .nav-links a.active { color:var(--text); }
+    .btn-outline { border:1px solid var(--border2); border-radius:6px; padding:.35rem .85rem; color:var(--sky)!important; background:rgba(56,189,248,.045); height:auto!important; align-self:center; }
+    .btn-outline:hover, .btn-outline.active { border-color:var(--sky); background:rgba(56,189,248,.1); color:var(--text)!important; }
+    .nav-external { color:var(--sky)!important; height:auto!important; align-self:center; font-weight:700; }
+    .nav-external:hover { color:var(--cyan)!important; }
+    .hero { min-height:92vh; display:grid; place-items:center; padding:10.5rem 1.5rem 4rem; position:relative; overflow:hidden; }
+    .hero-inner { max-width:1080px; width:100%; display:grid; grid-template-columns:1.05fr .95fr; gap:3rem; align-items:center; }
+    .eyebrow { display:inline-flex; align-items:center; gap:.5rem; font-family:'JetBrains Mono',monospace; color:var(--sky); border:1px solid rgba(56,189,248,.22); background:rgba(56,189,248,.08); border-radius:999px; padding:.32rem .85rem; font-size:.75rem; margin-bottom:1.4rem; }
+    .eyebrow::before { content:'●'; font-size:.5rem; animation:pulse 2s infinite; }
+    @keyframes pulse { 50%{opacity:.35} }
+    h1 { font-size:clamp(2.6rem,6.5vw,5.2rem); line-height:.98; letter-spacing:-.055em; margin-bottom:1.4rem; }
+    h1 em { color:var(--sky); font-style:normal; }
+    .hero p { color:var(--muted2); max-width:610px; font-size:1.12rem; margin-bottom:2rem; }
+    .hero-actions { display:flex; gap:1rem; flex-wrap:wrap; }
+    .btn-primary, .btn-ghost { display:inline-flex; align-items:center; justify-content:center; border-radius:9px; padding:.8rem 1.25rem; text-decoration:none; font-weight:800; font-size:.92rem; }
+    .btn-primary { background:var(--sky); color:#001018; box-shadow:0 0 40px rgba(56,189,248,.18); }
+    .btn-ghost { border:1px solid var(--border2); color:var(--muted2); background:rgba(15,23,36,.62); }
+    .memory-machine { border:1px solid var(--border); background:linear-gradient(180deg, rgba(15,23,36,.92), rgba(8,13,24,.96)); border-radius:22px; overflow:hidden; box-shadow:0 24px 80px rgba(0,0,0,.34); position:relative; }
+    .machine-top { display:flex; align-items:center; gap:.45rem; padding:.85rem 1rem; border-bottom:1px solid var(--border); background:rgba(6,11,20,.75); }
+    .dot { width:10px; height:10px; border-radius:50%; } .r{background:var(--red)} .y{background:var(--amber)} .g{background:var(--green)}
+    .machine-name { margin-left:.5rem; font-family:'JetBrains Mono',monospace; color:var(--muted); font-size:.72rem; }
+    .token-rain { padding:1.2rem; min-height:420px; position:relative; }
+    .query-bubble { background:rgba(56,189,248,.12); border:1px solid rgba(56,189,248,.24); border-radius:14px; padding:1rem; margin-bottom:1rem; }
+    .query-bubble .label, .result .label { font-family:'JetBrains Mono',monospace; color:var(--sky); font-size:.68rem; letter-spacing:.1em; text-transform:uppercase; margin-bottom:.35rem; }
+    .query-bubble strong { color:#fff; }
+    .token-stream { display:flex; flex-wrap:wrap; gap:.38rem; margin:1rem 0; }
+    .chip { font-family:'JetBrains Mono',monospace; font-size:.72rem; color:#a5f3fc; border:1px solid rgba(56,189,248,.22); background:rgba(56,189,248,.08); border-radius:999px; padding:.18rem .48rem; animation:floaty 4.5s ease-in-out infinite; }
+    .chip:nth-child(2n){animation-delay:.5s}.chip:nth-child(3n){animation-delay:1s}
+    @keyframes floaty { 50%{transform:translateY(-4px); opacity:.72} }
+    .result { border:1px solid rgba(16,185,129,.28); background:rgba(16,185,129,.08); border-radius:14px; padding:1rem; }
+    .result h3 { font-size:1rem; margin-bottom:.4rem; }
+    .result p { font-size:.86rem; color:var(--muted2); margin:0; }
+    section { padding:5.5rem 1.5rem; }
+    .wrap { max-width:1080px; margin:0 auto; }
+    .section-head { text-align:center; margin-bottom:3rem; }
+    .section-head .label { color:var(--sky); font-family:'JetBrains Mono',monospace; font-size:.75rem; letter-spacing:.12em; text-transform:uppercase; margin-bottom:.8rem; }
+    .section-head h2 { font-size:clamp(2rem,4vw,3rem); line-height:1.08; letter-spacing:-.035em; margin-bottom:1rem; }
+    .section-head p { color:var(--muted2); max-width:640px; margin:0 auto; }
+    .demo-stage { display:grid; grid-template-columns:310px 1fr; gap:1.25rem; align-items:start; }
+    .scenarios { display:grid; gap:.75rem; position:sticky; top:126px; }
+    .scenario-btn { text-align:left; width:100%; border:1px solid var(--border); background:rgba(15,23,36,.72); color:var(--text); border-radius:13px; padding:1rem; cursor:pointer; transition:.18s; }
+    .scenario-btn:hover { border-color:rgba(56,189,248,.45); transform:translateY(-1px); }
+    .scenario-btn.active { border-color:var(--sky); background:rgba(56,189,248,.11); box-shadow:0 0 0 1px rgba(56,189,248,.08) inset; }
+    .scenario-btn .k { font-family:'JetBrains Mono',monospace; color:var(--sky); font-size:.68rem; letter-spacing:.08em; text-transform:uppercase; }
+    .scenario-btn h3 { font-size:.98rem; margin:.25rem 0; }
+    .scenario-btn p { color:var(--muted); font-size:.82rem; line-height:1.45; }
+    .comparison { border:1px solid var(--border); border-radius:20px; background:rgba(15,23,36,.64); overflow:hidden; }
+    .comparison-top { padding:1.1rem 1.25rem; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; gap:1rem; align-items:center; background:rgba(6,11,20,.42); }
+    .comparison-top .ask { font-weight:800; color:#fff; }
+    .comparison-top .ask span { color:var(--sky); font-family:'JetBrains Mono',monospace; font-size:.78rem; margin-right:.5rem; }
+    .toggle { display:flex; gap:.4rem; background:var(--code-bg); border:1px solid var(--border); border-radius:999px; padding:.25rem; }
+    .toggle button { border:0; color:var(--muted2); background:transparent; border-radius:999px; padding:.42rem .75rem; font-weight:800; cursor:pointer; font-size:.78rem; }
+    .toggle button.active { background:var(--sky); color:#001018; }
+    .panels { display:grid; grid-template-columns:1fr 1fr; gap:1rem; padding:1.25rem; }
+    .panel { border:1px solid var(--border); border-radius:16px; padding:1rem; background:rgba(8,13,24,.72); min-height:340px; }
+    .panel.dim { opacity:.58; filter:saturate(.78); }
+    .panel.good { border-color:rgba(16,185,129,.32); box-shadow:0 0 40px rgba(16,185,129,.04) inset; }
+    .panel-title { display:flex; justify-content:space-between; gap:.5rem; align-items:center; margin-bottom:.9rem; }
+    .panel-title h3 { font-size:1rem; }
+    .badge { font-family:'JetBrains Mono',monospace; font-size:.65rem; padding:.2rem .45rem; border-radius:999px; border:1px solid var(--border2); color:var(--muted2); }
+    .badge.win { border-color:rgba(16,185,129,.35); color:#86efac; background:rgba(16,185,129,.08); }
+    .evidence { display:grid; gap:.75rem; }
+    .e-card { border:1px solid var(--border); border-radius:12px; padding:.85rem; background:rgba(15,23,36,.78); }
+    .e-card .meta { font-family:'JetBrains Mono',monospace; color:var(--muted); font-size:.68rem; margin-bottom:.35rem; }
+    .e-card strong { color:var(--sky); }
+    .e-card p { color:var(--muted2); font-size:.86rem; line-height:1.55; }
+    .why { margin-top:1rem; border-top:1px solid var(--border); padding-top:1rem; color:var(--muted2); font-size:.88rem; }
+    .why strong { color:var(--text); }
+    .timeline { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-top:3rem; }
+    .t-card { border:1px solid var(--border); border-radius:16px; background:rgba(15,23,36,.6); padding:1rem; }
+    .t-card .num { font-family:'JetBrains Mono',monospace; color:var(--sky); font-size:.75rem; margin-bottom:.7rem; }
+    .t-card h3 { font-size:1rem; margin-bottom:.4rem; }
+    .t-card p { color:var(--muted2); font-size:.86rem; }
+    .cta { text-align:center; background:linear-gradient(180deg, rgba(15,23,36,.65), rgba(8,13,24,.15)); }
+    .cta-card { max-width:720px; margin:0 auto; border:1px solid var(--border); border-radius:22px; padding:3rem 2rem; background:rgba(15,23,36,.7); position:relative; overflow:hidden; }
+    .cta-card::before { content:''; position:absolute; inset:auto -80px -120px auto; width:280px; height:280px; background:radial-gradient(circle, rgba(56,189,248,.12), transparent 70%); pointer-events:none; }
+    .cta h2 { font-size:clamp(2rem,4vw,3rem); line-height:1.1; letter-spacing:-.035em; margin-bottom:1rem; }
+    .cta p { color:var(--muted2); margin:0 auto 1.8rem; max-width:520px; }
+    footer { border-top:1px solid var(--border); padding:2.5rem 1.5rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; max-width:1080px; margin:0 auto; }
+    .footer-brand { font-family:'JetBrains Mono',monospace; color:var(--sky); }
+    .footer-copy { font-size:.78rem; color:var(--muted); margin-top:.2rem; }
+    .footer-links { display:flex; gap:1.25rem; }
+    .footer-links a { color:var(--muted); text-decoration:none; font-size:.82rem; }
+    .footer-links a:hover { color:var(--text); }
+    @media (max-width:900px) {
+      .nav-links { display:none; }
+      .hero-inner, .demo-stage, .panels, .timeline { grid-template-columns:1fr; }
+      .scenarios { position:static; }
+      .hero { padding-top:9.5rem; }
+      .token-rain { min-height:auto; }
+    }
+    @media (max-width:560px) { nav { padding:0 1rem; } .gh-banner { display:none; } nav{top:0}.hero{padding-top:7rem} section{padding:4rem 1rem}.comparison-top{align-items:flex-start;flex-direction:column}.toggle{width:100%;justify-content:space-between}.toggle button{flex:1} }
+  </style>
+  <!-- Privacy-friendly analytics by Plausible -->
+  <script async src="https://plausible.io/js/pa-poEPDTj3wfTJlPsxZWfKK.js"></script>
+  <script>
+    window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+    plausible.init()
+  </script>
+</head>
+<body>
+<div class="gh-banner">
+  <span><strong>ContextFit</strong> demo lab · memory retrieval without embedding APIs</span>
+  <a class="gh-star-btn" href="https://github.com/ContextFit/cf" target="_blank" rel="noopener">★ GitHub</a>
+</div>
+<nav>
+  <a class="nav-logo" href="/">
+    <img src="assets/logo-token-element.png" alt="ContextFit Logo">
+    <span class="a">Context</span><span class="b">Fit</span>
+  </a>
+  <div class="nav-links" aria-label="Primary navigation">
+    <div class="nav-section-links" aria-label="Homepage sections">
+      <a href="/#benchmark">Benchmarks</a>
+      <a href="/#deployment">Deployment</a>
+      <a href="/#api">API</a>
+    </div>
+    <div class="nav-page-links" aria-label="Other pages">
+      <a href="/getting-started.html" class="btn-outline">Get Started</a>
+      <a class="active btn-outline" href="/demo.html">Demo</a>
+      <a href="/whitepaper.html" class="btn-outline">Whitepaper</a>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-inner">
+    <div>
+      <div class="eyebrow">interactive memory demo</div>
+      <h1>Nearest text is not always the <em>right memory</em>.</h1>
+      <p>
+        Agents do not just need search. They need to remember preferences, unresolved loops,
+        changing facts, and scattered evidence — then explain exactly where the answer came from.
+      </p>
+      <div class="hero-actions">
+        <a class="btn-primary" href="#try">Try the scenarios</a>
+        <a class="btn-ghost" href="https://github.com/ContextFit/cf" target="_blank" rel="noopener">View the code ↗</a>
+      </div>
+    </div>
+    <div class="memory-machine" aria-label="ContextFit memory machine illustration">
+      <div class="machine-top"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="machine-name">memory-machine.local</span></div>
+      <div class="token-rain">
+        <div class="query-bubble">
+          <div class="label">user asks later</div>
+          <strong>“What should I remember before booking dinner?”</strong>
+        </div>
+        <div class="token-stream">
+          <span class="chip">avoid</span><span class="chip">heavy</span><span class="chip">meals</span><span class="chip">before</span><span class="chip">flights</span><span class="chip">likes</span><span class="chip">quiet</span><span class="chip">patio</span><span class="chip">open_loop</span><span class="chip">Friday</span><span class="chip">constraint</span><span class="chip">preference</span>
+        </div>
+        <div class="result">
+          <div class="label">ContextFit retrieves</div>
+          <h3>“Choose something light and low-chaos — they said travel days go better that way.”</h3>
+          <p>Evidence is cited from the actual conversation, not hidden inside vector distance.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="try">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="label">demo arcade</div>
+      <h2>Four tiny memory traps.</h2>
+      <p>Each one is a thing real agents get wrong when memory is treated as generic semantic search.</p>
+    </div>
+    <div class="demo-stage">
+      <div class="scenarios" id="scenarioButtons"></div>
+      <div class="comparison">
+        <div class="comparison-top">
+          <div class="ask" id="askLine"><span>ASK</span></div>
+          <div class="toggle" aria-label="result emphasis">
+            <button id="showBoth" class="active" type="button">Compare</button>
+            <button id="showCf" type="button">ContextFit</button>
+          </div>
+        </div>
+        <div class="panels">
+          <article class="panel" id="baselinePanel">
+            <div class="panel-title"><h3>Nearest-text retrieval</h3><span class="badge">plausible miss</span></div>
+            <div class="evidence" id="baselineEvidence"></div>
+            <div class="why" id="baselineWhy"></div>
+          </article>
+          <article class="panel good" id="cfPanel">
+            <div class="panel-title"><h3>ContextFit</h3><span class="badge win">cited memory</span></div>
+            <div class="evidence" id="cfEvidence"></div>
+            <div class="why" id="cfWhy"></div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <div class="label">what the demo is showing</div>
+      <h2>Memory has shape.</h2>
+      <p>ContextFit keeps that shape visible: tokens, chunks, metadata, memory atoms, and evidence-ranked episodes.</p>
+    </div>
+    <div class="timeline">
+      <div class="t-card"><div class="num">01</div><h3>Typed memories</h3><p>Preferences, goals, constraints, decisions, open loops, and temporal updates are different signals.</p></div>
+      <div class="t-card"><div class="num">02</div><h3>Local token index</h3><p>No embedding API is required. Retrieval runs on token-native structures you can inspect and move.</p></div>
+      <div class="t-card"><div class="num">03</div><h3>Structure-aware files</h3><p>Markdown sections, TMD rows, JSON events, CSV rows, emails, and calendar events stay source-verifiable.</p></div>
+      <div class="t-card"><div class="num">04</div><h3>Evidence first</h3><p>The result is not just a score. It is a ranked answer path with the chunks that justify it.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="cta-card">
+    <h2>Build memory your agent can explain.</h2>
+    <p>ContextFit is open source, local-first, and designed for the messy continuity layer real assistants need.</p>
+    <div class="hero-actions" style="justify-content:center">
+      <a class="btn-primary" href="https://github.com/ContextFit/cf">Star on GitHub</a>
+      <a class="btn-ghost" href="/whitepaper.html">Read the whitepaper</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>
+    <div class="footer-brand">ContextFit</div>
+    <div class="footer-copy">© ContextFit 2026</div>
+  </div>
+  <div class="footer-links">
+    <a href="/">Home</a><a href="/getting-started.html">Get Started</a><a href="/site.md">site.md</a><a href="/llms.txt">llms.txt</a><a href="https://github.com/ContextFit/cf" target="_blank" rel="noopener">GitHub ↗</a>
+  </div>
+</footer>
+
+<script>
+const scenarios = [
+  {
+    key:'preference → recommendation',
+    title:'Dinner before a flight',
+    teaser:'The useful memory is a constraint, not a restaurant keyword.',
+    ask:'Where should Jordan eat before the trip tonight?',
+    baselineWhy:'A semantic match can over-focus on “eat” and “trip” and retrieve generic restaurant chatter.',
+    cfWhy:'ContextFit rewards preference and constraint evidence: light meals + travel-day behavior are the relevant memories.',
+    baseline:[
+      ['Apr 02 · restaurant chat','“The Copper Fox was amazing last time. Big dinner, great room, very much a celebration place.”'],
+      ['Apr 19 · travel logistics','“Flight leaves at 7:40. Need to be out the door by 5:45.”']
+    ],
+    cf:[
+      ['Mar 28 · preference','“I’m trying to avoid heavy meals before flights. Travel days go better when dinner is light.”'],
+      ['Apr 11 · constraint','“No loud crowded places before airport runs. I want low-friction food.”']
+    ]
+  },
+  {
+    key:'open loop retrieval',
+    title:'The dangling launch task',
+    teaser:'The answer lives in an unresolved intention.',
+    ask:'What product-launch things are still hanging?',
+    baselineWhy:'Keyword search may retrieve launch documents, but miss which item is still unresolved.',
+    cfWhy:'Open-loop memory atoms identify unresolved asks and reminders as first-class evidence.',
+    baseline:[
+      ['Apr 06 · launch overview','“Aurora Notes beta launches on May 1. The checklist covers docs, onboarding, and billing.”'],
+      ['Apr 08 · release notes','“The changelog needs screenshots for the new team workspace flow.”']
+    ],
+    cf:[
+      ['Apr 12 · open loop','“Remind me to ask Maya for the final pricing blurb once legal signs off.”'],
+      ['Apr 15 · status update','“Still waiting on legal approval before publishing the pricing page.”']
+    ]
+  },
+  {
+    key:'temporal update',
+    title:'Old fact, new fact',
+    teaser:'Memory should know which version is current.',
+    ask:'Which support inbox should the launch page use now?',
+    baselineWhy:'The old inbox appears many times, so frequency can beat freshness.',
+    cfWhy:'Temporal-update evidence lets the newer correction outrank stale repeated mentions.',
+    baseline:[
+      ['2024–2025 · repeated header','“Support contact: help@aurora-example.test.”'],
+      ['Mar 22 · forwarded draft','“Please point early-access users to help@aurora-example.test.”']
+    ],
+    cf:[
+      ['Apr 06 · update','“We moved launch support from help@aurora-example.test to launch@aurora-example.test today.”'],
+      ['Apr 06 · contact preference','“Use launch@aurora-example.test as the primary support inbox going forward.”']
+    ]
+  },
+  {
+    key:'multi-session synthesis',
+    title:'The answer is scattered',
+    teaser:'The right response needs complementary evidence, not five near-duplicates.',
+    ask:'Why is Project Lantern at risk?',
+    baselineWhy:'Nearest chunks can pile onto one mention of “risk” and miss the second piece of evidence.',
+    cfWhy:'Coverage reranking favors complementary sessions that together explain the full answer.',
+    baseline:[
+      ['Apr 06 · project note','“Project Lantern has a risk review scheduled before the pilot.”'],
+      ['Apr 07 · duplicate note','“Lantern risk review is still on the calendar.”']
+    ],
+    cf:[
+      ['Apr 06 · vendor issue','“The sensor vendor slipped delivery by two weeks, which blocks the pilot hardware build.”'],
+      ['Apr 09 · budget note','“The contingency budget was moved to another workstream, so there is no buffer for expedited shipping.”']
+    ]
+  }
+];
+let active = 0;
+const buttons = document.getElementById('scenarioButtons');
+const askLine = document.getElementById('askLine');
+const baselineEvidence = document.getElementById('baselineEvidence');
+const cfEvidence = document.getElementById('cfEvidence');
+const baselineWhy = document.getElementById('baselineWhy');
+const cfWhy = document.getElementById('cfWhy');
+const baselinePanel = document.getElementById('baselinePanel');
+const cfPanel = document.getElementById('cfPanel');
+function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function cards(items){ return items.map(([meta,text]) => `<div class="e-card"><div class="meta">${escapeHtml(meta)}</div><p>${escapeHtml(text).replace(/“([^”]+)”/g,'“<strong>$1</strong>”')}</p></div>`).join(''); }
+function render(){
+  const s = scenarios[active];
+  [...buttons.children].forEach((b,i)=>b.classList.toggle('active',i===active));
+  askLine.innerHTML = `<span>ASK</span>${escapeHtml(s.ask)}`;
+  baselineEvidence.innerHTML = cards(s.baseline);
+  cfEvidence.innerHTML = cards(s.cf);
+  baselineWhy.innerHTML = `<strong>What goes wrong:</strong> ${escapeHtml(s.baselineWhy)}`;
+  cfWhy.innerHTML = `<strong>Why this works:</strong> ${escapeHtml(s.cfWhy)}`;
+}
+scenarios.forEach((s,i)=>{
+  const b = document.createElement('button'); b.className = 'scenario-btn'; b.type = 'button';
+  b.innerHTML = `<div class="k">${escapeHtml(s.key)}</div><h3>${escapeHtml(s.title)}</h3><p>${escapeHtml(s.teaser)}</p>`;
+  b.addEventListener('click',()=>{ active=i; render(); }); buttons.appendChild(b);
+});
+document.getElementById('showBoth').addEventListener('click', e => { e.currentTarget.classList.add('active'); document.getElementById('showCf').classList.remove('active'); baselinePanel.classList.remove('dim'); cfPanel.classList.remove('dim'); });
+document.getElementById('showCf').addEventListener('click', e => { e.currentTarget.classList.add('active'); document.getElementById('showBoth').classList.remove('active'); baselinePanel.classList.add('dim'); cfPanel.classList.remove('dim'); });
+render();
+</script>
+</body>
+</html>

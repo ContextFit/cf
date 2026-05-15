@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff
+.ruff_cache/
+
+# Knowledge bases (created by examples)
+contextfit_kb/
+*.bin
+index.json
+
+# OS
+.DS_Store
+Thumbs.db
+benchmarks/data/longmemeval_*.json
+benchmarks/cache/
+benchmarks/longmemeval_contextfit_*.json
+benchmarks/longmemeval_*.json
+benchmarks/longmemeval_local_embed.py
+benchmarks/agent_memory_eval_*.json
+
+# Local build scratch
+build_env/

@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Whitepaper — ContextFit</title>
+  <link rel="alternate" type="text/markdown" href="/token-native-agent-memory.md" title="ContextFit whitepaper markdown" />
+  <link rel="alternate" type="text/plain" href="/llms.txt" title="ContextFit llms.txt" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #080d18;
+      --surface:   #0f1724;
+      --surface2:  #151e30;
+      --border:    #1e2d45;
+      --border2:   #253550;
+      --sky:       #38bdf8;
+      --sky-dim:   #1e6fa8;
+      --green:     #10b981;
+      --text:      #e2eaf5;
+      --muted:     #6b8299;
+      --muted2:    #9ab0c8;
+      --code-bg:   #060b14;
+      --radius:    10px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      margin: 0;
+      display: flex;
+    }
+
+    /* Side Nav */
+    .side-nav {
+      width: 300px;
+      height: 100vh;
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 2rem;
+      box-sizing: border-box;
+      overflow-y: auto;
+    }
+    .side-nav h2 {
+      font-size: 0.9rem;
+      color: var(--sky);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 1.5rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .side-nav ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .side-nav li { margin-bottom: 0.75rem; }
+    .side-nav a {
+      color: var(--muted2);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.2s;
+    }
+    .side-nav a:hover { color: var(--sky); }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      padding: 4rem 6rem;
+      max-width: 900px;
+    }
+    .header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 3rem;
+      margin-bottom: 3rem;
+    }
+    .paper-home {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.85rem;
+      color: var(--sky);
+      text-decoration: none;
+      margin-bottom: 1.5rem;
+    }
+    .paper-home img {
+      height: 48px;
+      width: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+    }
+    .paper-home span {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      border: 1px solid var(--border2);
+      background: rgba(56,189,248,0.06);
+      border-radius: 999px;
+      padding: 0.35rem 0.75rem;
+      transition: border-color 0.2s, background 0.2s, color 0.2s;
+    }
+    .paper-home:hover span { border-color: var(--sky); background: rgba(56,189,248,0.12); color: var(--text); }
+    .header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+    .header .subtitle {
+      font-size: 1.2rem;
+      color: var(--sky);
+      font-weight: 500;
+      margin-bottom: 2rem;
+      display: block;
+    }
+    .meta-info {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--muted);
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+    }
+    .pdf-btn {
+      background: var(--surface2);
+      color: var(--sky);
+      border: 1px solid var(--border2);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 0.8rem;
+      transition: background 0.2s;
+    }
+    .pdf-btn:hover { background: rgba(56,189,248,0.1); }
+
+    h2 {
+      font-size: 1.8rem;
+      margin-top: 3rem;
+      margin-bottom: 1rem;
+      color: var(--text);
+      border-left: 4px solid var(--sky);
+      padding-left: 1rem;
+    }
+    h3 {
+      font-size: 1.3rem;
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      color: var(--sky);
+    }
+    p { margin-bottom: 1.5rem; color: var(--muted2); }
+    
+    .abstract {
+      font-size: 1.1rem;
+      background: var(--surface);
+      padding: 2rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-style: italic;
+      margin-bottom: 3rem;
+    }
+
+    .highlight-card {
+      background: linear-gradient(135deg, var(--surface2), var(--surface));
+      border: 1px solid var(--sky-dim);
+      padding: 1.5rem;
+      border-radius: var(--radius);
+      margin: 2rem 0;
+    }
+    .highlight-card strong { color: var(--sky); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 2rem 0;
+      font-size: 0.875rem;
+      background: var(--surface);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    th, td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted2);
+    }
+    th {
+      background: var(--surface2);
+      color: var(--sky);
+      font-family: 'JetBrains Mono', monospace;
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.05em;
+    }
+    tr:last-child td { border-bottom: none; }
+    .win { color: var(--green); font-weight: 600; }
+
+    .footer {
+      margin-top: 5rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    
+    @media (max-width: 900px) {
+      body { flex-direction: column; }
+      .side-nav { width: 100%; height: auto; position: relative; padding: 1.25rem; }
+      .side-nav ul {
+        display: flex; gap: 0.85rem; overflow-x: auto; padding-bottom: 0.25rem;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(56,189,248,0.35) transparent;
+      }
+      .side-nav ul::-webkit-scrollbar { height: 6px; }
+      .side-nav ul::-webkit-scrollbar-track { background: transparent; }
+      .side-nav ul::-webkit-scrollbar-thumb { background: rgba(56,189,248,0.28); border-radius: 999px; }
+      .side-nav ul::-webkit-scrollbar-thumb:hover { background: rgba(56,189,248,0.45); }
+      .side-nav li { margin-bottom: 0; flex: 0 0 auto; }
+      .main-content { padding: 2rem; }
+    }
+    @media (max-width: 600px) {
+      .main-content { padding: 1.5rem 1rem; }
+      .header h1 { font-size: 2rem; }
+      .meta-info { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+      table { display: block; overflow-x: auto; }
+      th, td { white-space: nowrap; }
+    }
+  </style>
+  <!-- Privacy-friendly analytics by Plausible -->
+  <script async src="https://plausible.io/js/pa-poEPDTj3wfTJlPsxZWfKK.js"></script>
+  <script>
+    window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+    plausible.init()
+  </script>
+</head>
+<body>
+  <div class="side-nav">
+    <h2>Contents</h2>
+    <ul>
+      <li><a href="#abstract">Abstract</a></li>
+      <li><a href="#intro">Introduction</a></li>
+      <li><a href="#arch">Architecture</a></li>
+      <li><a href="#atoms">Memory Atoms</a></li>
+      <li><a href="#scorer">Relevance Scorer</a></li>
+      <li><a href="#router">Query Router</a></li>
+      <li><a href="#structure-ingest">Structure-Aware Ingestion</a></li>
+      <li><a href="#results">Benchmark Results</a></li>
+      <li><a href="#impact">Impact</a></li>
+      <li><a href="#conclusion">Conclusion</a></li>
+    </ul>
+  </div>
+
+  <div class="main-content">
+    <div class="header">
+      <a href="index.html" class="paper-home" aria-label="Back to ContextFit homepage">
+        <img src="assets/logo-token-element.png" alt="ContextFit Logo">
+        <span>← Back to Home</span>
+      </a>
+      <h1 style="margin-top:0">Token-Native Agent Memory</h1>
+      <span class="subtitle">Why the Next Generation of AI Memory Systems Should Think in Tokens, Not Vectors</span>
+      <div class="meta-info">
+        <span>ContextFit Research • May 2026</span>
+        <span style="color:var(--sky); cursor:pointer;"><a href="getting-started.html" style="color:inherit; text-decoration:none">Get Started</a></span>
+        <span style="color:var(--sky); cursor:pointer;"><a href="https://github.com/ContextFit/cf" target="_blank" rel="noopener" style="color:inherit; text-decoration:none">GitHub ↗</a></span>
+        <a href="https://x.com/cponsart" class="pdf-btn" target="_blank">X: @cponsart</a>
+        <a href="token-native-agent-memory.md" class="pdf-btn" target="_blank">Download Markdown ⬇</a>
+      </div>
+    </div>
+
+    <div id="abstract" class="abstract">
+      Modern AI agent memory systems share a common architectural assumption: that raw conversational context must be converted into embedding vectors before it can be retrieved. This paper challenges that assumption. We present <strong>ContextFit</strong>, a token-native memory retrieval system that operates directly on tokenized text without embedding APIs, LLM preprocessing, or vector databases.
+    </div>
+
+    <div id="intro">
+      <h2>1. Introduction</h2>
+      <p>The promise of AI agents is continuity: an assistant that remembers what you told it last week, understands your preferences, and applies prior context to new advice. Fulfilling this promise requires memory retrieval—the ability to surface the right prior conversation when it matters.</p>
+      <p>The dominant approach in 2026 is embedding-based retrieval: convert session text to dense vectors, store them in a vector database, and retrieve by cosine similarity. This architecture has three fundamental limitations:</p>
+      <ul>
+        <li><strong>Latency and Cost:</strong> Every access requires API calls (embedding, LLM extraction, vector query), adding hundreds of milliseconds and ongoing costs.</li>
+        <li><strong>Semantic Averaging:</strong> Embedding models compress entire sessions into a single vector, often failing for vague queries like "what should I cook tonight?" where relevant context shares no vocabulary with the query.</li>
+        <li><strong>Opacity:</strong> A cosine distance of 0.73 does not provide an interpretable explanation of why a session was retrieved.</li>
+      </ul>
+    </div>
+
+    <div id="arch">
+      <h2>2. Token-Native Architecture</h2>
+      <p>ContextFit's core insight is that the most valuable signals in conversational memory are <strong>structural, not semantic</strong>. We ask: <em>What kind of memory did the user express, and does this episode's memory type match what this query needs?</em></p>
+      
+      <div class="highlight-card">
+        <strong>The Token-Native Pipeline:</strong><br>
+        Ingest (2.7ms/session) &rarr; Tokenization &rarr; Inverted Index (BM25) &rarr; Deterministic Atom Extraction &rarr; LSH Signatures.
+        <br><br>
+        Query (0.4-9ms) &rarr; Deterministic Router &rarr; Mode Selection &rarr; Structural / Preference / Evidence-Coverage Reranking &rarr; Ranked Results.
+      </div>
+    </div>
+
+    <div id="atoms">
+      <h2>3. Memory Atoms</h2>
+      <p>Memory atoms are regex-pattern-based extractions of typed memory primitives from user turns. This is a deterministic alternative to LLM-based fact extraction.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Captures</th>
+            <th>Example Trigger</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>user_preference</td><td>Likes, dislikes, favorites</td><td>"I love / I hate / my go-to"</td></tr>
+          <tr><td>user_interest</td><td>Current activities, exploration</td><td>"I'm getting into / working on"</td></tr>
+          <tr><td>user_goal</td><td>Stated intentions and plans</td><td>"I want to / I'm trying to"</td></tr>
+          <tr><td>user_constraint</td><td>Hard limits and requirements</td><td>"I can't / my budget / my allergy"</td></tr>
+          <tr><td>decision</td><td>Committed choices</td><td>"I decided / we went with"</td></tr>
+          <tr><td>temporal_update</td><td>State changes over time</td><td>"I switched / I now / no longer"</td></tr>
+          <tr><td>open_loop</td><td>Pending actions, reminders</td><td>"remind me / todo / follow up"</td></tr>
+          <tr><td>entity_fact</td><td>User-owned context facts</td><td>"I have / my X is / I bought"</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div id="scorer">
+      <h2>4. Episode Relevance Scorer</h2>
+      <p>For vague advice queries, the relevant session often shares almost no vocabulary with the query. The Episode Relevance Scorer solves this by identifying the <em>kind</em> of memory signal a query needs.</p>
+      <p>The scorer is deterministic, interpretable, and runs at **0.4ms average latency**, eliminating the need for embedding cosine similarity.</p>
+    </div>
+
+    <div id="router">
+      <h2>5. The Query Router</h2>
+      <p>No single retrieval mode is optimal for all query types. The router selects the best mode at near-zero cost:</p>
+      <ul>
+        <li><strong>Vague Advice:</strong> &rarr; Episode Score</li>
+        <li><strong>Specific Fact:</strong> &rarr; BM25</li>
+        <li><strong>Temporal + Fact:</strong> &rarr; Fusion</li>
+        <li><strong>Personalized Preference Recommendation:</strong> &rarr; Preference Rerank</li>
+        <li><strong>Multi-session Synthesis:</strong> &rarr; Evidence-Coverage Rerank</li>
+      </ul>
+    </div>
+
+    <div id="preference">
+      <h2>6. Preference Reranker</h2>
+      <p>The newest token-native route targets personalized recommendations where prior explicit taste should beat generic topical overlap. It extracts user turns, detects preference markers, normalizes tokens lightly, and scores overlap inside preference windows — without embeddings or LLM calls.</p>
+      <div class="highlight-card">
+        On the 499-case agent-memory benchmark, preference recommendation Recall@1 improved from <strong>56.5%</strong> to <strong>85.5%</strong>, beating OpenAI embed-3-small (<strong>77.4%</strong>) and Cohere embed-v3 (<strong>83.9%</strong>) on that behavior.
+      </div>
+    </div>
+
+
+    <div id="structure-ingest">
+      <h2>7. Structure-Aware File Ingestion</h2>
+      <p>ContextFit now chooses semantic file boundaries before final token encoding. Markdown files chunk by heading and block boundaries with <code>heading_path</code> metadata; plain text chunks by paragraphs and separators; TMD ledgers chunk by source rows while preserving schema/front-matter context.</p>
+      <div class="highlight-card">
+        This is a structural improvement, not a new benchmark claim: token-native storage and retrieval remain unchanged, while file chunks map more closely to human document meaning and are easier to cite. The latest 499-case auto-router run remained stable/slightly improved at <strong>62.3% Recall@1 / 93.0% Recall@3 / 99.8% Recall@5</strong>.
+      </div>
+    </div>
+
+    <div id="citation-handles">
+      <h2>8. Compact Evidence &amp; Citation Handles</h2>
+      <p>Retrieval systems often spend prompt tokens repeating provenance metadata: source paths, chunk IDs, line ranges, row IDs, tables, and scores. They also often pass whole retrieved chunks to the model, even when only one row, bullet, sentence, or span is answer-bearing.</p>
+      <p>ContextFit separates those concerns. After ranking chunks, it runs deterministic query-focused extraction over the winning chunks: TMD files project matching rows, structured records preserve answer-dense fields, Markdown/list documents select relevant bullets or sections, and plain text falls back to focused spans. The model receives the smallest useful evidence, not the entire chunk by default.</p>
+      <p>ContextFit can then separate answer evidence from provenance metadata. The model sees compact evidence with short handles such as <code>@r1</code>; the runtime receives a sidecar reference map with exact source, chunk, line, row, table, and score data.</p>
+      <p>This keeps prompts smaller without making citations lossy. References include expiration timestamps so long-running agents can clean up stale handles, while UIs and runtimes can still resolve a cited handle back to exact provenance when needed.</p>
+      <div class="highlight-card">
+        Scores remain available for ranking, debugging, and audits, but they do not need to be shown to the language model by default. The model gets the evidence; the runtime keeps the retrieval metadata.
+      </div>
+    </div>
+
+    <div id="results">
+      <h2>9. Benchmark Results</h2>
+      <p>Evaluated on a 499-case domain-agnostic agent-memory benchmark across 8 behaviors and 26 domains, plus a 79-case hard episodic subset.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>System</th>
+            <th>R@1</th>
+            <th>MRR</th>
+            <th>Query Latency</th>
+            <th>Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>OpenAI (embed-3-small)</td><td>55.7%</td><td>0.745</td><td>~150ms</td><td>API</td></tr>
+          <tr><td>Mem0 (GPT-4o-mini)</td><td>54.4%</td><td>0.716</td><td>~341ms</td><td>API</td></tr>
+          <tr class="win">
+            <td><strong>ContextFit (Token-Native)</strong></td>
+            <td><strong>69.6%</strong></td>
+            <td><strong>0.824</strong></td>
+            <td><strong>0.4ms</strong></td>
+            <td><strong>Free</strong></td>
+          </tr>
+        </tbody>
+      </table>
+      <p>On the 79-case hard episodic subset, ContextFit outperforms OpenAI embeddings by 14 points in Recall@1 while running 375&times; faster. On the expanded 499-case benchmark, the auto router with preference and evidence-coverage reranking reaches 62.3% overall R@1 / 93.0% R@3, 85.5% preference R@1, and 82.1% multi-session synthesis R@1 at zero API cost.</p>
+      <p>On fresh LongMemEval-S reruns, pure token-native ContextFit with conversation-aware parent/child chunks reaches 95.1% Any@5, improving the previous token baseline through turn-aware session boundaries plus full-session parent context with no embeddings. A token-only companion-evidence coverage reranker then improves complete evidence coverage: overall All@5 rises from 77.9% to 80.4% while preserving the 95.1% Any@5 headline. Optional OpenAI fusion reaches 96.0% Any@5; fusion is an optional boost, not the core claim.</p>
+      <p>By question type, parent/child token-only closes the top-5 preference gap: single-session preference Any@5 reaches 83.3%, matching OpenAI fusion, while preference Any@1 is higher than OpenAI fusion (43.3% vs 40.0%). On multi-session questions, token-only Any@5 improves to 95.0%, within roughly 0.8 points of OpenAI fusion, and coverage reranking lifts multi-session All@5 from 55.4% to 65.3%. The remaining OpenAI advantage is now narrower: 65.3% token-only versus 72.7% with OpenAI fusion.</p>
+    </div>
+
+    <div id="impact">
+      <h2>10. Impact & Implications</h2>
+      <p>By removing the embedding dependency tier, ContextFit eliminates vendor lock-in, reduces network failure modes in the critical retrieval path, and eliminates per-query costs at agent scale.</p>
+    </div>
+
+    <div id="conclusion">
+      <h2>11. Conclusion</h2>
+      <p>The assumption that conversational memory must be converted to vectors is a convention inherited from document retrieval, not a technical necessity. Token-native retrieval is not just faster and cheaper—for the hardest memory problems, it is more accurate.</p>
+    </div>
+
+    <div class="footer">
+      © ContextFit 2026 • ContextFit Research • May 2026 • <a href="https://github.com/ContextFit/cf" style="color:var(--sky); text-decoration:none">github.com/ContextFit/cf</a> • <a href="https://x.com/cponsart" style="color:var(--sky); text-decoration:none">X: @cponsart</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,2395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ContextFit — Token-Native Agent Memory</title>
+  <link rel="alternate" type="text/markdown" href="/site.md" title="ContextFit LLM-readable site brief" />
+  <link rel="alternate" type="text/plain" href="/llms.txt" title="ContextFit llms.txt" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #080d18;
+      --surface:   #0f1724;
+      --surface2:  #151e30;
+      --border:    #1e2d45;
+      --border2:   #253550;
+      --sky:       #38bdf8;
+      --sky-dim:   #1e6fa8;
+      --green:     #10b981;
+      --amber:     #f59e0b;
+      --red:       #f43f5e;
+      --text:      #e2eaf5;
+      --muted:     #6b8299;
+      --muted2:    #9ab0c8;
+      --code-bg:   #060b14;
+      --radius:    10px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      overflow-x: hidden;
+    }
+
+    /* ── GITHUB BANNER ──────────────────────────────────── */
+    .gh-banner {
+      position: fixed;
+      top: 0; left: 0; right: 0; z-index: 110;
+      min-height: 42px;
+      background: rgba(8, 13, 24, 0.94);
+      backdrop-filter: blur(14px);
+      padding: 0.55rem 1.5rem;
+      display: flex; align-items: center; justify-content: center; gap: 1.5rem;
+      flex-wrap: wrap;
+      font-size: 0.8rem;
+    }
+    .gh-banner-msg { color: var(--muted2); }
+    .gh-banner-msg strong { color: var(--sky); }
+    .gh-stat {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      color: var(--muted2); font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;
+    }
+    .gh-stat svg { opacity: 0.6; }
+    .gh-star-btn {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      background: rgba(56,189,248,0.1);
+      border: 1px solid rgba(56,189,248,0.25);
+      border-radius: 6px;
+      padding: 0.3rem 0.8rem;
+      color: var(--sky);
+      font-size: 0.78rem; font-weight: 600;
+      text-decoration: none;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .gh-star-btn:hover { background: rgba(56,189,248,0.18); border-color: var(--sky); }
+
+    /* ── NAV ─────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 42px; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem;
+      height: 64px;
+      background: rgba(8, 13, 24, 0.85);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.62rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.08rem;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -0.045em;
+      min-width: 0;
+    }
+    .nav-logo img {
+      width: 34px;
+      height: 34px;
+      object-fit: cover;
+      border-radius: 8px;
+      flex: 0 0 auto;
+    }
+    .nav-logo .word-context { color: var(--text); }
+    .nav-logo .word-fit { color: var(--sky); }
+    .nav-links { display: flex; gap: 1.75rem; align-items: center; height: 100%; }
+    .nav-section-links,
+    .nav-page-links {
+      display: inline-flex;
+      align-items: center;
+      gap: 1.35rem;
+      height: 100%;
+    }
+    .nav-page-links {
+      gap: 0.65rem;
+      padding-left: 0.3rem;
+      margin-left: 0.25rem;
+    }
+    .nav-links a {
+      color: var(--muted2);
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: color 0.2s;
+      display: inline-flex;
+      align-items: center;
+      height: 100%;
+      line-height: 1;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links .btn-outline {
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      padding: 0.35rem 0.85rem;
+      color: var(--sky);
+      background: rgba(56,189,248,0.045);
+      transition: border-color 0.2s, background 0.2s, color 0.2s;
+      height: auto;
+      align-self: center;
+      font-weight: 600;
+    }
+    .nav-links .btn-outline:hover { border-color: var(--sky); background: rgba(56,189,248,0.1); color: var(--text); }
+    .nav-links .nav-external {
+      color: var(--sky);
+      height: auto;
+      align-self: center;
+      font-weight: 650;
+    }
+    .nav-links .nav-external:hover { color: var(--cyan); }
+
+    /* ── INSTALL STRIP ────────────────────────────────── */
+    .install-strip {
+      display: flex; align-items: center; gap: 0.75rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 1rem;
+      margin-bottom: 0.85rem;
+      max-width: 420px;
+      width: 100%;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      position: relative;
+    }
+    .install-strip:hover { border-color: var(--sky-dim); }
+    .install-prefix {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--muted);
+      user-select: none;
+    }
+    .install-cmd {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.88rem;
+      color: var(--sky);
+      flex: 1;
+    }
+    .copy-btn {
+      font-size: 0.7rem;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      transition: color 0.2s, background 0.2s;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .copy-btn:hover { color: var(--sky); background: rgba(56,189,248,0.08); }
+    .copy-btn.copied { color: var(--green); }
+    .use-via {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.74rem;
+      margin-bottom: 2.5rem;
+    }
+    .use-via span { color: var(--muted); }
+    .use-via a {
+      color: var(--sky);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(56,189,248,0.38);
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .use-via a:hover { color: var(--cyan); border-color: var(--cyan); }
+
+    /* ── HERO ────────────────────────────────────────── */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center;
+      padding: 10.5rem 1.5rem 5rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -20%; left: 50%; transform: translateX(-50%);
+      width: 900px; height: 600px;
+      background: radial-gradient(ellipse at center, rgba(56,189,248,0.07) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      background: rgba(56,189,248,0.08);
+      border: 1px solid rgba(56,189,248,0.2);
+      border-radius: 100px;
+      padding: 0.3rem 0.9rem;
+      font-size: 0.78rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--sky);
+      margin-bottom: 2rem;
+    }
+    .hero-badge::before { content: '●'; font-size: 0.5rem; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+    h1 {
+      font-size: clamp(2.4rem, 6vw, 4.2rem);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      max-width: 800px;
+      margin-bottom: 1.5rem;
+    }
+    h1 em { font-style: normal; color: var(--sky); }
+
+    .hero-sub {
+      font-size: 1.15rem;
+      color: var(--muted2);
+      max-width: 580px;
+      margin-bottom: 2.5rem;
+      font-weight: 400;
+    }
+    .hero-sub a {
+      display: inline;
+      white-space: nowrap;
+      color: var(--muted2);
+      text-decoration: none;
+      background-image: linear-gradient(rgba(56,189,248,0.62), rgba(56,189,248,0.62));
+      background-repeat: no-repeat;
+      background-size: 100% 1px;
+      background-position: 0 83%;
+      transition: color 0.2s, background-image 0.2s;
+    }
+    .hero-sub a:hover { color: var(--sky); background-image: linear-gradient(var(--sky), var(--sky)); }
+
+    .hero-cta {
+      display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;
+      margin-bottom: 4rem;
+    }
+    .btn-primary {
+      background: var(--sky);
+      color: #000;
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 0.7rem 1.6rem;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-primary:hover { background: #7dd3fc; transform: translateY(-1px); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted2);
+      font-weight: 500;
+      font-size: 0.9rem;
+      padding: 0.7rem 1.6rem;
+      border-radius: 8px;
+      text-decoration: none;
+      border: 1px solid var(--border2);
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-ghost:hover { border-color: var(--muted2); color: var(--text); }
+
+    /* stat pills */
+    .stat-row {
+      display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center;
+    }
+    .stat-pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.5rem;
+      text-align: center;
+      min-width: 130px;
+    }
+    .stat-pill .val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.6rem;
+      font-weight: 500;
+      color: var(--sky);
+      display: block;
+    }
+    .stat-pill .lbl {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+      display: block;
+    }
+    .stat-pill .sub {
+      display: block;
+      margin-top: 0.1rem;
+      font-size: 0.68rem;
+      color: var(--muted2);
+    }
+
+
+
+    /* ── SCROLL TOKENIZATION ─────────────────────────── */
+    .scroll-tokenized {
+      --tok-gap: 0em;
+      --tok-pad-y: 0em;
+      --tok-pad-x: 0em;
+      --tok-radius: 0em;
+      --tok-border-alpha: 0;
+      --tok-bg-alpha: 0;
+      --tok-glow: 0px;
+      --tok-lift: 0px;
+      --tok-text-alpha: 1;
+      --tok-dot-alpha: 0;
+    }
+    .scroll-tokenized .cf-word {
+      display: inline-block;
+      white-space: nowrap;
+      margin: 0 var(--tok-gap);
+    }
+    .scroll-tokenized .cf-word .cf-token {
+      margin-left: 0;
+      margin-right: 0;
+    }
+    .scroll-tokenized .cf-word .cf-token.cf-subtoken-continued {
+      margin-left: -0.035em;
+    }
+
+    .scroll-tokenized .cf-token {
+      display: inline-block;
+      position: relative;
+      vertical-align: baseline;
+      overflow: hidden;
+      white-space: nowrap;
+      margin: 0 var(--tok-gap);
+      padding: var(--tok-pad-y) var(--tok-pad-x);
+      max-width: var(--tok-width, none);
+      min-width: var(--tok-min-width, 0);
+      border-radius: var(--tok-radius);
+      border: 1px solid rgba(56, 189, 248, var(--tok-border-alpha));
+      background: rgba(56, 189, 248, var(--tok-bg-alpha));
+      box-shadow: 0 0 var(--tok-glow) rgba(56, 189, 248, var(--tok-bg-alpha));
+      transform: translateY(var(--tok-lift));
+      transition: background 90ms linear, border-color 90ms linear, box-shadow 90ms linear,
+        padding 90ms linear, margin 90ms linear, transform 90ms linear, max-width 90ms linear,
+        min-width 90ms linear;
+      will-change: background, border-color, box-shadow, transform, max-width;
+    }
+    .scroll-tokenized .cf-token-text {
+      display: inline-block;
+      position: relative;
+      z-index: 2;
+      white-space: nowrap;
+      opacity: var(--tok-text-alpha);
+      transition: opacity 140ms linear;
+    }
+    .scroll-tokenized .cf-token::after {
+      content: '';
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 0.34em; height: 0.34em;
+      border-radius: 999px;
+      background: var(--sky);
+      opacity: var(--tok-dot-alpha);
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.45);
+      z-index: 1;
+    }
+    .scroll-tokenized .cf-break { display: block; }
+
+    .hero-tokenize:not(.hero-ready) {
+      --tok-text-alpha: 0;
+      --tok-dot-alpha: 1;
+    }
+    .hero-tokenize:not(.hero-ready) .cf-token {
+      opacity: 0;
+      margin: 0 0.08em;
+      padding: 0.055em 0.16em;
+      max-width: 0.74em;
+      min-width: 0.74em;
+      border-radius: 0.42em;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      background: rgba(56, 189, 248, 0.13);
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.18);
+      transform: translateY(var(--tok-sprinkle-y, 0px)) translateX(var(--tok-sprinkle-x, 0px)) scale(0.9);
+      transition: max-width 620ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        min-width 620ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        margin 620ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        padding 620ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        transform 620ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        background 620ms linear, border-color 620ms linear, box-shadow 620ms linear;
+    }
+    .hero-tokenize:not(.hero-ready) .cf-token.hero-materialized {
+      opacity: 1;
+      --tok-dot-alpha: 0.18;
+      margin: 0;
+      padding: 0.02em 0.04em;
+      max-width: var(--tok-natural-width);
+      min-width: 0;
+      border-color: rgba(56, 189, 248, 0.18);
+      background: rgba(56, 189, 248, 0.055);
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.08);
+      transform: translateY(0) translateX(0) scale(1);
+    }
+    .hero-tokenize:not(.hero-ready) .cf-token.hero-readable {
+      --tok-text-alpha: 1;
+      --tok-dot-alpha: 0;
+      border-color: rgba(56, 189, 248, 0);
+      background: rgba(56, 189, 248, 0);
+      box-shadow: 0 0 0 rgba(56, 189, 248, 0);
+    }
+    .hero-tokenize.hero-ready { --tok-text-alpha: 1; --tok-dot-alpha: 0; }
+    @media (prefers-reduced-motion: reduce) {
+      .scroll-tokenized .cf-token {
+        transition: none;
+        transform: none;
+        box-shadow: none;
+        animation: none;
+      }
+      .hero-tokenize { --hero-p: 1; }
+    }
+
+    /* ── SECTIONS ─────────────────────────────────────── */
+    section { padding: 6rem 1.5rem; }
+    section[id] { scroll-margin-top: clamp(220px, 24vh, 300px); }
+    .container { max-width: 1080px; margin: 0 auto; }
+    .section-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--sky);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 0.75rem;
+    }
+    h2 {
+      font-size: clamp(1.7rem, 4vw, 2.5rem);
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      line-height: 1.15;
+      margin-bottom: 1rem;
+    }
+    .section-intro {
+      font-size: 1.05rem;
+      color: var(--muted2);
+      max-width: 620px;
+      margin-bottom: 3.5rem;
+    }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+
+    /* ── PROBLEM ─────────────────────────────────────── */
+    #problem { background: var(--bg); }
+    .problem-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+    }
+    .problem-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+    .problem-card .icon {
+      font-size: 1.4rem;
+      margin-bottom: 0.75rem;
+    }
+    .problem-card h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+    .problem-card p {
+      font-size: 0.875rem;
+      color: var(--muted2);
+      line-height: 1.6;
+    }
+    .problem-card.highlight {
+      border-color: rgba(244,63,94,0.3);
+      background: rgba(244,63,94,0.04);
+    }
+    .problem-card.highlight h3 { color: #f87171; }
+
+    /* ── APPROACH / PRIMITIVES ───────────────────────── */
+    #approach { background: var(--surface); }
+    .primitives {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+    }
+    .primitive-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.25s, transform 0.2s;
+      cursor: default;
+    }
+    .primitive-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--sky), transparent);
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+    .primitive-card:hover { border-color: var(--sky-dim); transform: translateY(-2px); }
+    .primitive-card:hover::before { opacity: 1; }
+    .primitive-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--sky);
+      margin-bottom: 0.75rem;
+      letter-spacing: 0.1em;
+    }
+    .primitive-card h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    .primitive-card p {
+      font-size: 0.83rem;
+      color: var(--muted2);
+      line-height: 1.6;
+    }
+
+    /* pipeline diagram */
+    .pipeline {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem;
+      margin-top: 3rem; justify-content: center;
+    }
+    .pipe-step {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 1.1rem;
+      font-size: 0.8rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--muted2);
+      white-space: nowrap;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .pipe-step:hover { border-color: var(--sky); color: var(--sky); }
+    .pipe-arrow { color: var(--border2); font-size: 1rem; }
+
+    /* ── BENCHMARK ───────────────────────────────────── */
+    #benchmark { background: var(--bg); }
+    .bench-table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 2.5rem;
+    }
+    .bench-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    .bench-table th {
+      background: var(--surface2);
+      padding: 0.75rem 1.25rem;
+      text-align: left;
+      font-size: 0.72rem;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .bench-table th:not(:first-child) { text-align: right; }
+    .bench-table td {
+      padding: 0.85rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted2);
+    }
+    .bench-table tr:last-child td { border-bottom: none; }
+    .bench-table td:not(:first-child) {
+      text-align: right;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.83rem;
+    }
+    .bench-table .row-cf td { background: rgba(56,189,248,0.04); color: var(--text); }
+    .bench-table .row-cf td:first-child { color: var(--sky); font-weight: 600; }
+    .bench-table .row-cf .highlight-num { color: var(--sky); }
+    .cost-free { color: var(--green); font-weight: 600; }
+    .cost-paid { color: var(--muted); }
+
+    /* bar chart */
+    .bar-chart { margin-top: 2rem; }
+    .bar-row {
+      display: grid;
+      grid-template-columns: 210px 1fr 60px;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+    }
+    .bar-label { font-size: 0.8rem; color: var(--muted2); text-align: right; }
+    .bar-track {
+      background: var(--surface);
+      border-radius: 100px;
+      height: 8px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 100px;
+      width: 0%;
+      transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .bar-fill.cf  { background: linear-gradient(90deg, var(--sky), #7dd3fc); }
+    .bar-fill.openai { background: #6366f1; }
+    .bar-fill.cohere { background: #f59e0b; }
+    .bar-fill.mem0  { background: var(--border2); }
+    .bar-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--muted2);
+    }
+    .bar-val.cf { color: var(--sky); font-weight: 600; }
+    .bar-chart-label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.08em;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+    }
+
+    /* ── CONTEXT ECONOMICS ───────────────────────────── */
+    #economics { background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%); }
+    .economics-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+      gap: 1.5rem;
+      align-items: stretch;
+    }
+    .economics-card {
+      background: rgba(15,23,36,0.82);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .economics-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(56,189,248,0.08), transparent 45%);
+      pointer-events: none;
+    }
+    .economics-formula {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: clamp(1rem, 2vw, 1.25rem);
+      color: var(--text);
+      background: var(--code-bg);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 1rem 0 1.25rem;
+    }
+    .economics-formula span { color: var(--sky); }
+    .economics-list {
+      display: grid;
+      gap: 0.85rem;
+      list-style: none;
+    }
+    .economics-list li {
+      display: grid;
+      grid-template-columns: 1.7rem 1fr;
+      gap: 0.75rem;
+      color: var(--muted2);
+      font-size: 0.9rem;
+    }
+    .economics-list strong { color: var(--text); }
+    .economics-list .tick {
+      color: var(--green);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .flow-compare {
+      display: grid;
+      gap: 1rem;
+    }
+    .flow-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.2rem;
+    }
+    .flow-box.contextfit {
+      border-color: rgba(56,189,248,0.35);
+      background: rgba(56,189,248,0.045);
+    }
+    .flow-title {
+      font-size: 0.78rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 0.9rem;
+    }
+    .flow-box.contextfit .flow-title { color: var(--sky); }
+    .flow-chain {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      align-items: center;
+    }
+    .flow-chip {
+      border: 1px solid var(--border2);
+      border-radius: 999px;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.76rem;
+      color: var(--muted2);
+      background: rgba(8,13,24,0.55);
+      white-space: nowrap;
+    }
+    .flow-chip.warn { border-color: rgba(245,158,11,0.35); color: #fbbf24; }
+    .flow-chip.good { border-color: rgba(16,185,129,0.4); color: #34d399; }
+    .flow-arrow { color: var(--border2); }
+    .savings-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+      margin-top: 1.25rem;
+    }
+    .saving-pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+    .saving-pill .val {
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.1rem;
+      color: var(--sky);
+      margin-bottom: 0.35rem;
+    }
+    .saving-pill .lbl { font-size: 0.78rem; color: var(--muted2); }
+
+    /* behavior breakdown */
+    .behavior-lead {
+      max-width: 760px;
+      color: var(--muted2);
+      font-size: 0.95rem;
+      line-height: 1.7;
+      margin-top: 0.6rem;
+    }
+    .behavior-lead strong { color: var(--text); }
+    .behavior-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 1.4rem;
+    }
+    .behavior-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+    }
+    .behavior-card h4 {
+      font-size: 0.78rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+      letter-spacing: 0.04em;
+    }
+    .behavior-delta {
+      display: flex; align-items: baseline; gap: 0.4rem;
+    }
+    .behavior-delta .num {
+      font-size: 1.5rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .behavior-delta .unit { font-size: 0.78rem; color: var(--muted2); }
+    .delta-pos { color: var(--green); }
+    .delta-neg { color: var(--muted2); }
+    .behavior-desc { font-size: 0.78rem; color: var(--muted); margin-top: 0.35rem; }
+    .behavior-example {
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid rgba(37,53,80,0.7);
+      font-size: 0.76rem;
+      line-height: 1.45;
+      color: var(--muted2);
+    }
+    .behavior-example span {
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.64rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--sky);
+      margin-bottom: 0.25rem;
+    }
+
+    /* ── DEPLOYMENT ──────────────────────────────────── */
+    #deployment { background: var(--surface); }
+    .deploy-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 3rem;
+    }
+    .deploy-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      display: flex; flex-direction: column; gap: 0.6rem;
+    }
+    .deploy-card .tag {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      font-size: 0.7rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--green);
+      background: rgba(16,185,129,0.08);
+      border: 1px solid rgba(16,185,129,0.2);
+      border-radius: 100px;
+      padding: 0.2rem 0.6rem;
+      width: fit-content;
+    }
+    .deploy-card h3 { font-size: 0.95rem; font-weight: 600; }
+    .deploy-card p { font-size: 0.83rem; color: var(--muted2); line-height: 1.6; }
+
+    /* comparison table */
+    .compare-table-wrap {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: auto;
+    }
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.83rem;
+      min-width: 540px;
+    }
+    .compare-table th {
+      padding: 0.7rem 1.1rem;
+      background: var(--surface2);
+      font-size: 0.72rem;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+    .compare-table th.cf-col { color: var(--sky); }
+    .compare-table td {
+      padding: 0.75rem 1.1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted2);
+      vertical-align: middle;
+    }
+    .compare-table tr:last-child td { border-bottom: none; }
+    .compare-table .cf-col { color: var(--text); }
+    .check { color: var(--green); font-weight: 600; }
+    .cross { color: var(--muted); }
+    .compare-table .row-label { color: var(--muted2); font-size: 0.8rem; }
+
+    /* ── CODE SNIPPET ────────────────────────────────── */
+    #api { background: var(--bg); }
+    .code-wrap {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .code-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.6rem 1.25rem;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .code-copy {
+      margin-left: auto;
+      border: 1px solid var(--border2);
+      background: rgba(56,189,248,0.06);
+      color: var(--muted2);
+      border-radius: 6px;
+      padding: 0.28rem 0.6rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s, background 0.2s;
+    }
+    .code-copy:hover { color: var(--sky); border-color: var(--sky-dim); background: rgba(56,189,248,0.1); }
+    .code-copy.copied { color: var(--green); border-color: rgba(16,185,129,0.45); }
+    .code-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .code-dot.r { background: #f43f5e; }
+    .code-dot.y { background: #f59e0b; }
+    .code-dot.g { background: #10b981; }
+    .code-filename {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.73rem;
+      color: var(--muted);
+      margin-left: 0.5rem;
+    }
+    pre {
+      padding: 1.5rem 1.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.83rem;
+      line-height: 1.75;
+      color: #94a3b8;
+      overflow-x: auto;
+    }
+    .tk { color: #38bdf8; }   /* keyword */
+    .ts { color: #a5f3fc; }   /* string */
+    .tc { color: #6b8299; }   /* comment */
+    .tf { color: #7dd3fc; }   /* function */
+    .tn { color: #f0abfc; }   /* number/special */
+    .tv { color: #e2eaf5; }   /* variable */
+
+    /* ── WHITEPAPER CTA ──────────────────────────────── */
+    #whitepaper {
+      background: var(--surface);
+      text-align: center;
+    }
+    .wp-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 3.5rem 2.5rem;
+      max-width: 640px;
+      margin: 0 auto;
+      position: relative;
+      overflow: hidden;
+    }
+    .wp-card::before {
+      content: '';
+      position: absolute;
+      bottom: -60px; right: -60px;
+      width: 200px; height: 200px;
+      background: radial-gradient(circle, rgba(56,189,248,0.08), transparent 70%);
+      pointer-events: none;
+    }
+    .wp-card .label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--sky);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+    .wp-card h2 { font-size: 1.6rem; margin-bottom: 1rem; }
+    .wp-card p { color: var(--muted2); font-size: 0.9rem; margin-bottom: 2rem; max-width: 440px; margin-left: auto; margin-right: auto; }
+
+    /* ── GITHUB SECTION ───────────────────────────────── */
+    #github { background: var(--bg); text-align: center; }
+    .gh-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 3rem 2rem;
+      max-width: 720px;
+      margin: 0 auto;
+      position: relative;
+      overflow: hidden;
+    }
+    .gh-card::before {
+      content: '';
+      position: absolute; top: -80px; left: 50%; transform: translateX(-50%);
+      width: 400px; height: 200px;
+      background: radial-gradient(ellipse, rgba(56,189,248,0.06), transparent 70%);
+      pointer-events: none;
+    }
+    .gh-stats-row {
+      display: flex; justify-content: center; gap: 2.5rem;
+      flex-wrap: wrap;
+      margin: 2rem 0;
+    }
+    .gh-big-stat { text-align: center; }
+    .gh-big-stat .num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 2rem;
+      font-weight: 600;
+      color: var(--sky);
+      display: block;
+    }
+    .gh-big-stat .lbl {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+    }
+    .gh-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem; }
+    .btn-gh {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      background: var(--text);
+      color: #000;
+      font-weight: 700;
+      font-size: 0.9rem;
+      padding: 0.7rem 1.5rem;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-gh:hover { background: #fff; transform: translateY(-1px); }
+    .readme-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 0.75rem;
+      margin-top: 2rem;
+      text-align: left;
+    }
+    .readme-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.9rem 1rem;
+      font-size: 0.8rem;
+    }
+    .readme-item .ri-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--sky);
+      letter-spacing: 0.08em;
+      margin-bottom: 0.3rem;
+    }
+    .readme-item p { color: var(--muted2); line-height: 1.5; }
+
+    /* ── FOOTER ──────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2.5rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 1rem;
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+    .footer-brand {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--sky);
+    }
+    .footer-copy {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+    }
+    .footer-by {
+      font-size: 0.8rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      margin-top: 0.25rem;
+    }
+    .footer-by a {
+      color: var(--muted2);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      line-height: 1;
+    }
+    .footer-by a:hover { color: var(--text); }
+    .footer-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 1px solid rgba(56,189,248,0.28);
+      object-fit: cover;
+      box-shadow: 0 0 18px rgba(56,189,248,0.12);
+    }
+    .footer-links {
+      display: grid;
+      gap: 0.65rem;
+      min-width: min(100%, 520px);
+    }
+    .footer-link-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .footer-link-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--sky);
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      min-width: 86px;
+      text-align: right;
+    }
+    .footer-link-row a {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .footer-link-row a:hover { color: var(--text); }
+
+    /* ── ANIMATIONS / SCROLL ─────────────────────────── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .reveal.visible { opacity: 1; transform: none; }
+
+    @media (max-width: 600px) {
+      .bar-row { grid-template-columns: 92px 1fr 46px; gap: 0.6rem; }
+      footer { flex-direction: column; align-items: flex-start; }
+      .footer-links { min-width: 100%; }
+      .footer-link-row { justify-content: flex-start; gap: 0.75rem; }
+      .footer-link-label { text-align: left; min-width: 100%; }
+      .wp-card { padding: 2rem 1.25rem; }
+    }
+
+    @media (max-width: 760px) {
+      .gh-banner {
+        top: 58px;
+        min-height: 44px;
+        padding: 0.48rem 0.75rem;
+        gap: 0.65rem;
+        font-size: 0.72rem;
+      }
+      .gh-banner-msg { display: none; }
+      .gh-stat { font-size: 0.7rem; }
+      .gh-star-btn {
+        padding: 0.22rem 0.55rem;
+        font-size: 0.72rem;
+      }
+      nav {
+        top: 0;
+        height: 58px;
+        padding: 0 1rem;
+        justify-content: center;
+      }
+      .nav-logo { font-size: 1rem; }
+      .nav-logo img {
+        width: 34px;
+        height: 34px;
+      }
+      .nav-links { display: none; }
+
+      .hero {
+        min-height: auto;
+        padding: 9.25rem 1rem 4rem;
+      }
+      .hero::before {
+        width: 520px;
+        height: 420px;
+        top: -8%;
+      }
+      .hero-badge {
+        font-size: 0.72rem;
+        margin-bottom: 1.5rem;
+        max-width: 100%;
+      }
+      h1 {
+        font-size: clamp(2.45rem, 12vw, 3.3rem);
+        line-height: 1.05;
+        max-width: 100%;
+      }
+      .hero-sub {
+        font-size: 1rem;
+        line-height: 1.7;
+        max-width: 34rem;
+        margin-bottom: 2rem;
+      }
+      .install-strip {
+        max-width: 100%;
+        align-items: flex-start;
+        gap: 0.65rem;
+        padding: 0.85rem 0.9rem;
+        border-radius: 12px;
+      }
+      .install-cmd {
+        font-size: 0.78rem;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      .copy-btn { display: none; }
+      .hero-cta {
+        width: 100%;
+        gap: 0.75rem;
+        margin-bottom: 3rem;
+      }
+      .hero-cta a,
+      .gh-actions a {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+      }
+      .stat-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+        gap: 0.75rem;
+      }
+      .stat-pill {
+        min-width: 0;
+        padding: 0.9rem 0.6rem;
+      }
+      section { padding: 4rem 1rem; }
+      section[id] { scroll-margin-top: 190px; }
+      .section-intro { margin-bottom: 2rem; }
+      .problem-grid,
+      .primitives,
+      .deploy-grid,
+      .behavior-grid,
+      .readme-strip,
+      .economics-layout,
+      .savings-grid {
+        grid-template-columns: 1fr;
+      }
+      .economics-formula { font-size: 0.86rem; overflow-wrap: anywhere; }
+      .pipeline {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .pipe-step { text-align: center; white-space: normal; }
+      .pipe-arrow { transform: rotate(90deg); text-align: center; }
+      .bench-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .bench-table { min-width: 620px; }
+      .bar-label { text-align: left; font-size: 0.72rem; }
+      pre {
+        padding: 1rem;
+        font-size: 0.74rem;
+        line-height: 1.65;
+      }
+      .gh-card { padding: 2rem 1.25rem; }
+      .gh-stats-row { gap: 1.25rem; }
+      .footer-links { flex-wrap: wrap; gap: 1rem; }
+    }
+  </style>
+  <!-- Privacy-friendly analytics by Plausible -->
+  <script async src="https://plausible.io/js/pa-poEPDTj3wfTJlPsxZWfKK.js"></script>
+  <script>
+    window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+    plausible.init()
+  </script>
+</head>
+<body>
+
+<!-- GITHUB BANNER -->
+<div class="gh-banner">
+  <span class="gh-banner-msg">⭐ <strong>ContextFit</strong> is open source — MIT licensed</span>
+  <span class="gh-stat">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 .25a7.75 7.75 0 1 0 0 15.5A7.75 7.75 0 0 0 8 .25ZM1.75 8a6.25 6.25 0 1 1 12.5 0A6.25 6.25 0 0 1 1.75 8Z"/><path d="M9.22 5.22a.75.75 0 0 1 1.06 0l2.25 2.25a.75.75 0 0 1 0 1.06l-2.25 2.25a.75.75 0 0 1-1.06-1.06L10.69 8 9.22 6.53a.75.75 0 0 1 0-1.06ZM6.78 5.22a.75.75 0 0 0-1.06 0L3.47 7.47a.75.75 0 0 0 0 1.06l2.25 2.25a.75.75 0 0 0 1.06-1.06L5.31 8l1.47-1.47a.75.75 0 0 0 0-1.06Z"/></svg>
+    MIT License
+  </span>
+  <span class="gh-stat" id="banner-stars">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"/></svg>
+    <span id="star-count">—</span> stars
+  </span>
+  <span class="gh-stat" id="banner-forks">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M5 5.372v.878c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z"/></svg>
+    <span id="fork-count">—</span> forks
+  </span>
+  <a href="https://github.com/ContextFit/cf" class="gh-star-btn" target="_blank" rel="noopener">
+    ★ Star on GitHub
+  </a>
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <img src="assets/logo-token-element.png" alt="ContextFit Logo">
+    <span class="word-context">Context</span><span class="word-fit">Fit</span>
+  </div>
+  <div class="nav-links" aria-label="Primary navigation">
+    <div class="nav-section-links" aria-label="Sections on this page">
+      <a href="#approach">Approach</a>
+      <a href="#economics">Economics</a>
+      <a href="#benchmark">Benchmarks</a>
+      <a href="#deployment">Deployment</a>
+      <a href="#api">API</a>
+    </div>
+    <div class="nav-page-links" aria-label="Other pages">
+      <a href="/getting-started.html" class="btn-outline">Get Started</a>
+      <a href="/demo.html" class="btn-outline">Demo</a>
+      <a href="whitepaper.html" class="btn-outline">Whitepaper</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">research preview · MIT license</div>
+  <h1 class="scroll-tokenize hero-tokenize">Agent memory that thinks in<br/><em>tokens, not vectors</em></h1>
+  <p class="hero-sub">
+    ContextFit retrieves the right prior conversation without embedding APIs,
+    vector databases, or GPU hardware — with structure-aware ingestion for
+    MD, TXT, <a href="#tmd-ledger">TMD ledger</a>, JSON, CSV, email, calendar, and code files.
+  </p>
+<div class="install-strip" onclick="copyInstall(this)" title="Click to copy">
+    <span class="install-prefix">$</span>
+    <span class="install-cmd">pip install contextfit</span>
+    <button class="copy-btn" id="copy-pip">copy</button>
+  </div>
+  <div class="use-via" aria-label="ContextFit interfaces">
+    <span>Use it via</span>
+    <a href="#api">API</a><span>·</span>
+    <a href="/getting-started.html#cli">CLI</a><span>·</span>
+    <a href="/getting-started.html#mcp">MCP</a>
+  </div>
+
+  <div class="hero-cta">
+    <a href="https://github.com/ContextFit/cf" class="btn-primary" target="_blank">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>
+      View on GitHub
+    </a>
+    <a href="whitepaper.html" class="btn-primary">Read the Whitepaper</a>
+    <a href="#approach" class="btn-ghost">How it works →</a>
+  </div>
+  <div class="stat-row">
+    <div class="stat-pill">
+      <span class="val">95.1%</span>
+      <span class="lbl">LongMemEval-S Any@5</span>
+    </div>
+    <div class="stat-pill">
+      <span class="val">8.7ms</span>
+      <span class="lbl">Routed query latency</span>
+    </div>
+    <div class="stat-pill">
+      <span class="val">50×</span>
+      <span class="lbl">Faster than embed API retrieval</span>
+    </div>
+    <div class="stat-pill">
+      <span class="val">$0</span>
+      <span class="lbl">API cost per query</span>
+    </div>
+    <div class="stat-pill">
+      <span class="val">41MB</span>
+      <span class="lbl">Total dependency footprint</span>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- PROBLEM -->
+<section id="problem">
+  <div class="container">
+    <div class="section-label">The Problem</div>
+    <h2 class="scroll-tokenize">Embedding-based memory has<br/>three structural flaws —<br/>and three costly consequences</h2>
+    <p class="section-intro scroll-tokenize">
+      Every major agent memory system in 2026 converts conversations to dense vectors
+      before retrieval. This works for factual lookups — and breaks for the queries
+      agents most frequently need to answer.
+    </p>
+    <div class="problem-grid reveal">
+      <div class="problem-card highlight">
+        <div class="icon">🌀</div>
+        <h3>Semantic averaging</h3>
+        <p>An entire session compressed into one vector loses episode structure.
+        "What should I cook tonight?" shares almost no vector proximity with
+        "I just harvested zucchini from my garden" — even though that's exactly
+        the session the agent needs.</p>
+      </div>
+      <div class="problem-card highlight">
+        <div class="icon">💸</div>
+        <h3>Compounding API cost</h3>
+        <p>Every memory access requires an embedding call. At real agent throughput —
+        thousands of turns per day — this compounds into a meaningful infrastructure
+        cost line, plus a vector database on top.</p>
+      </div>
+      <div class="problem-card highlight">
+        <div class="icon">🔒</div>
+        <h3>Data leaves the machine</h3>
+        <p>Sending memory retrieval queries to an embedding API means your user's
+        personal context crosses a network boundary on every turn. For privacy-sensitive
+        use cases this is a non-starter.</p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">🔧</div>
+        <h3>Operational complexity</h3>
+        <p>Embedding API + vector database + embedding model versioning + index
+        management = three separate systems to provision, monitor, and keep synchronized.</p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">🫥</div>
+        <h3>Zero interpretability</h3>
+        <p>When retrieval fails, the answer is "cosine distance was 0.62."
+        There's no auditable explanation for why a session was or wasn't surfaced.</p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">⚡</div>
+        <h3>GPU dependency</h3>
+        <p>Running embedding models locally requires PyTorch and benefits significantly
+        from GPU acceleration — 500MB–2GB of dependencies before a single session
+        is indexed.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- APPROACH -->
+<section id="approach">
+  <div class="container">
+    <div class="section-label">First Principles</div>
+    <h2 class="scroll-tokenize">Stay in token space,<br/>end to end</h2>
+    <p class="section-intro scroll-tokenize">
+      The most valuable signals in conversational memory are structural, not semantic:
+      <em>what kind of memory did the user express?</em> and <em>does this episode's
+      memory type match what this query needs?</em> These questions are answerable
+      with token-level pattern matching — no embedding model required.
+    </p>
+    <div class="primitives reveal">
+      <div class="primitive-card">
+        <div class="primitive-num">PRIMITIVE 01</div>
+        <h3>Memory Atoms</h3>
+        <p>Deterministic, domain-agnostic fact extraction from user-authored turns.
+        Eight typed primitives — preference, goal, constraint, decision, temporal update,
+        open loop, interest, entity — extracted with zero API calls.</p>
+      </div>
+      <div class="primitive-card">
+        <div class="primitive-num">PRIMITIVE 02</div>
+        <h3>Episode Relevance Scorer</h3>
+        <p>Numeric session ranking by structural memory-signal type, not vector proximity.
+        Answers "does this session have what this query type needs?" — the right question
+        for vague advice queries.</p>
+      </div>
+      <div class="primitive-card">
+        <div class="primitive-num">PRIMITIVE 03</div>
+        <h3>Query Router</h3>
+        <p>Deterministic zero-cost dispatch to the right retrieval mode per query.
+        Vague advice → episode scorer. Specific facts → BM25. Temporal state → fusion.
+        No LLM routing, no latency.</p>
+      </div>
+      <div class="primitive-card">
+        <div class="primitive-num">PRIMITIVE 04</div>
+        <h3>Structural Reranker</h3>
+        <p>Ten token-native features re-score BM25 candidates: lexical overlap,
+        behavior-marker alignment, named entity overlap, question-type slot matching.
+        Keeps exact-match paths interpretable and local.</p>
+      </div>
+      <div class="primitive-card">
+        <div class="primitive-num">PRIMITIVE 05</div>
+        <h3>Preference Reranker</h3>
+        <p>Router-gated taste retrieval for personalized recommendations. It promotes
+        user-authored preference evidence with marker detection, preference-window overlap,
+        and lightweight token normalization — beating embedding baselines on preference R@1.</p>
+      </div>
+      <div class="primitive-card">
+        <div class="primitive-num">PRIMITIVE 06</div>
+        <h3>Evidence-Coverage Reranker</h3>
+        <p>For multi-session synthesis, preserves the strongest anchor and promotes companion
+        sessions with complementary evidence — lifting LongMemEval multi-session All@5
+        from 55.4% to 65.3% without embeddings.</p>
+      </div>
+    </div>
+
+    <div class="pipeline reveal">
+      <div class="pipe-step">raw session text</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">BPE tokenize</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">atom extraction</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">BM25 index</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">query router</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">structural / preference / coverage rerank</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">ranked sessions</div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- CONTEXT ECONOMICS -->
+<section id="economics">
+  <div class="container">
+    <div class="section-label">Context Economics</div>
+    <h2 class="scroll-tokenize">Lower cost per<br/>correct answer</h2>
+    <p class="section-intro scroll-tokenize">
+      RAG cost is not just search cost. It is every oversized prompt, every rerank,
+      and every retry needed before the model finally sees the right evidence.
+      ContextFit is designed to retrieve less, better — reducing the context loops
+      between question and correct answer.
+    </p>
+
+    <div class="economics-layout reveal">
+      <div class="economics-card">
+        <div class="section-label">What to measure</div>
+        <div class="economics-formula">
+          cost / correct answer = <span>retrieval</span> + <span>context tokens</span> + <span>rerank</span> + <span>retries</span>
+        </div>
+        <ul class="economics-list">
+          <li><span class="tick">01</span><span><strong>Evidence found early.</strong> Higher Recall@K and MRR means fewer second-pass searches.</span></li>
+          <li><span class="tick">02</span><span><strong>Smaller useful context.</strong> Send the model the evidence it needs, not a giant safety blanket of maybe-relevant chunks.</span></li>
+          <li><span class="tick">03</span><span><strong>Handle-based citations.</strong> Keep provenance in an expiring sidecar reference map while the model sees tiny <code>@r1</code> handles.</span></li>
+          <li><span class="tick">04</span><span><strong>Fewer iteration loops.</strong> Better first-pass retrieval cuts query expansion, reranking, and answer regeneration.</span></li>
+          <li><span class="tick">05</span><span><strong>Lower latency and spend.</strong> Fewer tokens and fewer retries compound across every agent turn.</span></li>
+        </ul>
+      </div>
+
+      <div class="flow-compare">
+        <div class="flow-box">
+          <div class="flow-title">Traditional RAG loop</div>
+          <div class="flow-chain">
+            <span class="flow-chip">embed</span><span class="flow-arrow">→</span>
+            <span class="flow-chip">search</span><span class="flow-arrow">→</span>
+            <span class="flow-chip warn">rerank</span><span class="flow-arrow">→</span>
+            <span class="flow-chip warn">stuff context</span><span class="flow-arrow">→</span>
+            <span class="flow-chip warn">miss</span><span class="flow-arrow">→</span>
+            <span class="flow-chip warn">retry larger</span>
+          </div>
+        </div>
+        <div class="flow-box contextfit">
+          <div class="flow-title">ContextFit path</div>
+          <div class="flow-chain">
+            <span class="flow-chip good">token-native search</span><span class="flow-arrow">→</span>
+            <span class="flow-chip good">precise evidence</span><span class="flow-arrow">→</span>
+            <span class="flow-chip good">@r citations</span><span class="flow-arrow">→</span>
+            <span class="flow-chip good">smaller prompt</span><span class="flow-arrow">→</span>
+            <span class="flow-chip good">answer</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="savings-grid reveal">
+      <div class="saving-pill"><span class="val">fewer</span><span class="lbl">irrelevant chunks in context</span></div>
+      <div class="saving-pill"><span class="val">fewer</span><span class="lbl">retrieval and rerank loops</span></div>
+      <div class="saving-pill"><span class="val">lower</span><span class="lbl">LLM input token spend</span></div>
+      <div class="saving-pill"><span class="val">clean</span><span class="lbl">expiring provenance references</span></div>
+      <div class="saving-pill"><span class="val">faster</span><span class="lbl">time to source-backed answer</span></div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- BENCHMARK -->
+<section id="benchmark">
+  <div class="container">
+    <div class="section-label">Benchmarks</div>
+    <h2 class="scroll-tokenize">Beats Mem0 and Cohere.<br/>Narrows multi-session and preference gaps.</h2>
+    <p class="section-intro scroll-tokenize">
+      Evaluated on a 499-case domain-agnostic agent memory benchmark across
+      8 behavioral categories and 26 domains (Mem0 comparison on the original 79-case subset) — plus LongMemEval-S reruns where token-only
+      coverage reranking improves complete multi-session evidence while preserving 95.1% Any@5.
+    </p>
+
+    <div class="bench-table-wrap reveal">
+      <table class="bench-table">
+        <thead>
+          <tr>
+            <th>System</th>
+            <th>R@1</th>
+            <th>R@3</th>
+            <th>MRR</th>
+            <th>API Cost</th>
+            <th>GPU</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Mem0 <span style="font-size:0.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">79-case</span></td>
+            <td>54.4%</td><td>91.1%</td><td>0.716</td>
+            <td class="cost-paid">LLM + embed</td>
+            <td class="cross">—</td>
+          </tr>
+          <tr>
+            <td>Cohere embed-english-v3</td>
+            <td>58.7%</td><td>91.4%</td><td>0.751</td>
+            <td class="cost-paid">embed API</td>
+            <td class="cross">—</td>
+          </tr>
+          <tr class="row-cf">
+            <td>ContextFit <span style="font-size:0.72rem;color:var(--sky);font-family:'JetBrains Mono',monospace;">+ routed rerankers</span></td>
+            <td class="highlight-num">62.3%</td>
+            <td class="highlight-num">93.0%</td>
+            <td class="highlight-num">0.777</td>
+            <td class="cost-free">$0</td>
+            <td class="check">✓ CPU</td>
+          </tr>
+          <tr>
+            <td>OpenAI text-embedding-3-small</td>
+            <td>63.1%</td><td>96.6%</td><td>0.792</td>
+            <td class="cost-paid">embed API</td>
+            <td class="cross">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="bar-chart reveal">
+      <div class="bar-chart-label">Recall@1 — agent memory eval (Mem0 79-case; others 499-case)</div>
+      <div class="bar-row">
+        <div class="bar-label">Mem0</div>
+        <div class="bar-track"><div class="bar-fill mem0" data-pct="54.4"></div></div>
+        <div class="bar-val">54.4%</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Cohere embed-v3</div>
+        <div class="bar-track"><div class="bar-fill cohere" data-pct="58.7"></div></div>
+        <div class="bar-val">58.7%</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label" style="color:var(--sky)">ContextFit</div>
+        <div class="bar-track"><div class="bar-fill cf" data-pct="62.3"></div></div>
+        <div class="bar-val cf">62.3%</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">OpenAI embed-3-small</div>
+        <div class="bar-track"><div class="bar-fill openai" data-pct="63.1"></div></div>
+        <div class="bar-val">63.1%</div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:3rem;">Per-Behavior · vs OpenAI embed-3-small</div>
+    <p class="behavior-lead scroll-tokenize">
+      <strong>Strengths where AI agents most need them.</strong> The hardest memory
+      failures are rarely simple keyword lookups — they are open loops, preferences,
+      temporal changes, and cross-session synthesis. These are the moments where better
+      retrieval reduces retries, preserves user trust, and turns memory into useful action.
+    </p>
+    <div class="behavior-grid reveal">
+      <div class="behavior-card">
+        <h4>open_loop_retrieval</h4>
+        <div class="behavior-delta">
+          <span class="num delta-pos">+19.7</span>
+          <span class="unit">pts</span>
+        </div>
+        <div class="behavior-desc">83.6% vs 63.9% — structural markers dominate</div>
+        <div class="behavior-example"><span>Example</span>“What did I say I still need to follow up on?”</div>
+      </div>
+      <div class="behavior-card">
+        <h4>preference_recommendation</h4>
+        <div class="behavior-delta">
+          <span class="num delta-pos">+8.1</span>
+          <span class="unit">pts</span>
+        </div>
+        <div class="behavior-desc">85.5% vs 77.4% — token-native preference route wins</div>
+        <div class="behavior-example"><span>Example</span>“What should I recommend based on what they like?”</div>
+      </div>
+      <div class="behavior-card">
+        <h4>temporal_supersession</h4>
+        <div class="behavior-delta">
+          <span class="num delta-neg">−3.2</span>
+          <span class="unit">pts</span>
+        </div>
+        <div class="behavior-desc">44.4% vs 47.6% — still an active routing target</div>
+        <div class="behavior-example"><span>Example</span>“Which support inbox am I using now?”</div>
+      </div>
+      <div class="behavior-card">
+        <h4>multi_session_synthesis</h4>
+        <div class="behavior-delta">
+          <span class="num delta-neg">−5.4</span>
+          <span class="unit">pts</span>
+        </div>
+        <div class="behavior-desc">82.1% vs 87.5% — evidence-coverage route narrows the gap</div>
+        <div class="behavior-example"><span>Example</span>“Why is this launch at risk across all the notes?”</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- DEPLOYMENT -->
+<section id="deployment">
+  <div class="container">
+    <div class="section-label">Deployment Architecture</div>
+    <h2 class="scroll-tokenize">No database. No GPU.<br/>No vendor lock-in.</h2>
+    <p class="section-intro scroll-tokenize">
+      The token-native architecture isn't just a performance choice — it's a deployment choice.
+      ContextFit runs anywhere a Python process runs.
+    </p>
+    <div class="deploy-grid reveal">
+      <div class="deploy-card">
+        <span class="tag">✓ eliminated</span>
+        <h3>No vector database</h3>
+        <p>The index is a directory of flat files — zstd-compressed token arrays,
+        BM25 postings, LSH signatures. No Qdrant, no Pinecone, no pgvector.
+        No service to start, no schema to migrate.</p>
+      </div>
+      <div class="deploy-card">
+        <span class="tag">✓ eliminated</span>
+        <h3>No GPU required</h3>
+        <p>Zero PyTorch, zero CUDA, zero model weights. Every operation runs on CPU:
+        BM25 scoring, roaring bitmap intersection, MinHash LSH, episode feature
+        computation, structural reranking.</p>
+      </div>
+      <div class="deploy-card">
+        <span class="tag">✓ 41MB total</span>
+        <h3>Minimal footprint</h3>
+        <p>Total dependency footprint is ~41MB (tiktoken + numpy + pyroaring +
+        datasketch + zstandard). PyTorch alone is 500MB–2GB.
+        Fits in a Lambda function, a slim container, or a mobile app bundle.</p>
+      </div>
+      <div class="deploy-card">
+        <span class="tag">✓ offline-capable</span>
+        <h3>Filesystem-native storage</h3>
+        <p>Standard POSIX permissions. The index lives alongside your data — inside
+        an encrypted vault, a git repo, a synced drive. Back it up with rsync.
+        No DB dump procedures, no export formats.</p>
+      </div>
+    </div>
+
+    <div class="compare-table-wrap reveal">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Property</th>
+            <th class="cf-col">ContextFit</th>
+            <th>Embedding + vector DB</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="row-label">Database</td>
+            <td class="cf-col check">None</td>
+            <td>Qdrant / Chroma / pgvector</td>
+          </tr>
+          <tr>
+            <td class="row-label">GPU</td>
+            <td class="cf-col check">Not required</td>
+            <td>Recommended for local models</td>
+          </tr>
+          <tr>
+            <td class="row-label">Dependency size</td>
+            <td class="cf-col check">~41MB</td>
+            <td>500MB–2GB+ (PyTorch alone)</td>
+          </tr>
+          <tr>
+            <td class="row-label">Storage format</td>
+            <td class="cf-col check">Plain files</td>
+            <td>DB-managed blobs</td>
+          </tr>
+          <tr>
+            <td class="row-label">Permissions</td>
+            <td class="cf-col check">POSIX filesystem</td>
+            <td>DB users / ACLs</td>
+          </tr>
+          <tr>
+            <td class="row-label">Offline capable</td>
+            <td class="cf-col check">Yes (default path)</td>
+            <td>No (API) / Partial (local model)</td>
+          </tr>
+          <tr>
+            <td class="row-label">Backup</td>
+            <td class="cf-col check">Any file backup tool</td>
+            <td>DB dump + vector store export</td>
+          </tr>
+          <tr>
+            <td class="row-label">API cost (default)</td>
+            <td class="cf-col check">$0</td>
+            <td>Per-embedding call</td>
+          </tr>
+          <tr>
+            <td class="row-label">Query latency</td>
+            <td class="cf-col check">0.5–9ms in-process</td>
+            <td>50–500ms+ (embed + vector search)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+
+<hr class="divider"/>
+
+<!-- STRUCTURE-AWARE INGESTION -->
+<section id="structure-aware-ingestion">
+  <div class="container">
+    <div class="section-label">Structure-Aware Ingestion</div>
+    <h2 class="scroll-tokenize">Chunks follow document meaning,<br/>not blind token windows</h2>
+    <p class="section-intro scroll-tokenize">
+      ContextFit still stores and searches token IDs, but file ingestion now chooses
+      smarter boundaries first: Markdown headings, prose paragraphs, TMD ledger rows,
+      JSON events, CSV/TSV records, email messages, calendar events, and source
+      code symbols. The result is more auditable evidence with richer per-chunk metadata.
+    </p>
+    <div class="deploy-grid reveal">
+      <div class="deploy-card">
+        <span class="tag">✓ Markdown</span>
+        <h3>Heading-aware sections</h3>
+        <p>Heading path, section level, and ordinal metadata travel with each chunk.
+        Paragraphs, lists, tables, blockquotes, and code fences stay together where
+        possible.</p>
+      </div>
+      <div class="deploy-card">
+        <span class="tag">✓ Plain text</span>
+        <h3>Paragraph-aware grouping</h3>
+        <p>Text files are grouped by natural paragraphs and separators, with overlap
+        by whole paragraph rather than arbitrary token tails.</p>
+      </div>
+      <div class="deploy-card">
+        <span class="tag">✓ TMD ledger</span>
+        <h3>Row-aware retrieval</h3>
+        <p>TMD ledger files chunk by rows while preserving schema and front-matter
+        context, making source rows easier to cite and verify.</p>
+      </div>
+      <div class="deploy-card">
+        <span class="tag">✓ JSON / JSONL</span>
+        <h3>Object-aware records</h3>
+        <p>API exports, event logs, and chat streams chunk by object or line while
+        retaining stable path, line, and index metadata.</p>
+      </div>
+      <div class="deploy-card">
+        <span class="tag">✓ CSV / TSV</span>
+        <h3>Header-preserving rows</h3>
+        <p>Tabular exports chunk by row with header fields preserved in the source
+        text, keeping ledgers, inventories, and reports easy to cite.</p>
+      </div>
+      <div class="deploy-card">
+        <span class="tag">✓ Email</span>
+        <h3>Message-aware chunks</h3>
+        <p>Email files keep sender, recipient, subject, and date context attached to
+        message body chunks for source-verifiable inbox memory.</p>
+      </div>
+      <div class="deploy-card">
+        <span class="tag">✓ Calendar</span>
+        <h3>Event-aware chunks</h3>
+        <p>Calendar files chunk by event with summary, time, location, recurrence,
+        organizer, and attendee metadata preserved.</p>
+      </div>
+      <div class="deploy-card">
+        <span class="tag">✓ Code</span>
+        <h3>Symbol-aware chunks</h3>
+        <p>Common source files chunk around imports, classes, functions, and selectors
+        with language, symbol, and line-range metadata preserved.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<hr class="divider"/>
+
+<!-- TMD LEDGER -->
+<section id="tmd-ledger">
+  <div class="container">
+    <div class="section-label">TMD Ledger</div>
+    <h2 class="scroll-tokenize">A tiny ledger format
+      agents can actually trust</h2>
+    <p class="section-intro scroll-tokenize">
+      TMD ledger is a new ContextFit-proposed Tabular Markdown file format: a
+      human-readable text file for records that should stay row-addressable,
+      schema-aware, and easy to cite. It bridges Markdown notes and structured
+      data without requiring a database.
+    </p>
+    <div class="deploy-grid reveal">
+      <div class="deploy-card">
+        <span class="tag">plain text</span>
+        <h3>Readable without tooling</h3>
+        <p>Ledgers stay in normal files, work in git, and remain understandable to
+        humans reviewing purchases, assets, tasks, contacts, or memory records.</p>
+      </div>
+      <div class="deploy-card">
+        <span class="tag">row-native</span>
+        <h3>Records stay atomic</h3>
+        <p>Each row can be retrieved, cited, and audited as a source record instead
+        of disappearing into an arbitrary token window.</p>
+      </div>
+      <div class="deploy-card">
+        <span class="tag">agent-friendly</span>
+        <h3>Schema travels with evidence</h3>
+        <p>Front-matter and column context stay attached to chunks, so agents know
+        what a row means without needing a separate database schema.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- API -->
+<section id="api">
+  <div class="container">
+    <div class="section-label">API</div>
+    <h2 class="scroll-tokenize">Simple, composable,<br/>fully interpretable</h2>
+    <p class="section-intro scroll-tokenize">
+      Drop in as a memory layer. Query with a natural-language string.
+      Get back ranked session IDs with source-linked evidence.
+    </p>
+    <div class="code-wrap reveal">
+      <div class="code-header">
+        <div class="code-dot r"></div>
+        <div class="code-dot y"></div>
+        <div class="code-dot g"></div>
+        <span class="code-filename">memory_retrieval.py</span>
+        <button class="code-copy" data-copy-target="api-code">copy code</button>
+      </div>
+      <pre id="api-code"><span class="tc"># Ingest sessions — no API calls, no GPU, ~4ms per session</span>
+<span class="tk">from</span> <span class="tv">contextfit</span> <span class="tk">import</span> <span class="tf">RetrievalEngine</span>
+
+<span class="tv">engine</span> = <span class="tf">RetrievalEngine</span>()
+<span class="tv">engine</span>.<span class="tf">ingest_sessions</span>(sessions)
+<span class="tv">engine</span>.<span class="tf">save</span>(<span class="ts">"./memory_index"</span>)
+
+<span class="tc"># Query — auto-routes to the right retrieval mode</span>
+<span class="tv">result</span> = <span class="tv">engine</span>.<span class="tf">query_auto</span>(
+    <span class="ts">"what should I cook for dinner tonight?"</span>,
+    top_k=<span class="tn">5</span>
+)
+
+<span class="tc"># Returns ranked session IDs + route metadata</span>
+<span class="tk">print</span>(result[<span class="ts">"route"</span>])        <span class="tc"># → episode_score</span>
+<span class="tk">print</span>(result[<span class="ts">"session_ids"</span>])  <span class="tc"># → ["s_garden_harvest", ...]</span>
+
+<span class="tc"># Or use individual modes directly</span>
+<span class="tv">engine</span>.<span class="tf">rank_sessions_by_episode_score</span>(<span class="tv">query</span>, top_k=<span class="tn">10</span>)
+<span class="tv">engine</span>.<span class="tf">query</span>(<span class="tv">query</span>, method=<span class="ts">"hybrid"</span>, top_k=<span class="tn">50</span>)
+<span class="tv">engine</span>.<span class="tf">rerank_sessions_by_structure</span>(<span class="tv">query</span>, <span class="tv">bm25_order</span>, <span class="tv">session_texts</span>)</pre>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- GITHUB SECTION -->
+<section id="github">
+  <div class="container">
+    <div class="gh-card reveal">
+      <div class="section-label">Open Source</div>
+      <h2 class="scroll-tokenize">Built in the open.<br/>Free to use and extend.</h2>
+      <p style="color:var(--muted2);font-size:0.95rem;max-width:500px;margin:1rem auto 0">MIT licensed. No cloud dependency. No vendor lock-in. Fork it, embed it, ship it.</p>
+
+      <div class="gh-stats-row">
+        <div class="gh-big-stat">
+          <span class="num" id="gh-stars">—</span>
+          <div class="lbl">⭐ GitHub Stars</div>
+        </div>
+        <div class="gh-big-stat">
+          <span class="num" id="gh-forks">—</span>
+          <div class="lbl">🍴 Forks</div>
+        </div>
+        <div class="gh-big-stat">
+          <span class="num" id="gh-issues">—</span>
+          <div class="lbl">🔓 Open Issues</div>
+        </div>
+        <div class="gh-big-stat">
+          <span class="num">MIT</span>
+          <div class="lbl">📄 License</div>
+        </div>
+      </div>
+
+      <div class="gh-actions">
+        <a href="https://github.com/ContextFit/cf" class="btn-gh" target="_blank">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>
+          View on GitHub
+        </a>
+        <a href="https://github.com/ContextFit/cf/stargazers" class="btn-ghost" target="_blank">★ Star the repo</a>
+        <a href="https://github.com/ContextFit/cf/issues" class="btn-ghost" target="_blank">Open an issue</a>
+        <a href="https://x.com/cponsart" class="btn-ghost" target="_blank">Follow on X: @cponsart</a>
+      </div>
+
+      <div class="readme-strip">
+        <div class="readme-item">
+          <div class="ri-label">INSTALL</div>
+          <p><code style="font-family:'JetBrains Mono',monospace;color:var(--sky);font-size:0.82rem">pip install contextfit</code></p>
+        </div>
+        <div class="readme-item">
+          <div class="ri-label">REQUIRES</div>
+          <p>Python 3.10+ &middot; CPU only &middot; ~41MB deps &middot; No DB</p>
+        </div>
+        <div class="readme-item">
+          <div class="ri-label">LICENSE</div>
+          <p>MIT &mdash; use freely in commercial and open-source projects</p>
+        </div>
+        <div class="readme-item">
+          <div class="ri-label">CONTRIBUTE</div>
+          <p>Issues, PRs, and benchmark contributions welcome</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- WHITEPAPER CTA -->
+<section id="whitepaper">
+  <div class="container">
+    <div class="wp-card reveal">
+      <div class="label">Research</div>
+      <h2 class="scroll-tokenize">Token-Native Agent Memory</h2>
+      <p>The full technical whitepaper: architecture, six primitives, 499-case benchmark
+      methodology, feature ablation, per-behavior analysis, and deployment architecture.</p>
+      <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
+        <a href="whitepaper.html" class="btn-primary">Read the Whitepaper</a>
+        <a href="https://github.com/ContextFit/cf" class="btn-ghost">View on GitHub</a>
+        <a href="site.md" class="btn-ghost">LLM-readable Markdown</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div>
+    <div class="footer-brand">contextfit</div>
+    <div class="footer-copy">© ContextFit 2026</div>
+    <div class="footer-by">Created by <a href="https://x.com/cponsart" target="_blank" rel="noopener"><img class="footer-avatar" src="assets/cponsart-x-avatar.jpg" alt="@cponsart on X">X: @cponsart</a></div>
+  </div>
+  <div class="footer-links" aria-label="Footer navigation">
+    <div class="footer-link-row">
+      <span class="footer-link-label">For humans</span>
+      <a href="/getting-started.html">Get Started</a>
+      <a href="/demo.html">Demo</a>
+      <a href="#approach">Approach</a>
+      <a href="#benchmark">Benchmarks</a>
+      <a href="#deployment">Deployment</a>
+      <a href="whitepaper.html">Whitepaper</a>
+      <a href="https://github.com/ContextFit/cf" target="_blank" rel="noopener">GitHub ↗</a>
+    </div>
+    <div class="footer-link-row">
+      <span class="footer-link-label">For agents</span>
+      <a href="site.md">LLM Markdown</a>
+      <a href="llms.txt">llms.txt</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Scroll reveal
+  const reveals = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.08 });
+  reveals.forEach(el => io.observe(el));
+
+  // Animate bars when they enter view
+  const bars = document.querySelectorAll('.bar-fill');
+  const barIO = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const pct = e.target.dataset.pct;
+        e.target.style.width = pct + '%';
+        barIO.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.3 });
+  bars.forEach(b => barIO.observe(b));
+
+  // GitHub live stats
+  async function fetchGhStats() {
+    try {
+      const r = await fetch('https://api.github.com/repos/ContextFit/cf', {
+        headers: { 'Accept': 'application/vnd.github.v3+json' }
+      });
+      if (!r.ok) return;
+      const d = await r.json();
+      const stars = d.stargazers_count ?? 0;
+      const forks = d.forks_count ?? 0;
+      const issues = d.open_issues_count ?? 0;
+      const fmt = n => n >= 1000 ? (n/1000).toFixed(1)+'k' : String(n);
+      ['gh-stars','star-count'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = fmt(stars); });
+      ['gh-forks','fork-count'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = fmt(forks); });
+      const gi = document.getElementById('gh-issues'); if(gi) gi.textContent = fmt(issues);
+    } catch(e) { /* repo private or network issue — graceful */ }
+  }
+  fetchGhStats();
+
+  // Copy install command
+  function copyInstall(el) {
+    navigator.clipboard.writeText('pip install contextfit').then(() => {
+      const btn = document.getElementById('copy-pip');
+      btn.textContent = 'copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  // Copy code snippets
+  document.querySelectorAll('[data-copy-target]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.copyTarget);
+      if (!target) return;
+      navigator.clipboard.writeText(target.innerText).then(() => {
+        const old = btn.textContent;
+        btn.textContent = 'copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = old; btn.classList.remove('copied'); }, 1800);
+      });
+    });
+  });
+
+
+  // Anchor navigation: land section headlines below the tokenization zone.
+  (function initSafeAnchorScroll() {
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
+    const fixedHeaderBottom = () => Math.max(
+      96,
+      ...Array.from(document.querySelectorAll('.gh-banner, nav'))
+        .map(el => el.getBoundingClientRect().bottom)
+    );
+    const safeHeadlineTop = () => fixedHeaderBottom() + Math.min(140, window.innerHeight * 0.18) + 90;
+    const targetFromHash = hash => {
+      if (!hash || hash === '#') return null;
+      return document.getElementById(decodeURIComponent(hash.slice(1)));
+    };
+    const computeSafeTop = target => {
+      const headline = target.querySelector('h2.scroll-tokenize, h2') || target;
+      const rect = headline.getBoundingClientRect();
+      const anchorOffset = Math.min(rect.height * 0.18, 28);
+      return Math.max(0, window.scrollY + rect.top + anchorOffset - safeHeadlineTop());
+    };
+    const correctionDelays = [260, 700, 1150, 1650];
+    let activeAnchorHash = '';
+
+    const scrollToSafeSection = (hash, behavior = 'smooth') => {
+      const target = targetFromHash(hash);
+      if (!target) return false;
+      activeAnchorHash = hash;
+      const performScroll = (mode = behavior) => {
+        if (activeAnchorHash !== hash) return;
+        window.scrollTo({ top: computeSafeTop(target), behavior: mode });
+      };
+      performScroll(behavior);
+      // Tokenized headings, web fonts, and browser smooth-scroll timing can all
+      // shift the geometry after the first calculation. Re-snap after the scroll
+      // has started, after it should have ended, and after late layout settles.
+      if (behavior === 'smooth') {
+        correctionDelays.forEach(delay => setTimeout(() => performScroll('auto'), delay));
+      }
+      return true;
+    };
+
+    const settleHash = (hash = window.location.hash) => {
+      if (!targetFromHash(hash)) return;
+      requestAnimationFrame(() => scrollToSafeSection(hash, 'auto'));
+      [120, 360, 900, 1500].forEach(delay => setTimeout(() => scrollToSafeSection(hash, 'auto'), delay));
+    };
+
+    document.querySelectorAll('a[href^="#"]').forEach(link => {
+      link.addEventListener('click', event => {
+        const href = link.getAttribute('href');
+        if (!targetFromHash(href)) return;
+        event.preventDefault();
+        history.pushState(null, '', href);
+        scrollToSafeSection(href);
+      });
+    });
+
+    window.addEventListener('hashchange', () => settleHash());
+    window.addEventListener('load', () => settleHash());
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => settleHash());
+    if (window.location.hash) settleHash();
+  })();
+
+
+  // Scroll tokenization: text is split into visual token chunks, then
+  // condenses into compact pills as it enters the fixed-header compression zone.
+  // The hero uses the same chunks in reverse on load: pills sprinkle into text.
+  (function initScrollTokenization() {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const tokenTargetSelector = [
+      '.scroll-tokenize',
+      '.install-prefix', '.install-cmd',
+      '.stat-pill .val', '.stat-pill .lbl', '.stat-pill .sub',
+      'section h2', 'section h3', 'section h4', 'section p', 'section a',
+      'section th', 'section td', 'section .section-label', 'section .primitive-num',
+      'section .pipe-step', 'section .pipe-arrow', 'section .bar-label', 'section .bar-val',
+      'section .bar-chart-label', 'section .behavior-desc', 'footer a', 'footer p'
+    ].join(',');
+    const rawTargets = Array.from(document.querySelectorAll(tokenTargetSelector));
+    const targets = rawTargets.filter((el, _i, all) => {
+      if (el.closest('pre, code, script, style, svg')) return false;
+      // Controls should remain stable and readable; tokenizing them makes CTAs
+      // feel jumpy and harder to click/read.
+      if (el.matches('button, .copy-btn, .btn-primary, .btn-ghost, .btn-outline, .gh-star-btn')) return false;
+      // Keep the blue-bordered hero badge readable on first impression. It sits
+      // inside the compression zone and tokenizes too early if included.
+      if (el.classList.contains('hero-badge')) return false;
+      return !all.some(other => other !== el && other.contains(el));
+    });
+    if (!targets.length) return;
+
+    // Visual approximation only. ContextFit stores LLM token IDs; real tokenizers
+    // can split words into subwords/punctuation. This keeps the page dependency-free
+    // while demonstrating that words are made of smaller token-like units.
+    const splitVisualTokens = (word) => {
+      const parts = word.match(/^([\w]+)([^\w]*)$/u);
+      if (!parts) return [word];
+      const core = parts[1];
+      const punct = parts[2];
+      if (core.length <= 7) return [word];
+      const chunks = [];
+      let i = 0;
+      while (i < core.length) {
+        const remaining = core.length - i;
+        const size = remaining <= 5 ? remaining : (i === 0 ? 4 : 5);
+        chunks.push(core.slice(i, i + size));
+        i += size;
+      }
+      if (punct) chunks[chunks.length - 1] += punct;
+      return chunks;
+    };
+
+    const tokenRE = /\S+|\s+/g;
+    const tokenizeNode = (node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.nodeValue || '';
+        if (!text.trim()) return;
+        const frag = document.createDocumentFragment();
+        let m;
+        while ((m = tokenRE.exec(text))) {
+          const part = m[0];
+          if (/^\s+$/.test(part)) {
+            frag.appendChild(document.createTextNode(part.replace(/\n\s*/g, ' ')));
+          } else {
+            const pieces = splitVisualTokens(part);
+            const word = document.createElement('span');
+            word.className = 'cf-word';
+            pieces.forEach((tok, idx) => {
+              const span = document.createElement('span');
+              span.className = 'cf-token' + (idx > 0 ? ' cf-subtoken-continued' : '');
+              const inner = document.createElement('span');
+              inner.className = 'cf-token-text';
+              inner.textContent = tok;
+              span.appendChild(inner);
+              word.appendChild(span);
+            });
+            frag.appendChild(word);
+          }
+        }
+        node.replaceWith(frag);
+        return;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
+      if (['SCRIPT', 'STYLE', 'SVG', 'CODE', 'PRE'].includes(node.tagName)) return;
+      if (node.tagName === 'BR') {
+        const br = document.createElement('span');
+        br.className = 'cf-break';
+        node.replaceWith(br);
+        return;
+      }
+      Array.from(node.childNodes).forEach(tokenizeNode);
+    };
+
+    targets.forEach(el => {
+      tokenizeNode(el);
+      el.classList.add('scroll-tokenized');
+    });
+
+    const allTokens = Array.from(document.querySelectorAll('.scroll-tokenized .cf-token'));
+    allTokens.forEach((tok, i) => {
+      const textEl = tok.querySelector('.cf-token-text');
+      const width = Math.ceil((textEl?.scrollWidth || textEl?.getBoundingClientRect().width || tok.scrollWidth || tok.getBoundingClientRect().width) + 1);
+      tok.style.setProperty('--tok-natural-width', width + 'px');
+      tok.style.setProperty('--tok-width', width + 'px');
+      tok.style.setProperty('--tok-min-width', '0px');
+      tok.style.setProperty('--tok-sprinkle-x', (((i % 5) - 2) * 9) + 'px');
+      tok.style.setProperty('--tok-sprinkle-y', ((i % 2 ? -1 : 1) * (10 + (i % 4) * 4)) + 'px');
+    });
+
+    const hero = document.querySelector('.hero-tokenize');
+    if (hero) {
+      const heroTokens = Array.from(hero.querySelectorAll('.cf-token'));
+      if (reduceMotion) {
+        heroTokens.forEach(tok => tok.classList.add('hero-materialized'));
+        hero.classList.add('hero-ready');
+      } else {
+        heroTokens.forEach((tok, i) => {
+          const delay = 240 + i * 210;
+          setTimeout(() => tok.classList.add('hero-materialized'), delay);
+          setTimeout(() => tok.classList.add('hero-readable'), delay + 650);
+        });
+        const lastDelay = 240 + Math.max(0, heroTokens.length - 1) * 210;
+        setTimeout(() => hero.classList.add('hero-ready'), lastDelay + 1160);
+      }
+    }
+    if (reduceMotion) return;
+
+    let ticking = false;
+    const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+    const ease = t => t * t * (3 - 2 * t);
+    const update = () => {
+      ticking = false;
+      const navBottom = Math.max(
+        96,
+        ...Array.from(document.querySelectorAll('.gh-banner, nav'))
+          .map(el => el.getBoundingClientRect().bottom)
+      );
+      const zoneStart = navBottom + Math.min(125, window.innerHeight * 0.16);
+      const zoneEnd = navBottom + 8;
+      targets.forEach(el => {
+        if (el.classList.contains('hero-tokenize') && !el.classList.contains('hero-ready')) return;
+        const rect = el.getBoundingClientRect();
+        const anchor = rect.top + Math.min(rect.height * 0.18, 28);
+        const raw = (zoneStart - anchor) / Math.max(1, zoneStart - zoneEnd);
+        const p = ease(clamp(raw, 0, 1));
+        const textAlpha = Math.max(0, 1 - p * 1.35);
+        el.style.setProperty('--hero-p', (1 - p).toFixed(3));
+        el.style.setProperty('--tok-gap', (p * 0.045).toFixed(3) + 'em');
+        el.style.setProperty('--tok-pad-y', (p * 0.04).toFixed(3) + 'em');
+        el.style.setProperty('--tok-pad-x', (p * 0.06).toFixed(3) + 'em');
+        el.style.setProperty('--tok-radius', (p * 0.42).toFixed(3) + 'em');
+        el.style.setProperty('--tok-border-alpha', (p * 0.34).toFixed(3));
+        el.style.setProperty('--tok-bg-alpha', (p * 0.14).toFixed(3));
+        el.style.setProperty('--tok-glow', (p * 12).toFixed(1) + 'px');
+        el.style.setProperty('--tok-lift', (p * -1.2).toFixed(2) + 'px');
+        el.style.setProperty('--tok-text-alpha', textAlpha.toFixed(3));
+        el.style.setProperty('--tok-dot-alpha', Math.max(0, p - 0.45).toFixed(3));
+        el.querySelectorAll('.cf-token').forEach(tok => {
+          const natural = parseFloat(tok.style.getPropertyValue('--tok-natural-width')) || tok.offsetWidth;
+          const condensed = 14;
+          tok.style.setProperty('--tok-width', (natural * (1 - p) + condensed * p).toFixed(1) + 'px');
+          tok.style.setProperty('--tok-min-width', (condensed * p).toFixed(1) + 'px');
+        });
+        el.classList.toggle('token-zone-active', p > 0.04);
+      });
+    };
+    const requestUpdate = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(update);
+      }
+    };
+    update();
+    window.addEventListener('scroll', requestUpdate, { passive: true });
+    window.addEventListener('resize', requestUpdate);
+  })();
+
+  // Animate stat pill counters
+  function animateCount(el, target, suffix, duration=1400) {
+    const start = performance.now();
+    const isFloat = target % 1 !== 0;
+    const step = (now) => {
+      const t = Math.min((now - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - t, 3);
+      const val = target * ease;
+      el.textContent = isFloat ? val.toFixed(1) + suffix : Math.round(val) + suffix;
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+  const statIO = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const vals = e.target.querySelectorAll('.val');
+        vals.forEach(v => {
+          if (v.classList.contains('scroll-tokenized')) return;
+          const txt = v.textContent;
+          if (txt.includes('%'))   animateCount(v, parseFloat(txt), '%');
+          else if (txt.includes('ms')) animateCount(v, parseFloat(txt), 'ms');
+          else if (txt.includes('×')) animateCount(v, parseFloat(txt), '×');
+          else if (txt.includes('MB')) animateCount(v, parseFloat(txt), 'MB');
+        });
+        statIO.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.5 });
+  const startStatCounters = () => document.querySelectorAll('.stat-row').forEach(r => statIO.observe(r));
+  const heroForStats = document.querySelector('.hero-tokenize');
+  if (heroForStats && !heroForStats.classList.contains('hero-ready')) {
+    setTimeout(startStatCounters, 4200);
+  } else {
+    startStatCounters();
+  }
+</script>
+</body>
+</html>

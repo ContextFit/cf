@@ -1,0 +1,4940 @@
+[
+  {
+    "id": "pref_recommend_watch_comedy",
+    "behavior": "preference_informs_recommendation",
+    "question": "What should I watch tonight?",
+    "answer_session_ids": [
+      "s_comedy_pref"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_comedy_pref",
+        "date": "2026/01/10 (Sat) 19:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I love clever stand-up comedy with strong storytelling, especially John Mulaney and Mike Birbiglia."
+          },
+          {
+            "role": "assistant",
+            "content": "Got it \u2014 storytelling-driven stand-up is your lane."
+          }
+        ]
+      },
+      {
+        "session_id": "s_generic_movie",
+        "date": "2026/01/11 (Sun) 20:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Can you explain how Dolby Vision works on OLED TVs?"
+          },
+          {
+            "role": "assistant",
+            "content": "Dolby Vision is a dynamic HDR format for movies and shows."
+          }
+        ]
+      },
+      {
+        "session_id": "s_workout",
+        "date": "2026/01/12 (Mon) 08:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I am planning to run a 10k this spring."
+          },
+          {
+            "role": "assistant",
+            "content": "A gradual training plan would help."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "constraint_food_advice",
+    "behavior": "constraint_informs_advice",
+    "question": "Suggest snacks for my party.",
+    "answer_session_ids": [
+      "s_food_constraint"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_food_constraint",
+        "date": "2026/02/02 (Mon) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I can't eat peanuts, and my budget for party snacks is around $60."
+          },
+          {
+            "role": "assistant",
+            "content": "I'll avoid peanut-based suggestions and keep budget in mind."
+          }
+        ]
+      },
+      {
+        "session_id": "s_snack_generic",
+        "date": "2026/02/03 (Tue) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are some popular salty snacks?"
+          },
+          {
+            "role": "assistant",
+            "content": "Pretzels, chips, and mixed nuts are common party snacks."
+          }
+        ]
+      },
+      {
+        "session_id": "s_music",
+        "date": "2026/02/04 (Wed) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I like upbeat playlists for gatherings."
+          },
+          {
+            "role": "assistant",
+            "content": "I'll suggest energetic music."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "temporal_current_editor",
+    "behavior": "temporal_supersession",
+    "question": "Which video editor do I use now?",
+    "answer_session_ids": [
+      "s_editor_new"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_editor_old",
+        "date": "2026/01/01 (Thu) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I usually edit videos in Adobe Premiere Pro."
+          },
+          {
+            "role": "assistant",
+            "content": "Premiere Pro noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_editor_new",
+        "date": "2026/03/01 (Sun) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I switched from Premiere to DaVinci Resolve. These days I use Resolve for editing."
+          },
+          {
+            "role": "assistant",
+            "content": "Current editor is DaVinci Resolve."
+          }
+        ]
+      },
+      {
+        "session_id": "s_camera",
+        "date": "2026/02/01 (Sun) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Can you compare mirrorless cameras for travel?"
+          },
+          {
+            "role": "assistant",
+            "content": "Sure."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "decision_database_choice",
+    "behavior": "decision_retrieval",
+    "question": "What database did we decide to use?",
+    "answer_session_ids": [
+      "s_db_decision"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_db_options",
+        "date": "2026/04/01 (Wed) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Let's compare Postgres, MongoDB, and DynamoDB for the project."
+          },
+          {
+            "role": "assistant",
+            "content": "Here are tradeoffs."
+          }
+        ]
+      },
+      {
+        "session_id": "s_db_decision",
+        "date": "2026/04/02 (Thu) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I decided we should use Postgres for the project because relational queries matter."
+          },
+          {
+            "role": "assistant",
+            "content": "Decision recorded: Postgres."
+          }
+        ]
+      },
+      {
+        "session_id": "s_frontend",
+        "date": "2026/04/03 (Fri) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Can you suggest frontend component libraries?"
+          },
+          {
+            "role": "assistant",
+            "content": "Sure."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "open_loop_followup",
+    "behavior": "open_loop_retrieval",
+    "question": "What did I ask you to follow up on next week?",
+    "answer_session_ids": [
+      "s_followup"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_followup",
+        "date": "2026/04/10 (Fri) 16:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Remind me to follow up with Dana next week about the vendor contract."
+          },
+          {
+            "role": "assistant",
+            "content": "I'll remember the follow-up."
+          }
+        ]
+      },
+      {
+        "session_id": "s_contract_general",
+        "date": "2026/04/11 (Sat) 16:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What should a vendor contract include?"
+          },
+          {
+            "role": "assistant",
+            "content": "Scope, payment, termination, confidentiality."
+          }
+        ]
+      },
+      {
+        "session_id": "s_calendar",
+        "date": "2026/04/12 (Sun) 16:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are good calendar blocking habits?"
+          },
+          {
+            "role": "assistant",
+            "content": "Use focus blocks."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "goal_context_advice",
+    "behavior": "goal_informs_advice",
+    "question": "How should I prepare this weekend?",
+    "answer_session_ids": [
+      "s_goal_marathon"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_goal_marathon",
+        "date": "2026/05/01 (Fri) 07:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I am training for my first marathon in October and want to build endurance safely."
+          },
+          {
+            "role": "assistant",
+            "content": "We'll focus on gradual mileage and recovery."
+          }
+        ]
+      },
+      {
+        "session_id": "s_weekend_generic",
+        "date": "2026/05/02 (Sat) 07:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are fun weekend activities?"
+          },
+          {
+            "role": "assistant",
+            "content": "Hiking, cooking, movies, and friends."
+          }
+        ]
+      },
+      {
+        "session_id": "s_sleep",
+        "date": "2026/05/03 (Sun) 07:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I usually sleep better when I avoid screens late."
+          },
+          {
+            "role": "assistant",
+            "content": "Good sleep hygiene noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "episodic_watch_from_comedy_interest",
+    "behavior": "episodic_interest_inference",
+    "question": "What should I watch tonight when I want something smart and funny?",
+    "answer_session_ids": [
+      "s_story_comedy_interest"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_story_comedy_interest",
+        "date": "2026/06/01 (Mon) 20:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I had a great time listening to Mike Birbiglia's storytelling set. I like comedy that feels thoughtful, personal, and a little bittersweet."
+          },
+          {
+            "role": "assistant",
+            "content": "Thoughtful storytelling comedy noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_tv_specs",
+        "date": "2026/06/02 (Tue) 20:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Can you compare OLED and mini-LED TVs for a bright living room?"
+          },
+          {
+            "role": "assistant",
+            "content": "Sure, brightness and contrast differ."
+          }
+        ]
+      },
+      {
+        "session_id": "s_funny_generic",
+        "date": "2026/06/03 (Wed) 20:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Tell me a funny joke about databases."
+          },
+          {
+            "role": "assistant",
+            "content": "Here's a SQL joke."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "episodic_dinner_from_garden_context",
+    "behavior": "episodic_interest_inference",
+    "question": "What should I cook for dinner this weekend?",
+    "answer_session_ids": [
+      "s_garden_context"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_garden_context",
+        "date": "2026/06/05 (Fri) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "My basil is growing like crazy, and I harvested cherry tomatoes and mint from the garden."
+          },
+          {
+            "role": "assistant",
+            "content": "Fresh basil, tomatoes, and mint give you lots of cooking options."
+          }
+        ]
+      },
+      {
+        "session_id": "s_restaurant",
+        "date": "2026/06/06 (Sat) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are the best Italian restaurants downtown?"
+          },
+          {
+            "role": "assistant",
+            "content": "Here are some options."
+          }
+        ]
+      },
+      {
+        "session_id": "s_weekend_plans",
+        "date": "2026/06/07 (Sun) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I'm keeping the weekend low key and staying home."
+          },
+          {
+            "role": "assistant",
+            "content": "A quiet weekend at home sounds restorative."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "episodic_gift_from_hobby_context",
+    "behavior": "episodic_interest_inference",
+    "question": "What birthday gift would fit my brother?",
+    "answer_session_ids": [
+      "s_brother_hobby"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_brother_hobby",
+        "date": "2026/06/08 (Mon) 18:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "My brother has been getting into woodworking. He keeps talking about hand planes, chisels, and making a small walnut table."
+          },
+          {
+            "role": "assistant",
+            "content": "Woodworking is an important interest for your brother."
+          }
+        ]
+      },
+      {
+        "session_id": "s_party_logistics",
+        "date": "2026/06/09 (Tue) 18:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Can you help me plan a birthday dinner schedule?"
+          },
+          {
+            "role": "assistant",
+            "content": "Yes."
+          }
+        ]
+      },
+      {
+        "session_id": "s_gift_generic",
+        "date": "2026/06/10 (Wed) 18:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are common birthday gift ideas under $50?"
+          },
+          {
+            "role": "assistant",
+            "content": "Books, gadgets, accessories, and food gifts."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "episodic_battery_from_device_context",
+    "behavior": "episodic_interest_inference",
+    "question": "Any tips for keeping my phone alive on a long travel day?",
+    "answer_session_ids": [
+      "s_power_bank_context"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_power_bank_context",
+        "date": "2026/06/11 (Thu) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I bought a compact Anker power bank and a wireless charging pad for travel, but cable clutter still annoys me."
+          },
+          {
+            "role": "assistant",
+            "content": "Your travel charging setup includes an Anker power bank and wireless pad."
+          }
+        ]
+      },
+      {
+        "session_id": "s_phone_review",
+        "date": "2026/06/12 (Fri) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What's new in the latest iPhone camera system?"
+          },
+          {
+            "role": "assistant",
+            "content": "Here are the camera updates."
+          }
+        ]
+      },
+      {
+        "session_id": "s_travel_food",
+        "date": "2026/06/13 (Sat) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What snacks are easy to pack for flights?"
+          },
+          {
+            "role": "assistant",
+            "content": "Granola bars and dried fruit travel well."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "pref_music_evening_jazz",
+    "behavior": "preference_informs_recommendation",
+    "question": "What music should I put on for a relaxed dinner?",
+    "answer_session_ids": [
+      "s_jazz_pref"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_jazz_pref",
+        "date": "2026/07/01 (Wed) 18:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I love mellow jazz piano during dinner, especially Bill Evans and Ahmad Jamal."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_speaker_setup",
+        "date": "2026/07/02 (Thu) 18:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Can you help me set up AirPlay speakers in the dining room?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_party_food",
+        "date": "2026/07/03 (Fri) 18:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What appetizers work well for six people?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "pref_book_history",
+    "behavior": "preference_informs_recommendation",
+    "question": "What kind of book should I bring on vacation?",
+    "answer_session_ids": [
+      "s_history_pref"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_history_pref",
+        "date": "2026/07/04 (Sat) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I prefer narrative history books over business books when I travel."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_luggage",
+        "date": "2026/07/05 (Sun) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What size carry-on works for a week?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_beach",
+        "date": "2026/07/06 (Mon) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are good beach towns in Portugal?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "pref_restaurant_spicy",
+    "behavior": "preference_informs_recommendation",
+    "question": "Where should we order takeout from?",
+    "answer_session_ids": [
+      "s_spicy_pref"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_spicy_pref",
+        "date": "2026/07/07 (Tue) 19:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I usually like spicy Thai or Sichuan food when ordering takeout."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_delivery_apps",
+        "date": "2026/07/08 (Wed) 19:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Which delivery apps have lower fees?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_pizza_generic",
+        "date": "2026/07/09 (Thu) 19:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are common pizza toppings?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "pref_game_strategy",
+    "behavior": "preference_informs_recommendation",
+    "question": "What board game should I suggest tonight?",
+    "answer_session_ids": [
+      "s_strategy_game_pref"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_strategy_game_pref",
+        "date": "2026/07/10 (Fri) 20:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I enjoy strategic board games with negotiation, like Catan and Dune Imperium."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_table_size",
+        "date": "2026/07/11 (Sat) 20:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How big should a table be for board games?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_cards",
+        "date": "2026/07/12 (Sun) 20:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Explain poker hand rankings."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "pref_workout_lowimpact",
+    "behavior": "preference_informs_recommendation",
+    "question": "What workout should I do today?",
+    "answer_session_ids": [
+      "s_lowimpact_pref"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_lowimpact_pref",
+        "date": "2026/07/13 (Mon) 07:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I prefer low-impact workouts when my knees feel sore, especially cycling or swimming."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_running_shoes",
+        "date": "2026/07/14 (Tue) 07:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What running shoes have good cushioning?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_breakfast",
+        "date": "2026/07/15 (Wed) 07:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What is a high protein breakfast?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "constraint_travel_budget",
+    "behavior": "constraint_informs_advice",
+    "question": "Plan a weekend getaway for me.",
+    "answer_session_ids": [
+      "s_travel_budget"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_travel_budget",
+        "date": "2026/07/16 (Thu) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "My budget for weekend trips is $500, and I cannot take red-eye flights."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_hotel_generic",
+        "date": "2026/07/17 (Fri) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What amenities matter in hotels?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_city_list",
+        "date": "2026/07/18 (Sat) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are fun cities in the US?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "constraint_diet_vegetarian",
+    "behavior": "constraint_informs_advice",
+    "question": "Suggest a meal plan for next week.",
+    "answer_session_ids": [
+      "s_vegetarian_constraint"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_vegetarian_constraint",
+        "date": "2026/07/19 (Sun) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I am vegetarian during the week and need high-protein meals."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_grocery_apps",
+        "date": "2026/07/20 (Mon) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Compare grocery delivery services."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_pasta",
+        "date": "2026/07/21 (Tue) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do I cook pasta al dente?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "constraint_meeting_time",
+    "behavior": "constraint_informs_advice",
+    "question": "When should I schedule calls with Europe?",
+    "answer_session_ids": [
+      "s_meeting_constraint"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_meeting_constraint",
+        "date": "2026/07/22 (Wed) 08:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I cannot do meetings before 9am Central because of school drop-off."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_timezone",
+        "date": "2026/07/23 (Thu) 08:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Explain CET versus Central time."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_zoom",
+        "date": "2026/07/24 (Fri) 08:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do I improve Zoom audio?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "constraint_gift_budget",
+    "behavior": "constraint_informs_advice",
+    "question": "What gift should I buy for the teacher?",
+    "answer_session_ids": [
+      "s_gift_budget_constraint"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_gift_budget_constraint",
+        "date": "2026/07/25 (Sat) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "For teacher gifts, I need to keep it under $30 and avoid alcohol."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_school_calendar",
+        "date": "2026/07/26 (Sun) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "When does school usually end?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_gift_cards",
+        "date": "2026/07/27 (Mon) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Are gift cards thoughtful?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "constraint_home_noise",
+    "behavior": "constraint_informs_advice",
+    "question": "How should I set up my home office?",
+    "answer_session_ids": [
+      "s_noise_constraint"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_noise_constraint",
+        "date": "2026/07/28 (Tue) 13:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "My home office gets noisy after 3pm, and I need quiet for client calls."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_desk",
+        "date": "2026/07/29 (Wed) 13:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What standing desks are good?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_lighting",
+        "date": "2026/07/30 (Thu) 13:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do I improve office lighting?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "goal_spanish_trip",
+    "behavior": "goal_informs_advice",
+    "question": "What should I practice this week?",
+    "answer_session_ids": [
+      "s_spanish_goal"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_spanish_goal",
+        "date": "2026/08/01 (Sat) 08:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I am trying to learn conversational Spanish before our Mexico trip."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_trip_hotels",
+        "date": "2026/08/02 (Sun) 08:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Compare hotels in Mexico City."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_weekly_routine",
+        "date": "2026/08/03 (Mon) 08:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How should I organize my week?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "goal_launch_newsletter",
+    "behavior": "goal_informs_advice",
+    "question": "What should my next writing task be?",
+    "answer_session_ids": [
+      "s_newsletter_goal"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_newsletter_goal",
+        "date": "2026/08/04 (Tue) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I want to launch a weekly AI newsletter for operators by September."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_email_tools",
+        "date": "2026/08/05 (Wed) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Compare ConvertKit and Beehiiv."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_blog_seo",
+        "date": "2026/08/06 (Thu) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How does SEO work for blogs?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "goal_reduce_sugar",
+    "behavior": "goal_informs_advice",
+    "question": "How should I adjust dessert tonight?",
+    "answer_session_ids": [
+      "s_sugar_goal"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_sugar_goal",
+        "date": "2026/08/07 (Fri) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I am trying to reduce sugar but still want desserts that feel satisfying."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_cookie_recipe",
+        "date": "2026/08/08 (Sat) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do I make chocolate chip cookies?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_dinner_party",
+        "date": "2026/08/09 (Sun) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do I host a dinner party?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "goal_save_time",
+    "behavior": "goal_informs_advice",
+    "question": "What should I automate first?",
+    "answer_session_ids": [
+      "s_time_goal"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_time_goal",
+        "date": "2026/08/10 (Mon) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I want to save five hours a week by automating repetitive admin work."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_zapier",
+        "date": "2026/08/11 (Tue) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Explain Zapier triggers."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_calendar_color",
+        "date": "2026/08/12 (Wed) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How should I color-code my calendar?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "goal_sleep_better",
+    "behavior": "goal_informs_advice",
+    "question": "What should I do differently tonight?",
+    "answer_session_ids": [
+      "s_sleep_goal"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_sleep_goal",
+        "date": "2026/08/13 (Thu) 21:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I am trying to improve my sleep by avoiding caffeine after lunch and screens late at night."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_coffee",
+        "date": "2026/08/14 (Fri) 21:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are good espresso machines?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_bedroom_temp",
+        "date": "2026/08/15 (Sat) 21:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What temperature is best for sleeping?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "temporal_current_crm",
+    "behavior": "temporal_supersession",
+    "question": "Which CRM are we using now?",
+    "answer_session_ids": [
+      "s_crm_new"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_crm_old",
+        "date": "2026/08/16 (Sun) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "We used to track sales leads in HubSpot."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_crm_new",
+        "date": "2026/08/20 (Thu) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "We switched from HubSpot to Attio. Going forward, Attio is the CRM."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_sales_process",
+        "date": "2026/08/21 (Fri) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What is a good sales process?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "temporal_current_diet",
+    "behavior": "temporal_supersession",
+    "question": "What diet am I following these days?",
+    "answer_session_ids": [
+      "s_diet_new"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_diet_old",
+        "date": "2026/08/17 (Mon) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I was trying keto earlier this year."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_diet_new",
+        "date": "2026/08/22 (Sat) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I no longer do keto. Now I am eating Mediterranean-style meals."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_olive_oil",
+        "date": "2026/08/23 (Sun) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What olive oil should I buy?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "temporal_current_language",
+    "behavior": "temporal_supersession",
+    "question": "What programming language am I using for the prototype now?",
+    "answer_session_ids": [
+      "s_lang_new"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_lang_old",
+        "date": "2026/08/18 (Tue) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I started the prototype in Python."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_lang_new",
+        "date": "2026/08/24 (Mon) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I switched the prototype from Python to TypeScript because deployment is easier."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_deploy",
+        "date": "2026/08/25 (Tue) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Explain Vercel deployments."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "temporal_current_car",
+    "behavior": "temporal_supersession",
+    "question": "Which car am I considering now?",
+    "answer_session_ids": [
+      "s_car_new"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_car_old",
+        "date": "2026/08/19 (Wed) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I was looking at the Tesla Model Y."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_car_new",
+        "date": "2026/08/26 (Wed) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I changed my mind and am now considering a Rivian R1S."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_ev_charging",
+        "date": "2026/08/27 (Thu) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How does EV charging work?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "temporal_current_cloud",
+    "behavior": "temporal_supersession",
+    "question": "Which cloud provider did we settle on?",
+    "answer_session_ids": [
+      "s_cloud_new"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_cloud_old",
+        "date": "2026/08/20 (Thu) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "AWS seemed like the default choice at first."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_cloud_new",
+        "date": "2026/08/28 (Fri) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "We decided to use Google Cloud instead of AWS for the analytics project."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_bigquery",
+        "date": "2026/08/29 (Sat) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How does BigQuery pricing work?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "decision_vendor_choice",
+    "behavior": "decision_retrieval",
+    "question": "Which vendor did we choose?",
+    "answer_session_ids": [
+      "s_vendor_decision"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_vendor_compare",
+        "date": "2026/09/01 (Tue) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Compare Stripe and Adyen for payments."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_vendor_decision",
+        "date": "2026/09/02 (Wed) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I chose Stripe as the payment vendor because integration is faster."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_pricing",
+        "date": "2026/09/03 (Thu) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How should we price the product?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "decision_theme_choice",
+    "behavior": "decision_retrieval",
+    "question": "What theme did I pick for the party?",
+    "answer_session_ids": [
+      "s_theme_decision"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_theme_options",
+        "date": "2026/09/04 (Fri) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Let us brainstorm party themes."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_theme_decision",
+        "date": "2026/09/05 (Sat) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I picked a backyard Mediterranean theme for the party."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_music_party",
+        "date": "2026/09/06 (Sun) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What music fits a party?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "decision_hotel_choice",
+    "behavior": "decision_retrieval",
+    "question": "Which hotel did we decide on?",
+    "answer_session_ids": [
+      "s_hotel_decision"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_hotel_options",
+        "date": "2026/09/07 (Mon) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Compare the Hyatt, Marriott, and Line hotel."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_hotel_decision",
+        "date": "2026/09/08 (Tue) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "We decided to book the Hyatt because it is walkable."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_flights",
+        "date": "2026/09/09 (Wed) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Look at flight times."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "open_loop_passport",
+    "behavior": "open_loop_retrieval",
+    "question": "What do I need to remember before Friday?",
+    "answer_session_ids": [
+      "s_passport_loop"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_passport_loop",
+        "date": "2026/09/10 (Thu) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Remind me before Friday to renew my passport appointment paperwork."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_travel_list",
+        "date": "2026/09/11 (Fri) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What should I pack for international travel?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_calendar_generic",
+        "date": "2026/09/12 (Sat) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do I clean up my calendar?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "open_loop_invoice",
+    "behavior": "open_loop_retrieval",
+    "question": "What pending finance follow-up did I mention?",
+    "answer_session_ids": [
+      "s_invoice_loop"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_invoice_loop",
+        "date": "2026/09/13 (Sun) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Follow up next week with accounting about the unpaid invoice."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_budgeting",
+        "date": "2026/09/14 (Mon) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How should I budget for Q4?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_bank",
+        "date": "2026/09/15 (Tue) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Which bank has good savings rates?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "open_loop_doctor",
+    "behavior": "open_loop_retrieval",
+    "question": "What health appointment did I need to schedule?",
+    "answer_session_ids": [
+      "s_doctor_loop"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_doctor_loop",
+        "date": "2026/09/16 (Wed) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Todo: schedule the annual dermatologist appointment."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_skin_care",
+        "date": "2026/09/17 (Thu) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What sunscreen should I use?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_calendar_health",
+        "date": "2026/09/18 (Fri) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do I track health appointments?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "entity_kids_soccer",
+    "behavior": "episodic_interest_inference",
+    "question": "What weekend activity should I plan for the kids?",
+    "answer_session_ids": [
+      "s_kids_soccer"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_kids_soccer",
+        "date": "2026/09/19 (Sat) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "The kids have been obsessed with soccer and keep practicing penalty kicks in the yard."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_movie_kids",
+        "date": "2026/09/20 (Sun) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are good family movies?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_weather",
+        "date": "2026/09/21 (Mon) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What is the weather this weekend?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "entity_wife_art",
+    "behavior": "episodic_interest_inference",
+    "question": "What museum outing would Maya probably enjoy?",
+    "answer_session_ids": [
+      "s_maya_art"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_maya_art",
+        "date": "2026/09/22 (Tue) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Maya has been really into contemporary photography exhibits lately."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_parking",
+        "date": "2026/09/23 (Wed) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Where can we park downtown?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_brunch",
+        "date": "2026/09/24 (Thu) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What brunch spots are near the museum?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "entity_client_ai",
+    "behavior": "episodic_interest_inference",
+    "question": "What topic should I bring up with the client?",
+    "answer_session_ids": [
+      "s_client_ai"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_client_ai",
+        "date": "2026/09/25 (Fri) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "The client keeps asking about AI governance, model risk, and audit trails."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_client_lunch",
+        "date": "2026/09/26 (Sat) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Where should I take the client for lunch?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_contract",
+        "date": "2026/09/27 (Sun) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Review contract terms."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "entity_camera_trip",
+    "behavior": "episodic_interest_inference",
+    "question": "What gear should I pack for the photo walk?",
+    "answer_session_ids": [
+      "s_camera_context"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_camera_context",
+        "date": "2026/09/28 (Mon) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I bought a 35mm prime lens and a small tripod for street photography."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_shoes_walk",
+        "date": "2026/09/29 (Tue) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What shoes are good for long walks?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_city_route",
+        "date": "2026/09/30 (Wed) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Suggest a scenic walking route."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "episodic_pet_vet",
+    "behavior": "episodic_interest_inference",
+    "question": "What should I ask the vet about?",
+    "answer_session_ids": [
+      "s_pet_context"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_pet_context",
+        "date": "2026/10/01 (Thu) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Our dog Luna has been scratching her ears and shaking her head this week."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_pet_food",
+        "date": "2026/10/02 (Fri) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What dog food brands are healthy?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_calendar_vet",
+        "date": "2026/10/03 (Sat) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do I keep appointment notes organized?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "episodic_house_project",
+    "behavior": "episodic_interest_inference",
+    "question": "What home project should I prioritize?",
+    "answer_session_ids": [
+      "s_roof_context"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_roof_context",
+        "date": "2026/10/04 (Sun) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "The roof over the garage leaked during the last storm and stained the ceiling."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_paint",
+        "date": "2026/10/05 (Mon) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What paint colors work in small rooms?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_garden_project",
+        "date": "2026/10/06 (Tue) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do I build raised garden beds?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "episodic_team_morale",
+    "behavior": "episodic_interest_inference",
+    "question": "What should I bring up in the team retro?",
+    "answer_session_ids": [
+      "s_team_context"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_team_context",
+        "date": "2026/10/07 (Wed) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "The engineering team seems frustrated by unclear priorities and too many last-minute requests."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_retro_format",
+        "date": "2026/10/08 (Thu) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What is a good retrospective format?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_sprint_metrics",
+        "date": "2026/10/09 (Fri) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Explain sprint velocity."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "episodic_parent_gift",
+    "behavior": "episodic_interest_inference",
+    "question": "What gift would my dad actually use?",
+    "answer_session_ids": [
+      "s_dad_context"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_dad_context",
+        "date": "2026/10/10 (Sat) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "My dad has been fixing old radios and likes practical tools more than decorative gifts."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_fathers_day",
+        "date": "2026/10/11 (Sun) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "When is Father\u2019s Day?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_tool_brands",
+        "date": "2026/10/12 (Mon) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Compare tool brands."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "goal_piano_practice",
+    "behavior": "goal_informs_advice",
+    "question": "What should I practice tonight?",
+    "answer_session_ids": [
+      "s_piano_goal"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_piano_goal",
+        "date": "2026/10/13 (Tue) 19:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I want to get better at jazz piano comping and ii-V-I progressions."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_music_theory",
+        "date": "2026/10/14 (Wed) 19:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Explain modes in music theory."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_evening_routine",
+        "date": "2026/10/15 (Thu) 19:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do I build an evening routine?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "goal_portfolio_site",
+    "behavior": "goal_informs_advice",
+    "question": "What should I work on this weekend?",
+    "answer_session_ids": [
+      "s_portfolio_goal"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_portfolio_goal",
+        "date": "2026/10/16 (Fri) 18:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I am building a portfolio website to showcase AI product strategy work."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_weekend_chores",
+        "date": "2026/10/17 (Sat) 18:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Make a weekend chores checklist."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_hosting",
+        "date": "2026/10/18 (Sun) 18:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Compare static site hosting options."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "constraint_kid_bedtime",
+    "behavior": "constraint_informs_advice",
+    "question": "When should we host dinner?",
+    "answer_session_ids": [
+      "s_bedtime_constraint"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_bedtime_constraint",
+        "date": "2026/10/19 (Mon) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "The kids need to be home by 8pm on school nights."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_dinner_hosts",
+        "date": "2026/10/20 (Tue) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What makes a good dinner party?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_school_night",
+        "date": "2026/10/21 (Wed) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How much sleep do kids need?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "temporal_current_messaging",
+    "behavior": "temporal_supersession",
+    "question": "Which messaging app should I use for the group now?",
+    "answer_session_ids": [
+      "s_msg_new"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_msg_old",
+        "date": "2026/10/22 (Thu) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "The group used to coordinate in WhatsApp."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_msg_new",
+        "date": "2026/10/23 (Fri) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "We moved the group chat from WhatsApp to Signal. Use Signal now."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_signal_features",
+        "date": "2026/10/24 (Sat) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What Signal privacy features matter?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "decision_logo_choice",
+    "behavior": "decision_retrieval",
+    "question": "Which logo direction did we pick?",
+    "answer_session_ids": [
+      "s_logo_decision"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_logo_options",
+        "date": "2026/10/25 (Sun) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Compare wordmark, icon, and mascot logo directions."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_logo_decision",
+        "date": "2026/10/26 (Mon) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "We picked the clean wordmark logo direction for the brand."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_brand_colors",
+        "date": "2026/10/27 (Tue) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What color palette should we use?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "open_loop_car_registration",
+    "behavior": "open_loop_retrieval",
+    "question": "What car paperwork did I need to handle?",
+    "answer_session_ids": [
+      "s_car_loop"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_car_loop",
+        "date": "2026/10/28 (Wed) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Todo: renew the car registration before the end of the month."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_car_wash",
+        "date": "2026/10/29 (Thu) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How often should I wash the car?"
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      },
+      {
+        "session_id": "s_insurance",
+        "date": "2026/10/30 (Fri) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Compare auto insurance deductibles."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "episodic_music_gift_hard",
+    "behavior": "episodic_interest_inference",
+    "question": "What should I get my friend for her birthday?",
+    "answer_session_ids": [
+      "s_friend_music_interest"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_friend_music_interest",
+        "date": "2026/01/05 (Mon) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "My friend Sarah has been obsessing over vinyl records lately. She just got a new turntable and has been hunting down classic jazz albums."
+          },
+          {
+            "role": "assistant",
+            "content": "That's a wonderful hobby. Classic jazz has so many hidden gems."
+          }
+        ]
+      },
+      {
+        "session_id": "s_birthday_generic",
+        "date": "2026/01/06 (Tue) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Sarah's birthday is coming up next month. I want to get her something meaningful."
+          },
+          {
+            "role": "assistant",
+            "content": "A personal, thoughtful gift always works best."
+          }
+        ]
+      },
+      {
+        "session_id": "s_generic_shopping",
+        "date": "2026/01/07 (Wed) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are popular online stores for unique gifts?"
+          },
+          {
+            "role": "assistant",
+            "content": "Etsy, UncommonGoods, and local boutiques are great options."
+          }
+        ]
+      },
+      {
+        "session_id": "s_candle_gift",
+        "date": "2026/01/08 (Thu) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I was thinking of getting someone candles or a spa set."
+          },
+          {
+            "role": "assistant",
+            "content": "Those are safe, appreciated gifts for many people."
+          }
+        ]
+      },
+      {
+        "session_id": "s_coffee_chat",
+        "date": "2026/01/09 (Fri) 15:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "We're planning a birthday dinner at an Italian restaurant for Sarah."
+          },
+          {
+            "role": "assistant",
+            "content": "That sounds like a lovely celebration."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "episodic_cook_from_garden",
+    "behavior": "episodic_interest_inference",
+    "question": "What should I cook for dinner tonight?",
+    "answer_session_ids": [
+      "s_garden_harvest"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_garden_harvest",
+        "date": "2026/02/14 (Sat) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Just harvested a ton of zucchini, cherry tomatoes, and fresh basil from my garden. I don't know what to do with all of it."
+          },
+          {
+            "role": "assistant",
+            "content": "A summer ratatouille or pasta primavera would make great use of those."
+          }
+        ]
+      },
+      {
+        "session_id": "s_dinner_habits",
+        "date": "2026/02/15 (Sun) 18:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I usually cook Italian or Mediterranean on weeknights."
+          },
+          {
+            "role": "assistant",
+            "content": "Those cuisines are great for quick weeknight meals."
+          }
+        ]
+      },
+      {
+        "session_id": "s_grocery_run",
+        "date": "2026/02/16 (Mon) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I need to do a grocery run. What staples should I always keep?"
+          },
+          {
+            "role": "assistant",
+            "content": "Olive oil, garlic, canned tomatoes, pasta, and lentils are good pantry staples."
+          }
+        ]
+      },
+      {
+        "session_id": "s_recipe_app",
+        "date": "2026/02/17 (Tue) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Any good recipe apps for home cooks?"
+          },
+          {
+            "role": "assistant",
+            "content": "Yummly, NYT Cooking, and Paprika are all popular choices."
+          }
+        ]
+      },
+      {
+        "session_id": "s_kitchen_tools",
+        "date": "2026/02/18 (Wed) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I am thinking about getting a mandoline slicer."
+          },
+          {
+            "role": "assistant",
+            "content": "They're useful for consistent vegetable cuts, just be careful with the blade."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "episodic_travel_pack_hard",
+    "behavior": "episodic_interest_inference",
+    "question": "Help me pack for my trip.",
+    "answer_session_ids": [
+      "s_trip_context"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_trip_context",
+        "date": "2026/03/01 (Sun) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I'm heading to Lisbon and Porto next week for 10 days. I'll be doing a lot of walking, some wine tasting, and one day hike in Douro Valley."
+          },
+          {
+            "role": "assistant",
+            "content": "Portugal is wonderful. The tile work and food scene are unforgettable."
+          }
+        ]
+      },
+      {
+        "session_id": "s_travel_generic",
+        "date": "2026/03/02 (Mon) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What travel insurance should I get for international trips?"
+          },
+          {
+            "role": "assistant",
+            "content": "Look for policies with medical coverage and trip interruption protection."
+          }
+        ]
+      },
+      {
+        "session_id": "s_weather_app",
+        "date": "2026/03/03 (Tue) 08:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Which weather app is most accurate for international travel?"
+          },
+          {
+            "role": "assistant",
+            "content": "Weather.com and AccuWeather both have good global coverage."
+          }
+        ]
+      },
+      {
+        "session_id": "s_luggage_choice",
+        "date": "2026/03/04 (Wed) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I prefer to travel carry-on only when possible."
+          },
+          {
+            "role": "assistant",
+            "content": "That saves a lot of time at the airport and reduces risk of lost bags."
+          }
+        ]
+      },
+      {
+        "session_id": "s_currency_exchange",
+        "date": "2026/03/05 (Thu) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Should I exchange currency before I fly or just use ATMs abroad?"
+          },
+          {
+            "role": "assistant",
+            "content": "ATMs usually offer better rates. Just notify your bank before traveling."
+          }
+        ]
+      },
+      {
+        "session_id": "s_packing_apps",
+        "date": "2026/03/06 (Fri) 16:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Are there apps that help generate packing lists?"
+          },
+          {
+            "role": "assistant",
+            "content": "PackPoint and TripIt both have packing list features."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "multi_session_diet_and_goal",
+    "behavior": "multi_session_synthesis",
+    "question": "Help me plan a healthy meal for the week.",
+    "answer_session_ids": [
+      "s_veg_diet_pref",
+      "s_fitness_goal"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_veg_diet_pref",
+        "date": "2026/01/10 (Sat) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I've been eating mostly plant-based for the last six months. I feel great but struggle with protein."
+          },
+          {
+            "role": "assistant",
+            "content": "Legumes, tofu, tempeh, and edamame are good plant protein sources."
+          }
+        ]
+      },
+      {
+        "session_id": "s_fitness_goal",
+        "date": "2026/01/15 (Thu) 07:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I'm training for my first half marathon. Running 4 days a week and trying to build endurance."
+          },
+          {
+            "role": "assistant",
+            "content": "Carbohydrate timing and protein recovery are key for endurance training."
+          }
+        ]
+      },
+      {
+        "session_id": "s_recipe_chat",
+        "date": "2026/01/18 (Sun) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Do you have any quick pasta recipes?"
+          },
+          {
+            "role": "assistant",
+            "content": "Pasta aglio e olio takes under 20 minutes and uses pantry staples."
+          }
+        ]
+      },
+      {
+        "session_id": "s_meal_prep_generic",
+        "date": "2026/01/20 (Tue) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do most people do meal prep on Sundays?"
+          },
+          {
+            "role": "assistant",
+            "content": "Batch cooking grains, roasting vegetables, and portioning proteins saves a lot of time."
+          }
+        ]
+      },
+      {
+        "session_id": "s_kitchen_gadgets",
+        "date": "2026/01/22 (Thu) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I'm thinking about getting an Instant Pot."
+          },
+          {
+            "role": "assistant",
+            "content": "They're great for batch cooking beans and grains quickly."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "multi_session_home_project",
+    "behavior": "multi_session_synthesis",
+    "question": "I want to make progress on my home this weekend. Any suggestions?",
+    "answer_session_ids": [
+      "s_home_office_goal",
+      "s_backyard_project"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_home_office_goal",
+        "date": "2026/02/01 (Sun) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I've been meaning to reorganize my home office. The cables are everywhere and I need better shelving for my books and equipment."
+          },
+          {
+            "role": "assistant",
+            "content": "Cable management trays and adjustable shelving can transform a cluttered workspace."
+          }
+        ]
+      },
+      {
+        "session_id": "s_backyard_project",
+        "date": "2026/02/03 (Tue) 15:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I also want to build a small raised garden bed in the backyard this spring. I've been buying wood and soil."
+          },
+          {
+            "role": "assistant",
+            "content": "Cedar is a popular choice for raised beds since it resists rot naturally."
+          }
+        ]
+      },
+      {
+        "session_id": "s_weekend_schedule",
+        "date": "2026/02/05 (Thu) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I have two free weekends before the spring break."
+          },
+          {
+            "role": "assistant",
+            "content": "That's a good window to tackle some home projects."
+          }
+        ]
+      },
+      {
+        "session_id": "s_generic_home",
+        "date": "2026/02/06 (Fri) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What home improvement stores are best?"
+          },
+          {
+            "role": "assistant",
+            "content": "Home Depot and Lowe's both have wide selections; local hardware stores are great for specialty items."
+          }
+        ]
+      },
+      {
+        "session_id": "s_cleaning_tips",
+        "date": "2026/02/07 (Sat) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What's the best way to deep-clean a bathroom?"
+          },
+          {
+            "role": "assistant",
+            "content": "Start from the top, scrub grout with a brush, and finish with a disinfectant spray."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "multi_session_presentation_prep",
+    "behavior": "multi_session_synthesis",
+    "question": "Help me get ready for my presentation.",
+    "answer_session_ids": [
+      "s_presentation_topic",
+      "s_anxiety_context"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_presentation_topic",
+        "date": "2026/03/05 (Thu) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I'm giving a 20-minute talk at a tech conference next Friday on AI memory systems and agent cognition."
+          },
+          {
+            "role": "assistant",
+            "content": "That's a rich topic. Grounding your talk in a concrete use case would help the audience connect."
+          }
+        ]
+      },
+      {
+        "session_id": "s_anxiety_context",
+        "date": "2026/03/06 (Fri) 08:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I tend to get very nervous speaking in front of large crowds and my voice shakes when I'm anxious."
+          },
+          {
+            "role": "assistant",
+            "content": "Breathing exercises and practice runs in front of a mirror or small group can help significantly."
+          }
+        ]
+      },
+      {
+        "session_id": "s_slide_design",
+        "date": "2026/03/07 (Sat) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What makes a good slide deck for technical talks?"
+          },
+          {
+            "role": "assistant",
+            "content": "Fewer words per slide, strong visuals, and a consistent color palette tend to work well."
+          }
+        ]
+      },
+      {
+        "session_id": "s_conference_logistics",
+        "date": "2026/03/08 (Sun) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "The venue is in Denver and I'm flying in the night before."
+          },
+          {
+            "role": "assistant",
+            "content": "Altitude in Denver can affect energy levels, so stay hydrated."
+          }
+        ]
+      },
+      {
+        "session_id": "s_generic_public_speaking",
+        "date": "2026/03/09 (Mon) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are some tips for public speaking in general?"
+          },
+          {
+            "role": "assistant",
+            "content": "Eye contact, varied pace, and knowing your opening cold are top fundamentals."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "pref_podcast_recommend_hard",
+    "behavior": "preference_informs_recommendation",
+    "question": "Can you recommend a podcast for my commute?",
+    "answer_session_ids": [
+      "s_podcast_pref"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_podcast_pref",
+        "date": "2026/01/20 (Tue) 07:30",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I really enjoy long-form interview podcasts, especially ones about science, technology, and human psychology. Lex Fridman and Huberman Lab are my favorites."
+          },
+          {
+            "role": "assistant",
+            "content": "Those are both deep-dive shows with heavy research backing."
+          }
+        ]
+      },
+      {
+        "session_id": "s_commute_apps",
+        "date": "2026/01/21 (Wed) 08:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What podcast apps have the best offline download feature?"
+          },
+          {
+            "role": "assistant",
+            "content": "Pocket Casts and Overcast are highly rated for offline listening."
+          }
+        ]
+      },
+      {
+        "session_id": "s_music_streaming",
+        "date": "2026/01/22 (Thu) 19:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Should I use Spotify or Apple Music for my music?"
+          },
+          {
+            "role": "assistant",
+            "content": "Spotify has better discovery; Apple Music integrates better with Apple devices."
+          }
+        ]
+      },
+      {
+        "session_id": "s_commute_time",
+        "date": "2026/01/23 (Fri) 07:45",
+        "turns": [
+          {
+            "role": "user",
+            "content": "My commute is about 40 minutes each way by train."
+          },
+          {
+            "role": "assistant",
+            "content": "That's a great window for a full podcast episode."
+          }
+        ]
+      },
+      {
+        "session_id": "s_news_habits",
+        "date": "2026/01/24 (Sat) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I like to read the news in the morning before heading out."
+          },
+          {
+            "role": "assistant",
+            "content": "Having a brief news ritual helps set context for the day."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "pref_board_game_hard",
+    "behavior": "preference_informs_recommendation",
+    "question": "What board game should I bring to game night?",
+    "answer_session_ids": [
+      "s_game_pref_complex"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_game_pref_complex",
+        "date": "2026/02/01 (Sun) 15:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I love complex strategy games like Terraforming Mars and Wingspan. I don't enjoy games that are purely luck-based."
+          },
+          {
+            "role": "assistant",
+            "content": "Engine-building and tableau games would be right up your alley."
+          }
+        ]
+      },
+      {
+        "session_id": "s_game_night_group",
+        "date": "2026/02/02 (Mon) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "There will be about six people at game night, all experienced gamers."
+          },
+          {
+            "role": "assistant",
+            "content": "A larger group of experienced players can handle moderately complex games well."
+          }
+        ]
+      },
+      {
+        "session_id": "s_game_storage",
+        "date": "2026/02/03 (Tue) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I have a game shelf with about 30 games at home."
+          },
+          {
+            "role": "assistant",
+            "content": "That's a solid collection \u2014 organization inserts can help."
+          }
+        ]
+      },
+      {
+        "session_id": "s_game_night_generic",
+        "date": "2026/02/04 (Wed) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Where is a good place to find game night venues?"
+          },
+          {
+            "role": "assistant",
+            "content": "Local game stores often host open game nights on weekends."
+          }
+        ]
+      },
+      {
+        "session_id": "s_generic_entertainment",
+        "date": "2026/02/05 (Thu) 16:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are some good streaming shows for a group watch?"
+          },
+          {
+            "role": "assistant",
+            "content": "Stranger Things and The Bear are popular for group watching."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "goal_book_writing_hard",
+    "behavior": "goal_informs_advice",
+    "question": "How should I structure my writing sessions this week?",
+    "answer_session_ids": [
+      "s_book_goal"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_book_goal",
+        "date": "2026/03/10 (Tue) 20:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I'm writing a non-fiction book on urban planning. I want to finish the first draft by the end of the year. I've been working on it on and off but can't stay consistent."
+          },
+          {
+            "role": "assistant",
+            "content": "A daily word count target, even 300 words, builds momentum without overwhelming you."
+          }
+        ]
+      },
+      {
+        "session_id": "s_calendar_generic",
+        "date": "2026/03/11 (Wed) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I have a pretty packed schedule this week with work meetings."
+          },
+          {
+            "role": "assistant",
+            "content": "Blocking time on the calendar in advance helps protect creative work time."
+          }
+        ]
+      },
+      {
+        "session_id": "s_writing_tools",
+        "date": "2026/03/12 (Thu) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What writing software do professional authors use?"
+          },
+          {
+            "role": "assistant",
+            "content": "Scrivener is popular for book-length projects; Ulysses and Obsidian also work well."
+          }
+        ]
+      },
+      {
+        "session_id": "s_productivity_generic",
+        "date": "2026/03/13 (Fri) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What's the most effective productivity method?"
+          },
+          {
+            "role": "assistant",
+            "content": "Time-blocking and the Pomodoro Technique are both well-studied approaches."
+          }
+        ]
+      },
+      {
+        "session_id": "s_weekend_plans",
+        "date": "2026/03/14 (Sat) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I have a free Saturday morning this weekend."
+          },
+          {
+            "role": "assistant",
+            "content": "That's a good window for a focused creative session."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "goal_career_transition",
+    "behavior": "goal_informs_advice",
+    "question": "What should I focus on this month to move forward professionally?",
+    "answer_session_ids": [
+      "s_career_goal"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_career_goal",
+        "date": "2026/01/05 (Mon) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I've been a product manager for eight years and I want to transition into product strategy consulting. I've started networking but haven't landed any clients yet."
+          },
+          {
+            "role": "assistant",
+            "content": "Building a public portfolio and reaching out to your existing network are usually the fastest paths early on."
+          }
+        ]
+      },
+      {
+        "session_id": "s_linkedin_generic",
+        "date": "2026/01/06 (Tue) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do I improve my LinkedIn profile?"
+          },
+          {
+            "role": "assistant",
+            "content": "A strong headline, featured section, and regular posts establish authority."
+          }
+        ]
+      },
+      {
+        "session_id": "s_networking_event",
+        "date": "2026/01/07 (Wed) 15:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I'm going to a startup networking event next week."
+          },
+          {
+            "role": "assistant",
+            "content": "Have a clear one-sentence description of what you offer ready to go."
+          }
+        ]
+      },
+      {
+        "session_id": "s_freelance_generic",
+        "date": "2026/01/08 (Thu) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What platforms do freelancers use to find clients?"
+          },
+          {
+            "role": "assistant",
+            "content": "Toptal, Upwork, and direct outreach through LinkedIn all work depending on the niche."
+          }
+        ]
+      },
+      {
+        "session_id": "s_personal_brand",
+        "date": "2026/01/09 (Fri) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Should I start a newsletter or a blog to share my expertise?"
+          },
+          {
+            "role": "assistant",
+            "content": "A newsletter builds a direct audience; a blog gets organic search traffic. Substack combines both."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "temporal_fitness_tracker",
+    "behavior": "temporal_supersession",
+    "question": "Which fitness tracker am I currently using?",
+    "answer_session_ids": [
+      "s_tracker_new"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_tracker_old",
+        "date": "2026/01/01 (Thu) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I've been using a Fitbit for the last two years for step counting and sleep tracking."
+          },
+          {
+            "role": "assistant",
+            "content": "Fitbit is reliable for daily activity and sleep monitoring."
+          }
+        ]
+      },
+      {
+        "session_id": "s_tracker_new",
+        "date": "2026/02/15 (Sun) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I switched to a WHOOP strap last month. The recovery and strain scores have been really useful for my training."
+          },
+          {
+            "role": "assistant",
+            "content": "WHOOP's recovery-focused metrics are especially popular with serious athletes."
+          }
+        ]
+      },
+      {
+        "session_id": "s_fitness_generic",
+        "date": "2026/02/16 (Mon) 08:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are the best exercises for improving VO2 max?"
+          },
+          {
+            "role": "assistant",
+            "content": "Zone 2 cardio and high-intensity intervals are both effective."
+          }
+        ]
+      },
+      {
+        "session_id": "s_sleep_habits",
+        "date": "2026/02/17 (Tue) 21:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I try to get at least seven hours of sleep every night."
+          },
+          {
+            "role": "assistant",
+            "content": "Consistency in sleep timing matters as much as duration."
+          }
+        ]
+      },
+      {
+        "session_id": "s_tech_gadgets",
+        "date": "2026/02/18 (Wed) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What's the difference between Apple Watch and Garmin for athletes?"
+          },
+          {
+            "role": "assistant",
+            "content": "Garmin excels in GPS accuracy and battery life; Apple Watch has better ecosystem integration."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "temporal_coffee_habit",
+    "behavior": "temporal_supersession",
+    "question": "What is my current coffee situation?",
+    "answer_session_ids": [
+      "s_coffee_now"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_coffee_old",
+        "date": "2025/12/01 (Mon) 08:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I drink three cups of espresso a day from my DeLonghi machine."
+          },
+          {
+            "role": "assistant",
+            "content": "That's a solid espresso routine."
+          }
+        ]
+      },
+      {
+        "session_id": "s_coffee_now",
+        "date": "2026/02/20 (Fri) 07:30",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I quit caffeine entirely six weeks ago. I switched to matcha and herbal teas. The espresso machine is just sitting on the counter now."
+          },
+          {
+            "role": "assistant",
+            "content": "Matcha still gives a gentler caffeine lift with L-theanine for focus."
+          }
+        ]
+      },
+      {
+        "session_id": "s_diet_change",
+        "date": "2026/02/21 (Sat) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I've made several diet changes this year \u2014 less sugar, more whole foods."
+          },
+          {
+            "role": "assistant",
+            "content": "Gradual changes tend to stick better than dramatic overhauls."
+          }
+        ]
+      },
+      {
+        "session_id": "s_kitchen_appliances",
+        "date": "2026/02/22 (Sun) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I'm thinking of getting a new blender for smoothies."
+          },
+          {
+            "role": "assistant",
+            "content": "Vitamix and Ninja are both highly rated. Vitamix is more powerful but pricier."
+          }
+        ]
+      },
+      {
+        "session_id": "s_morning_routine",
+        "date": "2026/02/23 (Mon) 07:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "My morning routine is a 20-minute walk, then journaling, then breakfast."
+          },
+          {
+            "role": "assistant",
+            "content": "That's a solid anchored routine to start the day intentionally."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "decision_framework_choice",
+    "behavior": "decision_retrieval",
+    "question": "Which project management framework did I decide to use?",
+    "answer_session_ids": [
+      "s_pm_decision"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_pm_options",
+        "date": "2026/01/15 (Thu) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I'm evaluating Kanban vs Scrum vs OKRs for our 6-person startup team."
+          },
+          {
+            "role": "assistant",
+            "content": "Kanban suits continuous flow; Scrum works well with fixed sprints; OKRs align goals at a higher level."
+          }
+        ]
+      },
+      {
+        "session_id": "s_pm_decision",
+        "date": "2026/01/22 (Thu) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "We went with Kanban after piloting it for two weeks. The team liked the flexibility and we don't have fixed sprint pressure."
+          },
+          {
+            "role": "assistant",
+            "content": "Kanban's pull-based system works well for teams with variable workloads."
+          }
+        ]
+      },
+      {
+        "session_id": "s_team_meeting",
+        "date": "2026/01/23 (Fri) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "We have a team standup every Monday and Wednesday."
+          },
+          {
+            "role": "assistant",
+            "content": "Regular standups keep async teams aligned without too much meeting overhead."
+          }
+        ]
+      },
+      {
+        "session_id": "s_tools_generic",
+        "date": "2026/01/24 (Sat) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What project management tools integrate well with Slack?"
+          },
+          {
+            "role": "assistant",
+            "content": "Asana, Linear, and Notion all have strong Slack integrations."
+          }
+        ]
+      },
+      {
+        "session_id": "s_productivity_culture",
+        "date": "2026/01/25 (Sun) 15:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do successful startups maintain their culture as they scale?"
+          },
+          {
+            "role": "assistant",
+            "content": "Documentation of values, structured onboarding, and regular retrospectives help."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "open_loop_book_club",
+    "behavior": "open_loop_retrieval",
+    "question": "Is there something I was supposed to follow up on this week?",
+    "answer_session_ids": [
+      "s_book_club_loop"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_book_club_loop",
+        "date": "2026/02/10 (Tue) 19:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I told the book club I'd send the next reading pick by Thursday. Remind me to message them by Wednesday evening."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted \u2014 send the book club pick before Wednesday at 9 PM."
+          }
+        ]
+      },
+      {
+        "session_id": "s_reading_habits",
+        "date": "2026/02/11 (Wed) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I try to read for 30 minutes before bed every night."
+          },
+          {
+            "role": "assistant",
+            "content": "Reading before bed is a great wind-down ritual."
+          }
+        ]
+      },
+      {
+        "session_id": "s_social_plans",
+        "date": "2026/02/12 (Thu) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "We're meeting up at Maya's place on the weekend."
+          },
+          {
+            "role": "assistant",
+            "content": "That sounds like a fun gathering."
+          }
+        ]
+      },
+      {
+        "session_id": "s_calendar_check",
+        "date": "2026/02/13 (Fri) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What's on my schedule this week?"
+          },
+          {
+            "role": "assistant",
+            "content": "I don't have direct calendar access, but you can check your Google Calendar."
+          }
+        ]
+      },
+      {
+        "session_id": "s_book_recommendations",
+        "date": "2026/02/14 (Sat) 15:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are the best books on behavioral economics?"
+          },
+          {
+            "role": "assistant",
+            "content": "Thinking Fast and Slow, Nudge, and Predictably Irrational are all classics."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "constraint_event_planning_hard",
+    "behavior": "constraint_informs_advice",
+    "question": "What should I serve at my dinner party?",
+    "answer_session_ids": [
+      "s_dinner_party_constraints"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_dinner_party_constraints",
+        "date": "2026/03/01 (Sun) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I'm hosting a dinner party for 8 people next weekend. Two guests are gluten-free, one is vegan, and one has a tree nut allergy. I want to serve something impressive without it becoming a logistical nightmare."
+          },
+          {
+            "role": "assistant",
+            "content": "A naturally gluten-free grain like risotto or polenta as a base can accommodate most of those restrictions easily."
+          }
+        ]
+      },
+      {
+        "session_id": "s_dinner_generic",
+        "date": "2026/03/02 (Mon) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are some crowd-pleasing appetizers for a dinner party?"
+          },
+          {
+            "role": "assistant",
+            "content": "Bruschetta, stuffed mushrooms, and a charcuterie board are popular choices."
+          }
+        ]
+      },
+      {
+        "session_id": "s_wine_pairing",
+        "date": "2026/03/03 (Tue) 19:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What wines pair well with Italian food?"
+          },
+          {
+            "role": "assistant",
+            "content": "Chianti and Pinot Grigio are classic Italian pairings."
+          }
+        ]
+      },
+      {
+        "session_id": "s_kitchen_timing",
+        "date": "2026/03/04 (Wed) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do you time multiple dishes so everything comes out at once?"
+          },
+          {
+            "role": "assistant",
+            "content": "Work backwards from serving time and prep in order of longest cook time first."
+          }
+        ]
+      },
+      {
+        "session_id": "s_decor_ideas",
+        "date": "2026/03/05 (Thu) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Any ideas for simple table decor for a dinner party?"
+          },
+          {
+            "role": "assistant",
+            "content": "Fresh flowers, candles, and cloth napkins go a long way."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "temporal_exercise_routine",
+    "behavior": "temporal_supersession",
+    "question": "What does my current workout routine look like?",
+    "answer_session_ids": [
+      "s_workout_new"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_workout_old",
+        "date": "2025/11/01 (Sat) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I do CrossFit three times a week and swim on Saturdays."
+          },
+          {
+            "role": "assistant",
+            "content": "That's a solid mix of strength and cardio."
+          }
+        ]
+      },
+      {
+        "session_id": "s_workout_mid",
+        "date": "2026/01/10 (Sat) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I had to stop CrossFit after a shoulder injury and switched to yoga and light cycling."
+          },
+          {
+            "role": "assistant",
+            "content": "That's a smart pivot to protect the shoulder during recovery."
+          }
+        ]
+      },
+      {
+        "session_id": "s_workout_new",
+        "date": "2026/03/01 (Sun) 08:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "My shoulder is fully healed and I've started a structured strength program: three days of lifting, two days of zone 2 running. Dropped yoga."
+          },
+          {
+            "role": "assistant",
+            "content": "A structured strength-plus-cardio split is great for overall fitness."
+          }
+        ]
+      },
+      {
+        "session_id": "s_workout_generic",
+        "date": "2026/03/02 (Mon) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What's a good pre-workout meal?"
+          },
+          {
+            "role": "assistant",
+            "content": "Oatmeal with banana or a small smoothie about an hour before works well."
+          }
+        ]
+      },
+      {
+        "session_id": "s_gym_membership",
+        "date": "2026/03/03 (Tue) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I'm debating between staying at my current gym or joining a new facility closer to home."
+          },
+          {
+            "role": "assistant",
+            "content": "Proximity is one of the biggest factors in gym consistency."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "entity_instrument_gift",
+    "behavior": "episodic_interest_inference",
+    "question": "What would make a great gift for my son?",
+    "answer_session_ids": [
+      "s_son_music"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_son_music",
+        "date": "2026/01/20 (Tue) 16:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "My son Marcus has been really into drumming lately. He's been using practice pads at school and keeps asking about getting a proper drum kit at home."
+          },
+          {
+            "role": "assistant",
+            "content": "An electronic drum kit could be a great compromise for home practice \u2014 quieter and space-efficient."
+          }
+        ]
+      },
+      {
+        "session_id": "s_gift_generic_ideas",
+        "date": "2026/01/21 (Wed) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are popular gifts for teenage boys?"
+          },
+          {
+            "role": "assistant",
+            "content": "Gaming peripherals, headphones, and sports gear are commonly popular."
+          }
+        ]
+      },
+      {
+        "session_id": "s_parenting_chat",
+        "date": "2026/01/22 (Thu) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Marcus is 14 and really focused in school this year."
+          },
+          {
+            "role": "assistant",
+            "content": "That dedication will serve him well."
+          }
+        ]
+      },
+      {
+        "session_id": "s_tech_gift",
+        "date": "2026/01/23 (Fri) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Would a new tablet be a good gift for a teenager?"
+          },
+          {
+            "role": "assistant",
+            "content": "It depends on whether they need it for school or creative projects."
+          }
+        ]
+      },
+      {
+        "session_id": "s_sports_gift",
+        "date": "2026/01/24 (Sat) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "My son used to play baseball but quit last spring."
+          },
+          {
+            "role": "assistant",
+            "content": "Interests shift \u2014 it's good to follow his current passions."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "entity_dog_activity",
+    "behavior": "episodic_interest_inference",
+    "question": "What fun activity should I plan for this weekend?",
+    "answer_session_ids": [
+      "s_dog_context"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_dog_context",
+        "date": "2026/02/05 (Thu) 08:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "We adopted a golden retriever puppy two months ago, named Biscuit. He needs a lot of exercise and socialization."
+          },
+          {
+            "role": "assistant",
+            "content": "Puppy playdates and dog-friendly parks are great for socialization."
+          }
+        ]
+      },
+      {
+        "session_id": "s_weekend_generic",
+        "date": "2026/02/06 (Fri) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are some things to do on weekends in the Austin area?"
+          },
+          {
+            "role": "assistant",
+            "content": "Barton Springs, the Greenbelt trails, and Zilker Park are popular Austin outdoor spots."
+          }
+        ]
+      },
+      {
+        "session_id": "s_weather_chat",
+        "date": "2026/02/07 (Sat) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What's a good temperature for outdoor activities?"
+          },
+          {
+            "role": "assistant",
+            "content": "Most people find 65-75\u00b0F ideal for outdoor exercise."
+          }
+        ]
+      },
+      {
+        "session_id": "s_family_plans",
+        "date": "2026/02/08 (Sun) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "My wife and I are thinking about visiting her parents next month."
+          },
+          {
+            "role": "assistant",
+            "content": "That sounds like a nice family visit."
+          }
+        ]
+      },
+      {
+        "session_id": "s_hobby_explore",
+        "date": "2026/02/09 (Mon) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I'd like to pick up photography as a hobby."
+          },
+          {
+            "role": "assistant",
+            "content": "A mirrorless entry-level camera like a Sony a6000 or Fujifilm X-T30 is a great start."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "open_loop_tax_docs",
+    "behavior": "open_loop_retrieval",
+    "question": "What was I supposed to do that I haven't done yet?",
+    "answer_session_ids": [
+      "s_tax_followup"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_tax_followup",
+        "date": "2026/02/20 (Fri) 16:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I still need to send my accountant the 2025 rental property expense receipts. Remind me next week \u2014 this has been on my list forever."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted. I'll flag this next week: send rental expense receipts to your accountant."
+          }
+        ]
+      },
+      {
+        "session_id": "s_finance_generic",
+        "date": "2026/02/21 (Sat) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What's the best way to track personal expenses?"
+          },
+          {
+            "role": "assistant",
+            "content": "Mint, YNAB, and a simple spreadsheet are all popular methods depending on how hands-on you want to be."
+          }
+        ]
+      },
+      {
+        "session_id": "s_general_tasks",
+        "date": "2026/02/22 (Sun) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I have a lot on my plate this month."
+          },
+          {
+            "role": "assistant",
+            "content": "Breaking tasks into weekly priorities can help reduce the overwhelm."
+          }
+        ]
+      },
+      {
+        "session_id": "s_work_project",
+        "date": "2026/02/23 (Mon) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I have a product roadmap review with the exec team on Wednesday."
+          },
+          {
+            "role": "assistant",
+            "content": "Focusing on outcome metrics rather than features tends to resonate with executive audiences."
+          }
+        ]
+      },
+      {
+        "session_id": "s_email_habits",
+        "date": "2026/02/24 (Tue) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do you manage email overload?"
+          },
+          {
+            "role": "assistant",
+            "content": "Inbox Zero, scheduled email times, and aggressive unsubscribing are common strategies."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "episodic_pottery_workshop",
+    "behavior": "episodic_interest_inference",
+    "question": "What class or workshop should I sign up for?",
+    "answer_session_ids": [
+      "s_pottery_interest"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_pottery_interest",
+        "date": "2026/03/01 (Sun) 15:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I went to a pottery studio open house last weekend and absolutely loved it. Working with clay was so meditative. I want to learn more."
+          },
+          {
+            "role": "assistant",
+            "content": "Pottery is a wonderful tactile hobby. Many community centers and local studios offer beginner wheel-throwing classes."
+          }
+        ]
+      },
+      {
+        "session_id": "s_hobby_generic",
+        "date": "2026/03/02 (Mon) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are good creative hobbies for stress relief?"
+          },
+          {
+            "role": "assistant",
+            "content": "Painting, drawing, ceramics, woodworking, and knitting are all commonly cited for stress relief."
+          }
+        ]
+      },
+      {
+        "session_id": "s_weekend_activities",
+        "date": "2026/03/03 (Tue) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I want to do something different on weekends instead of just watching TV."
+          },
+          {
+            "role": "assistant",
+            "content": "Classes, volunteering, hiking clubs, and maker spaces are good options for structured weekend activities."
+          }
+        ]
+      },
+      {
+        "session_id": "s_art_supply",
+        "date": "2026/03/04 (Wed) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I bought some watercolor supplies but haven't used them yet."
+          },
+          {
+            "role": "assistant",
+            "content": "Starting with simple still-life studies helps build foundational watercolor skills."
+          }
+        ]
+      },
+      {
+        "session_id": "s_local_events",
+        "date": "2026/03/05 (Thu) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What's a good site to find local events?"
+          },
+          {
+            "role": "assistant",
+            "content": "Eventbrite, Meetup, and local Facebook groups are good resources for community events."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "multi_session_birthday_trip",
+    "behavior": "multi_session_synthesis",
+    "question": "Help me plan something special for my birthday.",
+    "answer_session_ids": [
+      "s_birthday_preferences",
+      "s_travel_interest"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_birthday_preferences",
+        "date": "2026/01/10 (Sat) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "My birthday is in April and I want to do something really memorable this year. I want it to feel like a real celebration, not just another dinner."
+          },
+          {
+            "role": "assistant",
+            "content": "A trip or experience-based celebration tends to create stronger memories than a dinner."
+          }
+        ]
+      },
+      {
+        "session_id": "s_travel_interest",
+        "date": "2026/01/15 (Thu) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I've always wanted to visit Japan. The food culture, architecture, and the contrast between ancient temples and modern cities fascinates me."
+          },
+          {
+            "role": "assistant",
+            "content": "Japan in spring with cherry blossoms is particularly magical."
+          }
+        ]
+      },
+      {
+        "session_id": "s_budget_context",
+        "date": "2026/01/20 (Tue) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I've been saving up for a bigger trip. I have about $4,000 set aside for travel."
+          },
+          {
+            "role": "assistant",
+            "content": "That's a solid budget for a 10-12 day international trip if you plan carefully."
+          }
+        ]
+      },
+      {
+        "session_id": "s_generic_travel",
+        "date": "2026/01/22 (Thu) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are the best travel booking sites?"
+          },
+          {
+            "role": "assistant",
+            "content": "Google Flights for price tracking, Booking.com and Airbnb for accommodation."
+          }
+        ]
+      },
+      {
+        "session_id": "s_april_schedule",
+        "date": "2026/01/25 (Sun) 15:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "April looks fairly clear at work. I could take up to two weeks off."
+          },
+          {
+            "role": "assistant",
+            "content": "Two weeks is enough for a meaningful international trip with some recovery time."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "decision_job_offer",
+    "behavior": "decision_retrieval",
+    "question": "What did I decide about the job offer?",
+    "answer_session_ids": [
+      "s_job_decision"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_job_options",
+        "date": "2026/02/01 (Sun) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I have two job offers: one from a Series B startup with higher upside but more risk, and one from a large tech company with stability and great benefits."
+          },
+          {
+            "role": "assistant",
+            "content": "Risk tolerance and current financial situation are the key personal factors to weigh here."
+          }
+        ]
+      },
+      {
+        "session_id": "s_job_decision",
+        "date": "2026/02/10 (Mon) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I accepted the Series B startup offer. The mission resonated with me and the equity package was compelling. I start in two weeks."
+          },
+          {
+            "role": "assistant",
+            "content": "Exciting! Starting strong with relationships and quick wins in the first 90 days goes a long way."
+          }
+        ]
+      },
+      {
+        "session_id": "s_career_generic",
+        "date": "2026/02/11 (Tue) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What should I focus on in my first week at a new job?"
+          },
+          {
+            "role": "assistant",
+            "content": "Listen more than you talk, meet as many people as possible, and understand the team's top priorities."
+          }
+        ]
+      },
+      {
+        "session_id": "s_startup_culture",
+        "date": "2026/02/12 (Wed) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What makes startup culture different from large companies?"
+          },
+          {
+            "role": "assistant",
+            "content": "More autonomy, faster decisions, higher ambiguity, and broader scope of work are common differences."
+          }
+        ]
+      },
+      {
+        "session_id": "s_negotiation_tips",
+        "date": "2026/02/13 (Thu) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do you negotiate a job offer effectively?"
+          },
+          {
+            "role": "assistant",
+            "content": "Know your BATNA, focus on total comp not just salary, and always negotiate in writing."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "episodic_back_pain_exercise",
+    "behavior": "episodic_interest_inference",
+    "question": "What type of exercise should I do?",
+    "answer_session_ids": [
+      "s_back_pain_context"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_back_pain_context",
+        "date": "2026/02/10 (Tue) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I've been dealing with lower back pain for the last three months. My physical therapist says I should avoid heavy lifting and high-impact activities for now."
+          },
+          {
+            "role": "assistant",
+            "content": "Swimming, walking, and gentle yoga are often PT-approved for lower back recovery."
+          }
+        ]
+      },
+      {
+        "session_id": "s_exercise_generic",
+        "date": "2026/02/11 (Wed) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are the best exercises for overall fitness?"
+          },
+          {
+            "role": "assistant",
+            "content": "A mix of cardiovascular, strength, and flexibility training is ideal."
+          }
+        ]
+      },
+      {
+        "session_id": "s_gym_question",
+        "date": "2026/02/12 (Thu) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I used to do heavy deadlifts but haven't been to the gym in months."
+          },
+          {
+            "role": "assistant",
+            "content": "Returning gradually with lighter weights and proper form is key after a break."
+          }
+        ]
+      },
+      {
+        "session_id": "s_wellness_generic",
+        "date": "2026/02/13 (Fri) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What is the best approach to staying healthy overall?"
+          },
+          {
+            "role": "assistant",
+            "content": "Sleep, stress management, nutrition, and consistent movement are the four pillars of health."
+          }
+        ]
+      },
+      {
+        "session_id": "s_motivation_chat",
+        "date": "2026/02/14 (Sat) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I struggle to stay motivated to exercise consistently."
+          },
+          {
+            "role": "assistant",
+            "content": "Habit stacking, accountability partners, and tracking progress all help with exercise consistency."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "pref_tea_recommend",
+    "behavior": "preference_informs_recommendation",
+    "question": "What tea should I try?",
+    "answer_session_ids": [
+      "s_tea_pref"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_tea_pref",
+        "date": "2026/01/15 (Thu) 16:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I've been really getting into oolong and high mountain teas lately. I love the floral and slightly roasted notes. Tie Guan Yin is my current favorite."
+          },
+          {
+            "role": "assistant",
+            "content": "High mountain oolongs like Alishan or Lishan would be a natural next step from Tie Guan Yin."
+          }
+        ]
+      },
+      {
+        "session_id": "s_hot_drinks_generic",
+        "date": "2026/01/16 (Fri) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are some good hot drinks for cold weather?"
+          },
+          {
+            "role": "assistant",
+            "content": "Hot chocolate, mulled cider, chai, and bone broth are all warming options."
+          }
+        ]
+      },
+      {
+        "session_id": "s_caffeine_chat",
+        "date": "2026/01/17 (Sat) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I'm trying to cut back on coffee but don't want to give up caffeine entirely."
+          },
+          {
+            "role": "assistant",
+            "content": "Green tea and matcha offer a gentler caffeine curve with L-theanine."
+          }
+        ]
+      },
+      {
+        "session_id": "s_afternoon_routine",
+        "date": "2026/01/18 (Sun) 15:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I usually have a hot drink at around 3 PM as a break."
+          },
+          {
+            "role": "assistant",
+            "content": "A mid-afternoon ritual is a great way to reset focus."
+          }
+        ]
+      },
+      {
+        "session_id": "s_food_explore",
+        "date": "2026/01/19 (Mon) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I enjoy trying foods and drinks from different cultures."
+          },
+          {
+            "role": "assistant",
+            "content": "Exploring regional cuisines and beverages is one of the most accessible ways to experience different cultures."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "constraint_quick_cheap_meal",
+    "behavior": "constraint_informs_advice",
+    "question": "What should I make for dinner?",
+    "answer_session_ids": [
+      "s_quick_cheap_constraints"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_quick_cheap_constraints",
+        "date": "2026/03/10 (Tue) 17:30",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I only have about 20 minutes to cook tonight and I'm trying to keep grocery spending under $50 a week. I have eggs, pasta, canned chickpeas, and some frozen spinach at home."
+          },
+          {
+            "role": "assistant",
+            "content": "Pasta e fagioli or a quick egg and chickpea skillet would work perfectly with what you have."
+          }
+        ]
+      },
+      {
+        "session_id": "s_meal_ideas_generic",
+        "date": "2026/03/11 (Wed) 12:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What are some easy weeknight meals?"
+          },
+          {
+            "role": "assistant",
+            "content": "Sheet pan dinners, stir-fries, and one-pot pastas are popular for their simplicity."
+          }
+        ]
+      },
+      {
+        "session_id": "s_grocery_budget",
+        "date": "2026/03/12 (Thu) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do people reduce their grocery budget?"
+          },
+          {
+            "role": "assistant",
+            "content": "Meal planning, buying in bulk, and minimizing food waste are the biggest levers."
+          }
+        ]
+      },
+      {
+        "session_id": "s_cooking_tips",
+        "date": "2026/03/13 (Fri) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What cooking skills are most worth learning?"
+          },
+          {
+            "role": "assistant",
+            "content": "Knife skills, making sauces from scratch, and understanding heat control will improve almost every dish."
+          }
+        ]
+      },
+      {
+        "session_id": "s_dinner_plans",
+        "date": "2026/03/14 (Sat) 18:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "My partner and I are going out to dinner this weekend."
+          },
+          {
+            "role": "assistant",
+            "content": "Enjoy the night out!"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "goal_exam_study_plan",
+    "behavior": "goal_informs_advice",
+    "question": "How should I study this weekend?",
+    "answer_session_ids": [
+      "s_exam_goal"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_exam_goal",
+        "date": "2026/02/20 (Fri) 18:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I have the PMP exam in three weeks. I've been studying but I keep getting stuck on the agile and hybrid frameworks sections. I need to do more practice questions."
+          },
+          {
+            "role": "assistant",
+            "content": "Focused timed practice questions on agile hybrid scenarios will help most at this stage. PMI has official mock exams worth doing."
+          }
+        ]
+      },
+      {
+        "session_id": "s_study_habits",
+        "date": "2026/02/21 (Sat) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What's the best way to study for a certification exam?"
+          },
+          {
+            "role": "assistant",
+            "content": "Spaced repetition, active recall, and timed practice exams are all research-backed approaches."
+          }
+        ]
+      },
+      {
+        "session_id": "s_weekend_generic_2",
+        "date": "2026/02/22 (Sun) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I have both Saturday and Sunday free this weekend."
+          },
+          {
+            "role": "assistant",
+            "content": "That's a good block of time for deep study or creative work."
+          }
+        ]
+      },
+      {
+        "session_id": "s_focus_techniques",
+        "date": "2026/02/23 (Mon) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do you stay focused when studying for long periods?"
+          },
+          {
+            "role": "assistant",
+            "content": "Pomodoro intervals, background noise like lo-fi music, and reducing phone distractions work for many people."
+          }
+        ]
+      },
+      {
+        "session_id": "s_pm_career",
+        "date": "2026/02/24 (Tue) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Is the PMP certification worth it for a project manager?"
+          },
+          {
+            "role": "assistant",
+            "content": "It's widely recognized and often leads to higher compensation. Worth it if you're committed to PM as a career path."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "episodic_kid_science_fair",
+    "behavior": "episodic_interest_inference",
+    "question": "What should I help my child work on this weekend?",
+    "answer_session_ids": [
+      "s_science_fair_context"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_science_fair_context",
+        "date": "2026/02/25 (Wed) 16:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "My daughter Emma is in 5th grade and her science fair project is due in two weeks. She wants to test how different liquids affect plant growth. She's collected soil and pots but hasn't started the actual experiment yet."
+          },
+          {
+            "role": "assistant",
+            "content": "Starting the plant watering trials immediately is critical since the experiment needs at least 10-14 days to show measurable results."
+          }
+        ]
+      },
+      {
+        "session_id": "s_parenting_generic",
+        "date": "2026/02/26 (Thu) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "How do I make learning fun for a 10-year-old?"
+          },
+          {
+            "role": "assistant",
+            "content": "Hands-on experiments, educational games, and connecting topics to their interests works well at that age."
+          }
+        ]
+      },
+      {
+        "session_id": "s_school_schedule",
+        "date": "2026/02/27 (Fri) 08:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "Emma has soccer practice on Saturday mornings and piano on Wednesday afternoons."
+          },
+          {
+            "role": "assistant",
+            "content": "That's a good balance of activities for a 5th grader."
+          }
+        ]
+      },
+      {
+        "session_id": "s_education_generic",
+        "date": "2026/02/28 (Sat) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What STEM resources are good for kids?"
+          },
+          {
+            "role": "assistant",
+            "content": "Khan Academy Kids, Scratch for coding, and National Geographic Young Explorer are all excellent."
+          }
+        ]
+      },
+      {
+        "session_id": "s_weekend_kids",
+        "date": "2026/03/01 (Sun) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "We have a family movie night planned on Saturday."
+          },
+          {
+            "role": "assistant",
+            "content": "That sounds like a great family ritual!"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "open_loop_grant_application",
+    "behavior": "open_loop_retrieval",
+    "question": "Do I have any outstanding tasks I need to take care of?",
+    "answer_session_ids": [
+      "s_grant_followup"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_grant_followup",
+        "date": "2026/03/05 (Thu) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I started a small arts grant application but didn't finish the budget section. The deadline is March 20th. I should really get back to that."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted \u2014 finish the budget section for the arts grant by March 20th."
+          }
+        ]
+      },
+      {
+        "session_id": "s_tasks_general",
+        "date": "2026/03/06 (Fri) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I have a lot of loose ends at work this quarter."
+          },
+          {
+            "role": "assistant",
+            "content": "A weekly review can help surface and prioritize those."
+          }
+        ]
+      },
+      {
+        "session_id": "s_creative_project",
+        "date": "2026/03/07 (Sat) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I'm working on a community mural project with a local nonprofit."
+          },
+          {
+            "role": "assistant",
+            "content": "That sounds like a meaningful community contribution."
+          }
+        ]
+      },
+      {
+        "session_id": "s_admin_chat",
+        "date": "2026/03/08 (Sun) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I really need to get better at handling admin tasks."
+          },
+          {
+            "role": "assistant",
+            "content": "Batching admin work into a single weekly block can reduce context-switching."
+          }
+        ]
+      },
+      {
+        "session_id": "s_calendar_empty",
+        "date": "2026/03/09 (Mon) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "My calendar looks pretty open next week."
+          },
+          {
+            "role": "assistant",
+            "content": "A lighter week is a good time to tackle longer-horizon projects."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "open_loop_vet_appointment",
+    "behavior": "open_loop_retrieval",
+    "question": "Is there something I need to schedule or book?",
+    "answer_session_ids": [
+      "s_vet_loop"
+    ],
+    "sessions": [
+      {
+        "session_id": "s_vet_loop",
+        "date": "2026/03/01 (Sun) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I need to schedule Biscuit's 6-month checkup with the vet. I keep forgetting. The vet clinic is only open weekdays."
+          },
+          {
+            "role": "assistant",
+            "content": "Noted \u2014 schedule Biscuit's vet checkup. Call during weekday business hours."
+          }
+        ]
+      },
+      {
+        "session_id": "s_appointments_generic",
+        "date": "2026/03/02 (Mon) 11:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I also need to get my car serviced at some point."
+          },
+          {
+            "role": "assistant",
+            "content": "Regular oil changes every 5,000-7,000 miles keep the engine running well."
+          }
+        ]
+      },
+      {
+        "session_id": "s_scheduling_tips",
+        "date": "2026/03/03 (Tue) 09:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I struggle with scheduling and booking things in advance."
+          },
+          {
+            "role": "assistant",
+            "content": "Batch booking tasks at the start of each month helps prevent things from slipping through."
+          }
+        ]
+      },
+      {
+        "session_id": "s_pet_care_generic",
+        "date": "2026/03/04 (Wed) 14:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "What's the best flea prevention for dogs?"
+          },
+          {
+            "role": "assistant",
+            "content": "Veterinary-recommended options include Bravecto, NexGard, and Simparica Trio."
+          }
+        ]
+      },
+      {
+        "session_id": "s_personal_admin",
+        "date": "2026/03/05 (Thu) 10:00",
+        "turns": [
+          {
+            "role": "user",
+            "content": "I need to renew my driver's license this year."
+          },
+          {
+            "role": "assistant",
+            "content": "Most states offer online renewal now \u2014 worth checking if you qualify."
+          }
+        ]
+      }
+    ]
+  }
+]

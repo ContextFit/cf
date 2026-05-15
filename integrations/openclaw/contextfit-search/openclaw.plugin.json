@@ -1,0 +1,33 @@
+{
+  "id": "contextfit-search",
+  "kind": "context-engine",
+  "activation": {
+    "onStartup": false
+  },
+  "contracts": {
+    "tools": ["contextfit_search"]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "baseUrl": { "type": "string" },
+      "defaultKb": { "type": "string" },
+      "engine": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "baseUrl": { "type": "string" },
+          "defaultKb": { "type": "string" },
+          "autoRecall": { "type": "boolean" },
+          "method": { "type": "string", "enum": ["hybrid", "exact", "bm25", "semantic", "sid", "graph"] },
+          "topK": { "type": "number", "minimum": 1, "maximum": 20 },
+          "includeText": { "type": "boolean" },
+          "returnSpans": { "type": "boolean" },
+          "maxPromptChars": { "type": "number", "minimum": 100, "maximum": 12000 },
+          "maxAdditionChars": { "type": "number", "minimum": 500, "maximum": 20000 }
+        }
+      }
+    }
+  }
+}

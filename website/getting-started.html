@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Getting Started — ContextFit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --bg:#080d18; --surface:#0f1724; --surface2:#151e30; --border:#1e2d45; --border2:#253550;
+      --sky:#38bdf8; --cyan:#67e8f9; --green:#10b981; --text:#e2eaf5; --muted:#6b8299; --muted2:#9ab0c8; --code-bg:#060b14;
+    }
+    html { scroll-behavior:smooth; }
+    body {
+      font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); line-height:1.65; overflow-x:hidden;
+      background-image:
+        radial-gradient(circle at 18% 4%, rgba(56,189,248,.13), transparent 28rem),
+        radial-gradient(circle at 82% 0%, rgba(16,185,129,.08), transparent 25rem),
+        linear-gradient(180deg,#080d18 0%,#090f1b 55%,#080d18 100%);
+    }
+    a { color:inherit; }
+    .gh-banner { position:fixed; top:0; left:0; right:0; z-index:110; min-height:42px; padding:.55rem 1.5rem; background:rgba(8,13,24,.94); backdrop-filter:blur(14px); display:flex; align-items:center; justify-content:center; gap:1.25rem; flex-wrap:wrap; font-size:.8rem; }
+    .gh-banner span { color:var(--muted2); } .gh-banner strong { color:var(--sky); }
+    .gh-star-btn { text-decoration:none; color:var(--sky); border:1px solid rgba(56,189,248,.25); border-radius:6px; padding:.3rem .8rem; background:rgba(56,189,248,.1); font-weight:700; }
+    nav { position:fixed; top:42px; left:0; right:0; z-index:100; height:64px; padding:0 2rem; display:flex; align-items:center; justify-content:space-between; background:rgba(8,13,24,.86); backdrop-filter:blur(14px); border-bottom:1px solid var(--border); }
+    .nav-logo { display:inline-flex; align-items:center; gap:.62rem; font-family:'JetBrains Mono',monospace; text-decoration:none; font-size:1.08rem; font-weight:700; line-height:1; letter-spacing:-.045em; }
+    .nav-logo img { width:34px; height:34px; object-fit:cover; border-radius:8px; }
+    .nav-logo .a { color:var(--text); } .nav-logo .b { color:var(--sky); }
+    .nav-links { display:flex; gap:1.75rem; align-items:center; height:100%; }
+    .nav-section-links,.nav-page-links { display:inline-flex; align-items:center; gap:1.35rem; height:100%; }
+    .nav-page-links { gap:.65rem; padding-left:.3rem; margin-left:.25rem; }
+    .nav-links a { color:var(--muted2); text-decoration:none; font-size:.875rem; font-weight:600; display:inline-flex; align-items:center; height:100%; line-height:1; }
+    .nav-links a:hover { color:var(--text); }
+    .btn-outline { border:1px solid var(--border2); border-radius:6px; padding:.35rem .85rem; color:var(--sky)!important; background:rgba(56,189,248,.045); height:auto!important; align-self:center; }
+    .btn-outline:hover, .btn-outline.active { border-color:var(--sky); background:rgba(56,189,248,.1); color:var(--text)!important; }
+    .nav-external { color:var(--sky)!important; height:auto!important; align-self:center; font-weight:700; }
+    .nav-external:hover { color:var(--cyan)!important; }
+    .hero { padding:11rem 1.5rem 4.5rem; }
+    .wrap { max-width:1080px; margin:0 auto; }
+    .eyebrow { display:inline-flex; align-items:center; gap:.5rem; font-family:'JetBrains Mono',monospace; color:var(--sky); border:1px solid rgba(56,189,248,.22); background:rgba(56,189,248,.08); border-radius:999px; padding:.32rem .85rem; font-size:.75rem; margin-bottom:1.35rem; }
+    h1 { font-size:clamp(2.7rem,6vw,5rem); line-height:.98; letter-spacing:-.055em; max-width:860px; margin-bottom:1.25rem; }
+    h1 em { color:var(--sky); font-style:normal; }
+    .hero p { color:var(--muted2); max-width:720px; font-size:1.12rem; margin-bottom:2rem; }
+    .hero-actions { display:flex; gap:1rem; flex-wrap:wrap; }
+    .btn-primary,.btn-ghost { display:inline-flex; align-items:center; justify-content:center; border-radius:9px; padding:.8rem 1.25rem; text-decoration:none; font-weight:800; font-size:.92rem; }
+    .btn-primary { background:var(--sky); color:#001018; box-shadow:0 0 40px rgba(56,189,248,.18); }
+    .btn-ghost { border:1px solid var(--border2); color:var(--muted2); background:rgba(15,23,36,.62); }
+    section { padding:4.5rem 1.5rem; scroll-margin-top:135px; }
+    .section-head { max-width:760px; margin-bottom:2rem; }
+    .label { color:var(--sky); font-family:'JetBrains Mono',monospace; font-size:.74rem; letter-spacing:.12em; text-transform:uppercase; margin-bottom:.7rem; }
+    h2 { font-size:clamp(2rem,4vw,3rem); line-height:1.08; letter-spacing:-.04em; margin-bottom:1rem; }
+    .section-head p { color:var(--muted2); }
+    .path-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; }
+    .quick-card-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-bottom:1rem; }
+    .quick-card { border:1px solid rgba(56,189,248,.22); border-radius:18px; background:linear-gradient(180deg, rgba(56,189,248,.08), rgba(8,13,24,.78)); padding:1.25rem; min-height:188px; }
+    .quick-card .num { margin-bottom:1rem; }
+    .quick-card h3 { margin-bottom:.45rem; }
+    .quick-card p { color:var(--muted2); font-size:.92rem; }
+    .client-guide { border:1px solid var(--border); border-radius:20px; background:rgba(8,13,24,.62); padding:1.1rem; display:grid; gap:1rem; }
+    .client-group { display:grid; grid-template-columns:145px 1fr; gap:1rem; align-items:start; }
+    .client-label { color:var(--sky); font-family:'JetBrains Mono',monospace; font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; padding-top:.35rem; }
+    .client-pills { display:flex; flex-wrap:wrap; gap:.55rem; }
+    .client-pill { border:1px solid rgba(154,176,200,.2); background:rgba(15,23,36,.78); color:var(--text); border-radius:10px; padding:.45rem .7rem; font-size:.84rem; font-weight:700; }
+    .client-pill.primary { border-color:rgba(56,189,248,.45); background:rgba(56,189,248,.12); color:#dff7ff; }
+    .card { border:1px solid var(--border); border-radius:18px; background:linear-gradient(180deg, rgba(15,23,36,.78), rgba(8,13,24,.78)); padding:1.25rem; box-shadow:0 18px 70px rgba(0,0,0,.18); }
+    .card h3 { font-size:1.05rem; margin-bottom:.45rem; }
+    .card p { color:var(--muted2); font-size:.92rem; }
+    .tag { display:inline-flex; font-family:'JetBrains Mono',monospace; color:#a5f3fc; border:1px solid rgba(56,189,248,.22); background:rgba(56,189,248,.08); border-radius:999px; padding:.2rem .55rem; font-size:.68rem; margin-bottom:.8rem; }
+    .steps { display:grid; gap:1rem; }
+    .step { display:grid; grid-template-columns:42px 1fr; gap:1rem; align-items:start; }
+    .num { width:42px; height:42px; border:1px solid rgba(56,189,248,.28); background:rgba(56,189,248,.08); color:var(--sky); border-radius:12px; display:grid; place-items:center; font-family:'JetBrains Mono',monospace; font-weight:700; }
+    pre { margin-top:.9rem; overflow:auto; background:var(--code-bg); border:1px solid var(--border); border-radius:14px; padding:1rem; color:#cbd5e1; font-family:'JetBrains Mono',monospace; font-size:.82rem; line-height:1.55; }
+    code { font-family:'JetBrains Mono',monospace; }
+    .two-col { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    .note { border-left:3px solid var(--sky); padding:1rem 1.1rem; background:rgba(56,189,248,.065); color:var(--muted2); border-radius:0 12px 12px 0; }
+    .note strong { color:var(--text); }
+    footer { border-top:1px solid var(--border); padding:2.5rem 1.5rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; max-width:1080px; margin:0 auto; color:var(--muted); }
+    .footer-brand { font-family:'JetBrains Mono',monospace; color:var(--sky); }
+    .footer-links { display:flex; gap:1.25rem; } .footer-links a { color:var(--muted); text-decoration:none; font-size:.82rem; } .footer-links a:hover { color:var(--text); }
+    @media (max-width:900px) { .nav-links{display:none}.path-grid,.two-col,.quick-card-grid{grid-template-columns:1fr}.client-group{grid-template-columns:1fr}.hero{padding-top:9.5rem} }
+    @media (max-width:560px) { nav{top:0;padding:0 1rem}.gh-banner{display:none}.hero{padding-top:7rem}section{padding:3.5rem 1rem}.step{grid-template-columns:1fr}.num{margin-bottom:.25rem} }
+  </style>
+  <script async src="https://plausible.io/js/pa-poEPDTj3wfTJlPsxZWfKK.js"></script>
+  <script>
+    window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+    plausible.init()
+  </script>
+</head>
+<body>
+<div class="gh-banner">
+  <span><strong>ContextFit</strong> is open source — MIT licensed</span>
+  <a class="gh-star-btn" href="https://github.com/ContextFit/cf" target="_blank" rel="noopener">★ GitHub</a>
+</div>
+<nav>
+  <a class="nav-logo" href="/">
+    <img src="assets/logo-token-element.png" alt="ContextFit Logo">
+    <span class="a">Context</span><span class="b">Fit</span>
+  </a>
+  <div class="nav-links" aria-label="Primary navigation">
+    <div class="nav-section-links" aria-label="Sections on this page">
+      <a href="#quickstart">Quickstart</a>
+      <a href="#install">Install</a>
+      <a href="#mcp">MCP</a>
+      <a href="#vaults">Vaults</a>
+      <a href="#agents">Agents</a>
+    </div>
+    <div class="nav-page-links" aria-label="Other pages">
+      <a href="/getting-started.html" class="btn-outline active">Get Started</a>
+      <a href="/demo.html" class="btn-outline">Demo</a>
+      <a href="/whitepaper.html" class="btn-outline">Whitepaper</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <div class="eyebrow">getting started</div>
+      <h1>Add source-backed <em>AI memory</em> without a vector database.</h1>
+      <p>
+        ContextFit can be used directly from the CLI, exposed to Claude Desktop through MCP,
+        or called by local agents and scripts through JSON output. Start with one local knowledge
+        base, then add named vaults when your memory grows.
+      </p>
+      <div class="hero-actions">
+        <a class="btn-primary" href="#quickstart">Start in 5 minutes</a>
+        <a class="btn-ghost" href="#mcp">Claude Desktop config</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="quickstart">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="label">Local MCP quickstart</div>
+        <h2>Get started in 5 minutes.</h2>
+        <p>ContextFit's MCP server runs on your Mac. Install ContextFit, build a local knowledge base, then point Claude Desktop at the local command.</p>
+      </div>
+      <div class="quick-card-grid">
+        <div class="quick-card"><div class="num">01</div><h3>Install ContextFit</h3><p>Create a Python virtualenv and install the local <code>contextfit</code> command with pip.</p></div>
+        <div class="quick-card"><div class="num">02</div><h3>Create a local KB</h3><p>Ingest a folder from your Mac into <code>~/contextfit_kb</code>. ContextFit indexes files locally.</p></div>
+        <div class="quick-card"><div class="num">03</div><h3>Add Claude Desktop MCP</h3><p>Put the absolute <code>contextfit</code> path into Claude's MCP config, restart Claude, then ask it to search.</p></div>
+      </div>
+      <div class="client-guide" aria-label="Supported local clients">
+        <div class="client-group">
+          <div class="client-label">Best first path</div>
+          <div class="client-pills"><span class="client-pill primary">Claude Desktop</span></div>
+        </div>
+        <div class="client-group">
+          <div class="client-label">Local MCP clients</div>
+          <div class="client-pills"><span class="client-pill">Cursor</span><span class="client-pill">Windsurf</span><span class="client-pill">VS Code</span><span class="client-pill">Claude Code</span></div>
+        </div>
+        <div class="client-group">
+          <div class="client-label">Agent / CLI</div>
+          <div class="client-pills"><span class="client-pill">OpenClaw</span><span class="client-pill">Hermes</span><span class="client-pill">cron jobs</span><span class="client-pill">shell scripts</span></div>
+        </div>
+      </div>
+      <p class="note" style="margin-top:1rem"><strong>Note:</strong> browser-only apps generally cannot launch a local stdio MCP server directly. Start with Claude Desktop or another local MCP-capable client.</p>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="label">Install</div>
+        <h2>Run ContextFit locally.</h2>
+        <p>Install from the repo, then create a local knowledge base from a folder of documents.</p>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="num">01</div><div><h3>Install the package</h3><pre><code>mkdir -p ~/contextfit
+cd ~/contextfit
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install contextfit</code></pre><p style="margin-top:.7rem">Contributing from source? Clone the GitHub repo and run <code>python -m pip install -e .</code> from the project root.</p></div></div>
+        <div class="step"><div class="num">02</div><div><h3>Ingest a folder</h3><pre><code>contextfit --kb ~/contextfit_kb ingest ~/Documents/project-orion-notes \
+  --defer-index-build \
+  --rebuild-index-after-ingest</code></pre></div></div>
+        <div class="step"><div class="num">03</div><div><h3>Ask a question</h3><pre><code>contextfit --kb ~/contextfit_kb query "What are the open launch risks?" --json</code></pre></div></div>
+        <div class="step"><div class="num">04</div><div><h3>Use the absolute executable path for Claude</h3><pre><code>which contextfit
+# Example: /Users/YOU/contextfit/.venv/bin/contextfit</code></pre></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="cli">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="label">CLI</div>
+        <h2>Use it as a memory command line.</h2>
+        <p>The CLI is the fastest path for local development, scripts, and agent tooling.</p>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <h3>Default knowledge base</h3>
+          <pre><code>contextfit --kb ~/contextfit_kb stats --json
+contextfit --kb ~/contextfit_kb query "Acme renewal audit" \
+  --method hybrid \
+  --top-k 8 \
+  --json</code></pre>
+        </div>
+        <div class="card">
+          <h3>Named vault commands</h3>
+          <pre><code>contextfit vaults list --json
+contextfit search "Acme renewal audit" --vault work --json
+contextfit search-all "website tokenization" --json
+contextfit chunk 42 --vault work --json</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="mcp">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="label">Claude Desktop MCP</div>
+        <h2>Give Claude a local memory tool.</h2>
+        <p>Claude Desktop becomes the chat UI. ContextFit stays local and serves source-backed search results through MCP.</p>
+      </div>
+      <div class="card">
+        <h3>New MacBook checklist</h3>
+        <p>Claude Desktop works best when the config uses absolute paths. First run <code>which contextfit</code>, then open the config file:</p>
+        <pre><code>mkdir -p "$HOME/Library/Application Support/Claude"
+open -e "$HOME/Library/Application Support/Claude/claude_desktop_config.json"</code></pre>
+      </div>
+      <div class="card" style="margin-top:1rem">
+        <h3>Claude Desktop config</h3>
+        <pre><code>{
+  "mcpServers": {
+    "contextfit": {
+      "command": "/Users/YOU/contextfit/.venv/bin/contextfit",
+      "args": [
+        "--kb",
+        "/Users/YOU/contextfit_kb",
+        "mcp",
+        "--top-k",
+        "8",
+        "--method",
+        "hybrid"
+      ]
+    }
+  }
+}</code></pre>
+        <p class="note"><strong>Important:</strong> replace <code>/Users/YOU/contextfit/.venv/bin/contextfit</code> with the output from <code>which contextfit</code>, then quit and reopen Claude Desktop with <code>Cmd+Q</code>. <strong>Privacy model:</strong> ContextFit reads the local KB path you configure. Claude only sees the snippets returned as tool results.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="vaults">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="label">Vault registry</div>
+        <h2>Keep memory separated by source.</h2>
+        <p>Register named vaults instead of letting tools scan your whole computer.</p>
+      </div>
+      <div class="card">
+        <h3><code>~/.contextfit/vaults.json</code></h3>
+        <pre><code>{
+  "vaults": {
+    "work": {
+      "kb_path": "/Users/YOU/contextfit_work_kb",
+      "description": "Work docs, notes, and project memory"
+    },
+    "research": {
+      "kb_path": "/Users/YOU/contextfit_research_kb",
+      "description": "Papers, references, and experiments"
+    },
+    "personal": "/Users/YOU/contextfit_personal_kb"
+  }
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="agents">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="label">Local agents</div>
+        <h2>Call ContextFit from your runtime.</h2>
+        <p>For OpenClaw, Hermes, shell scripts, and cron jobs, JSON CLI output is often simpler than MCP.</p>
+      </div>
+      <div class="two-col">
+        <div class="card"><h3>Search then fetch</h3><pre><code>contextfit search "Project Orion unresolved decisions" \
+  --vault work \
+  --top-k 5 \
+  --json
+
+contextfit chunk 42 --vault work --json</code></pre></div>
+        <div class="card"><h3>When to use what</h3><p><strong>Use MCP</strong> for interactive desktop clients like Claude Desktop.</p><p style="margin-top:.8rem"><strong>Use CLI JSON</strong> for local agents, background jobs, tests, and automation.</p><p style="margin-top:.8rem"><strong>Use vaults</strong> when different memory sources should stay explicit and opt-in.</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div><div class="footer-brand">ContextFit</div><div style="font-size:.78rem;margin-top:.2rem">Token-native agent memory.</div></div>
+  <div class="footer-links">
+    <a href="/">Home</a>
+    <a href="/demo.html">Demo</a>
+    <a href="/whitepaper.html">Whitepaper</a>
+    <a href="https://github.com/ContextFit/cf" target="_blank" rel="noopener">GitHub ↗</a>
+  </div>
+</footer>
+</body>
+</html>
