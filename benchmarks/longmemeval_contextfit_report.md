@@ -884,3 +884,36 @@ Multi-session slice (`n=121`):
 | MRR | 0.853 | 0.862 | +0.010 |
 
 Readout: this hits the target for the remaining token-only gap. Multi-session complete evidence coverage improves from **55.4% → 65.3% All@5** while preserving the **95.0% Any@5** multi-session result and the **95.1% overall Any@5** headline. Preference results are unchanged because the reranker is gated to `multi-session` question types. OpenAI fusion still has the strongest multi-session All@5 at 72.7%, but the token-only gap narrows from 17.4 pts to 7.4 pts.
+
+### 2026-05-16 token-only leaderboard evidence run
+
+A fresh full token-only evidence run reproduced the parent/child + coverage-rerank result and is recorded as a standalone audit packet:
+
+- Evidence packet: `benchmarks/longmemeval_token_only_leaderboard_evidence_20260516.md`
+- Raw artifact: `benchmarks/longmemeval_token_only_leaderboard_run_20260516.json`
+- Raw artifact SHA-256: `09f7f8bbd6c1622749cb3961f39cbbf6bcd673b318ad3bd63e88d9d1441a0ca2`
+- Git commit: `0071d24a3e079dd29eaa9e501a299ddae8b67880`
+- Scoring policy: 500 total rows, 470 non-abstention rows scored, 30 abstention rows skipped.
+
+Command:
+
+```bash
+/tmp/cf-structure-venv/bin/python benchmarks/longmemeval_contextfit.py \
+  benchmarks/data/longmemeval_s_cleaned.json \
+  --limit 0 --method hybrid --top-k-chunks 10 --retrieval-k 100 \
+  --chunk-size 2048 --overlap 128 --rank-by-session \
+  --conversation-chunks --conversation-parent --coverage-rerank \
+  --out benchmarks/longmemeval_token_only_leaderboard_run_20260516.json
+```
+
+| Metric | Score |
+|---|---:|
+| Any gold evidence @1 | 82.77% |
+| Any gold evidence @3 | 91.28% |
+| Any gold evidence @5 | **95.11%** |
+| Any gold evidence @10 | 97.02% |
+| All gold evidence @5 | **80.43%** |
+| All gold evidence @10 | 86.81% |
+| MRR | 0.8753 |
+
+This remains a retrieval/evidence-ranking result, not an official end-to-end LongMemEval QA score. The run used no embeddings, no vector database, no LLM calls, and no answer markers.
