@@ -1,0 +1,42 @@
+{
+  "submission_file": "benchmarks/official/longmemeval_source_aware_qa_submission_20260516.jsonl",
+  "submission_sha256": "54789b620c917c82dea2c72600ba1d7dd9f8da9cdce0e7a53ab0625089c64972",
+  "n": 500,
+  "schema": {
+    "question_id": "string",
+    "hypothesis": "string"
+  },
+  "qid_set_matches_reference": true,
+  "order_matches_judged_artifact": true,
+  "overall_accuracy_official_aggregation": 0.818,
+  "task_averaged_accuracy_official_aggregation": 0.8353118372855214,
+  "abstention_accuracy_official_aggregation": 0.8,
+  "abstention_n": 30,
+  "by_type": {
+    "single-session-user": {
+      "n": 70,
+      "accuracy": 0.9714285714285714
+    },
+    "single-session-preference": {
+      "n": 30,
+      "accuracy": 0.7
+    },
+    "single-session-assistant": {
+      "n": 56,
+      "accuracy": 0.9821428571428571
+    },
+    "multi-session": {
+      "n": 133,
+      "accuracy": 0.7142857142857143
+    },
+    "temporal-reasoning": {
+      "n": 133,
+      "accuracy": 0.7593984962406015
+    },
+    "knowledge-update": {
+      "n": 78,
+      "accuracy": 0.8846153846153846
+    }
+  },
+  "judged_artifact": "benchmarks/longmemeval_contextfit_token_only_qa_judged_source_20k_20260516.jsonl"
+}

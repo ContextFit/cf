@@ -59,6 +59,7 @@ Thumbs.db
 benchmarks/data/longmemeval_*.json
 benchmarks/cache/
 benchmarks/longmemeval_contextfit_*.json
+benchmarks/longmemeval_contextfit_*.jsonl
 benchmarks/longmemeval_*.json
 !benchmarks/longmemeval_token_only_leaderboard_run_20260516.json
 benchmarks/longmemeval_local_embed.py

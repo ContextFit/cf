@@ -917,3 +917,154 @@ Command:
 | MRR | 0.8753 |
 
 This remains a retrieval/evidence-ranking result, not an official end-to-end LongMemEval QA score. The run used no embeddings, no vector database, no LLM calls, and no answer markers.
+
+### 2026-05-16 source-aware QA bridge
+
+An official-style QA bridge was added to generate answers from the saved token-only retrieval artifact and judge them with LongMemEval-style GPT-4o yes/no answer checks.
+
+- Evidence packet: `benchmarks/longmemeval_contextfit_qa_evidence_20260516.md`
+- Retrieval artifact: `benchmarks/longmemeval_token_only_leaderboard_run_20260516.json`
+- Retrieval artifact SHA-256: `09f7f8bbd6c1622749cb3961f39cbbf6bcd673b318ad3bd63e88d9d1441a0ca2`
+- QA runner: `benchmarks/longmemeval_contextfit_qa.py`
+- Generation model: `gpt-4o-2024-08-06`
+- Judge model: `gpt-4o-2024-08-06`
+
+Best current QA configuration:
+
+```bash
+OPENAI_API_KEY=... /tmp/cf-structure-venv/bin/python benchmarks/longmemeval_contextfit_qa.py \
+  --top-k-context 10 \
+  --max-session-chars 20000 \
+  --source-aware \
+  --generation-max-tokens 1200 \
+  --hypotheses-out benchmarks/longmemeval_contextfit_token_only_qa_hypotheses_source_20k_20260516.jsonl \
+  --judged-out benchmarks/longmemeval_contextfit_token_only_qa_judged_source_20k_20260516.jsonl \
+  --summary-out benchmarks/longmemeval_contextfit_token_only_qa_summary_source_20k_20260516.json
+```
+
+| Metric | Score |
+|---|---:|
+| Rows judged | 500 |
+| Overall QA accuracy | **81.8%** |
+| Task-averaged QA accuracy | **83.5%** |
+| Abstention accuracy | 80.0% |
+
+By type:
+
+| Question type | n | Accuracy |
+|---|---:|---:|
+| knowledge-update | 78 | 88.5% |
+| multi-session | 133 | **71.4%** |
+| single-session-assistant | 56 | 98.2% |
+| single-session-preference | 30 | 70.0% |
+| single-session-user | 70 | 97.1% |
+| temporal-reasoning | 133 | 75.9% |
+
+Compared to the earlier top-10 CoT bridge, source-aware synthesis improved overall QA from **78.6% -> 81.8%** and multi-session QA from **60.9% -> 71.4%**. This supports the readout that answer synthesis, not retrieval, was the main bottleneck for many multi-session misses.
+
+A post-hoc sufficiency gate was also tested. It improved abstention from 80.0% to 83.3%, but lowered overall QA to 81.6% and multi-session QA to 69.9%, so it is not the current headline configuration. Abstention calibration remains a caveat and next work item.
+
+An experimental deterministic `--token-evidence` reducer was also tested on the first 40 multi-session rows. It keeps retrieval fixed and prepends source-linked token fact hints to the answer prompt. The first implementation did not help:
+
+| Configuration | Accuracy on same 40 multi-session rows |
+|---|---:|
+| Source-aware baseline | 67.5% |
+| Token evidence with raw token signals | 55.0% |
+| Token evidence facts-only | 60.0% |
+
+This confirms that the end-to-end score may benefit from token-native evidence synthesis, but the reducer must be more selective than simple keyword/number/date extraction. The flag remains experimental/off and is not part of the headline configuration.
+
+Failure-cluster analysis on the source-aware 20k run found 91 misses. The largest overlap clusters were temporal wording/reasoning (47 misses) and count/list/total wording (41 misses). Restricting to synthesis-like misses where retrieval already had a gold session in top 5 and all gold sessions in top 10 left 42 misses; 21 were count/list and 19 were temporal.
+
+A narrow `--count-list-mode` prompt was tested on the first 60 count/list rows. It was not a clean win:
+
+| Configuration | Accuracy on same 60 count/list rows |
+|---|---:|
+| Source-aware baseline | 70.0% |
+| Count/list candidate+dedupe mode | 68.3% |
+
+The mode created 5 wins but 6 regressions. It should stay experimental/off until there is a router or narrower trigger for high-risk aggregation rows.
+
+A two-pass `--structured-extract` mode was then tested on a targeted hard-row probe. It first extracts structured source-grounded facts from retrieved sessions, then answers from those facts. The probe included 28 source-aware misses where retrieval already had enough evidence plus 28 currently-correct hard rows.
+
+| Slice | Source-aware baseline | Structured two-pass |
+|---|---:|---:|
+| All hard probe rows | 50.0% | **67.9%** |
+| Multi-session hard rows | 68.3% | 65.9% |
+| Temporal-reasoning hard rows | 0.0% | **63.6%** |
+
+Flip analysis: 15 wins over baseline and 5 regressions. This is the first materially positive synthesis result, but it should be routed narrowly: promising for temporal reasoning, not yet safe as a blanket multi-session/count mode.
+
+A larger temporal-only probe then tested `--structured-extract` on all 133 temporal-reasoning rows. As a blanket route, it did not hold:
+
+| Configuration | Temporal accuracy |
+|---|---:|
+| Source-aware baseline on same rows | 75.9% |
+| Structured two-pass on same rows | 70.7% |
+
+The structured path had 10 wins but 17 regressions. The regressions were often over-abstentions or wrong date choices on rows the source-aware baseline already handled.
+
+A deterministic hybrid candidate was assembled from the judged artifacts: use structured temporal answers only when the structured answer does not say the information is unavailable; otherwise fall back to the source-aware answer. Non-temporal rows remain source-aware.
+
+| Metric | Source-aware 20k | Hybrid temporal fallback |
+|---|---:|---:|
+| Overall QA accuracy | 81.8% | **82.8%** |
+| Task-averaged QA accuracy | 83.5% | **84.2%** |
+| Temporal-reasoning accuracy | 75.9% | **79.7%** |
+| Multi-session accuracy | 71.4% | 71.4% |
+| Abstention accuracy | 80.0% | 80.0% |
+
+Flip analysis against source-aware 20k: 10 wins, 5 regressions, net +5. This was a useful candidate signal, but it was assembled from existing judged artifacts rather than produced by one coherent run.
+
+The coherent runner path was then implemented behind `--temporal-hybrid`. That full run preserved the temporal lift but reduced the net gain:
+
+| Metric | Source-aware 20k | Coherent temporal hybrid |
+|---|---:|---:|
+| Overall QA accuracy | 81.8% | **82.2%** |
+| Task-averaged QA accuracy | 83.5% | 82.7% |
+| Temporal-reasoning accuracy | 75.9% | **79.7%** |
+| Multi-session accuracy | 71.4% | **72.2%** |
+| Abstention accuracy | 80.0% | **83.3%** |
+
+Route counts in the coherent run: 367 source-aware rows, 73 structured temporal rows, and 60 source-aware fallback rows after structured output was unavailable or hit a guardrail.
+
+This should be treated as an experimental synthesis signal, not the stable headline. The first coherent run still used LongMemEval's `question_type` field for temporal routing, which is acceptable for ablation but too benchmark-specific for product claims. The runner now supports `--temporal-hybrid-router query`, and structured prompts omit `question_type` by default unless `--include-question-type-in-prompts` is passed. The next clean validation is a no-label query-router run.
+
+That no-label query-router run was completed. It did not hold as an improvement:
+
+| Metric | Source-aware 20k | No-label query-router hybrid |
+|---|---:|---:|
+| Overall QA accuracy | **81.8%** | 81.2% |
+| Task-averaged QA accuracy | **83.5%** | 82.8% |
+| Temporal-reasoning accuracy | 75.9% | 77.4% |
+| Multi-session accuracy | **71.4%** | 68.4% |
+| Abstention accuracy | **80.0%** | 76.7% |
+
+Route counts in the no-label run: 263 source-aware rows, 142 structured temporal rows, and 95 source-aware fallback rows. This is the anti-overfit guardrail result: the structured temporal path remains promising research, but the stable QA headline stays the source-aware 20k run at **81.8%**.
+
+Official-format QA package:
+
+- Submission JSONL: `benchmarks/official/longmemeval_source_aware_qa_submission_20260516.jsonl`
+- Submission SHA-256: `54789b620c917c82dea2c72600ba1d7dd9f8da9cdce0e7a53ab0625089c64972`
+- Parity metadata: `benchmarks/official/longmemeval_source_aware_qa_submission_20260516.parity.json`
+
+The package has 500 rows, exactly the LongMemEval QA fields `question_id` and `hypothesis`, and the packaged question ids match `benchmarks/data/longmemeval_s_cleaned.json`. Official-style aggregation over the judged artifact reproduces the `81.8%` overall result.
+
+The official LongMemEval evaluator was then run as a fresh GPT-4o judge pass against the stable source-aware package. It reproduced the overall score:
+
+| Official evaluator metric | Score |
+|---|---:|
+| Overall QA accuracy | **81.8%** |
+| knowledge-update | 88.5% |
+| multi-session | 70.7% |
+| single-session-assistant | 98.2% |
+| single-session-preference | 70.0% |
+| single-session-user | 97.1% |
+| temporal-reasoning | 76.7% |
+
+Official evaluator log:
+
+- `benchmarks/official/longmemeval_source_aware_qa_submission_20260516.jsonl.eval-results-gpt-4o`
+- SHA-256: `e1b10cc582aaae4f4749c9d3571107447dad6a0582fd158f98ff20c95854eed2`
+
+This is still best framed as a local official-evaluator reproduction, not an official LongMemEval leaderboard submission. The margin versus Supermemory's public overall figure is small and judge-sensitive; the multi-session number approximately matches rather than clearly exceeds Supermemory's published multi-session figure.
