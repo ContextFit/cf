@@ -638,10 +638,13 @@ def cmd_ingest(args: argparse.Namespace) -> int:
                 else:
                     try:
                         chunks = []
+                        default_session_id = path.as_posix()
                         for item in result["token_items"]:
+                            meta = dict(item.get("metadata") or result.get("file_meta", {"source": str(path)}))
+                            meta.setdefault("session_id", default_session_id)
                             chunks.extend(engine.ingest_token_chunks(
                                 [item["tokens"]],
-                                metadata=item.get("metadata") or result.get("file_meta", {"source": str(path)}),
+                                metadata=meta,
                                 update_indexes=not args.defer_index_build,
                             ))
                         chunk_count = len(chunks)
@@ -1114,7 +1117,7 @@ def main() -> int:
     query = subparsers.add_parser("query", help="Query the default knowledge base")
     query.add_argument("query", help="Query text")
     query.add_argument("--top-k", "-k", type=int, default=5, help="Number of results (default: 5)")
-    query.add_argument("--method", "-m", choices=["exact", "bm25", "sid", "graph", "hierarchy", "hybrid"], default="hybrid", help="Retrieval method (default: hybrid)")
+    query.add_argument("--method", "-m", choices=["exact", "bm25", "sid", "graph", "hierarchy", "hybrid", "hybrid_rrf"], default="hybrid", help="Retrieval method (default: hybrid)")
     query.add_argument("--json", action="store_true", help="Emit machine-readable JSON including input_ids and chunk metadata")
 
     vaults = subparsers.add_parser("vaults", help="List registered local vaults")
@@ -1127,7 +1130,7 @@ def main() -> int:
     search.add_argument("--vault", default="default", help="Vault name (default: default)")
     search.add_argument("--vault-registry", default="~/.contextfit/vaults.json", help="Vault registry path")
     search.add_argument("--top-k", "-k", type=int, default=5, help="Number of results (default: 5)")
-    search.add_argument("--method", "-m", choices=["exact", "bm25", "sid", "graph", "hierarchy", "hybrid"], default="hybrid", help="Retrieval method (default: hybrid)")
+    search.add_argument("--method", "-m", choices=["exact", "bm25", "sid", "graph", "hierarchy", "hybrid", "hybrid_rrf"], default="hybrid", help="Retrieval method (default: hybrid)")
     search.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
     search.add_argument("--extractive", choices=["none", "spans", "rows", "bullets", "auto"], default="none", help="Add deterministic query-focused evidence to JSON output")
     search.add_argument("--max-evidence-chars", type=int, default=1200, help="Maximum evidence characters per chunk (default: 1200)")
@@ -1139,7 +1142,7 @@ def main() -> int:
     search_all.add_argument("query", help="Query text")
     search_all.add_argument("--vault-registry", default="~/.contextfit/vaults.json", help="Vault registry path")
     search_all.add_argument("--top-k", "-k", type=int, default=5, help="Number of results per vault (default: 5)")
-    search_all.add_argument("--method", "-m", choices=["exact", "bm25", "sid", "graph", "hierarchy", "hybrid"], default="hybrid", help="Retrieval method (default: hybrid)")
+    search_all.add_argument("--method", "-m", choices=["exact", "bm25", "sid", "graph", "hierarchy", "hybrid", "hybrid_rrf"], default="hybrid", help="Retrieval method (default: hybrid)")
     search_all.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
     search_all.add_argument("--extractive", choices=["none", "spans", "rows", "bullets", "auto"], default="none", help="Add deterministic query-focused evidence to JSON output")
     search_all.add_argument("--max-evidence-chars", type=int, default=1200, help="Maximum evidence characters per chunk (default: 1200)")
@@ -1168,7 +1171,7 @@ def main() -> int:
     )
     mcp.add_argument(
         "--method",
-        choices=["exact", "bm25", "sid", "graph", "hierarchy", "hybrid"],
+        choices=["exact", "bm25", "sid", "graph", "hierarchy", "hybrid", "hybrid_rrf"],
         default="hybrid",
         help="Default retrieval method (default: hybrid)",
     )

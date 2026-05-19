@@ -21,6 +21,7 @@ wheels/
 *.egg
 
 # Virtual environments
+.venv
 .venv/
 venv/
 ENV/
@@ -39,6 +40,7 @@ env/
 htmlcov/
 .tox/
 .nox/
+*.log
 
 # mypy
 .mypy_cache/
@@ -61,6 +63,8 @@ benchmarks/cache/
 benchmarks/longmemeval_contextfit_*.json
 benchmarks/longmemeval_contextfit_*.jsonl
 benchmarks/longmemeval_*.json
+benchmarks/*_qids_*.txt
+benchmarks/tmp_*.json
 !benchmarks/longmemeval_token_only_leaderboard_run_20260516.json
 benchmarks/longmemeval_local_embed.py
 benchmarks/agent_memory_eval_*.json

@@ -182,6 +182,11 @@ class ContextFitMCPServer:
         method: str | None = None,
         max_tokens: int = 4096,
         extractive: str | None = None,
+        filters: list[dict[str, Any]] | dict[str, Any] | None = None,
+        filter_mode: str = "and",
+        min_filter_matches: int = 0,
+        filter_pushdown_threshold: float = 0.50,
+        query_spec: dict[str, Any] | None = None,
     ) -> str:
         return self._search_engine(
             engine=self.engine,
@@ -192,6 +197,11 @@ class ContextFitMCPServer:
             max_tokens=max_tokens,
             vault_name=None,
             extractive=extractive,
+            filters=filters,
+            filter_mode=filter_mode,
+            min_filter_matches=min_filter_matches,
+            filter_pushdown_threshold=filter_pushdown_threshold,
+            query_spec=query_spec,
         )
 
     def search_vault(
@@ -202,6 +212,11 @@ class ContextFitMCPServer:
         method: str | None = None,
         max_tokens: int = 4096,
         extractive: str | None = None,
+        filters: list[dict[str, Any]] | dict[str, Any] | None = None,
+        filter_mode: str = "and",
+        min_filter_matches: int = 0,
+        filter_pushdown_threshold: float = 0.50,
+        query_spec: dict[str, Any] | None = None,
     ) -> str:
         vault = self._resolve_vault(vault_name)
         engine = self._engine_for_vault(vault.name)
@@ -214,6 +229,11 @@ class ContextFitMCPServer:
             max_tokens=max_tokens,
             vault_name=vault.name,
             extractive=extractive,
+            filters=filters,
+            filter_mode=filter_mode,
+            min_filter_matches=min_filter_matches,
+            filter_pushdown_threshold=filter_pushdown_threshold,
+            query_spec=query_spec,
         )
 
     def search_all_vaults(
@@ -223,6 +243,11 @@ class ContextFitMCPServer:
         method: str | None = None,
         max_tokens: int = 4096,
         extractive: str | None = None,
+        filters: list[dict[str, Any]] | dict[str, Any] | None = None,
+        filter_mode: str = "and",
+        min_filter_matches: int = 0,
+        filter_pushdown_threshold: float = 0.50,
+        query_spec: dict[str, Any] | None = None,
     ) -> str:
         if not self.vaults:
             return "No ContextFit vaults are registered."
@@ -239,6 +264,11 @@ class ContextFitMCPServer:
                     method=method,
                     max_tokens=max_tokens,
                     extractive=extractive,
+                    filters=filters,
+                    filter_mode=filter_mode,
+                    min_filter_matches=min_filter_matches,
+                    filter_pushdown_threshold=filter_pushdown_threshold,
+                    query_spec=query_spec,
                 )
             )
             lines.append("\n---\n")
@@ -254,7 +284,19 @@ class ContextFitMCPServer:
         max_tokens: int,
         vault_name: str | None,
         extractive: str | None = None,
+        filters: list[dict[str, Any]] | dict[str, Any] | None = None,
+        filter_mode: str = "and",
+        min_filter_matches: int = 0,
+        filter_pushdown_threshold: float = 0.50,
+        query_spec: dict[str, Any] | None = None,
     ) -> str:
+        if query_spec and isinstance(query_spec, dict):
+            query = str(
+                query_spec.get("query")
+                or query_spec.get("semantic_query")
+                or query
+                or ""
+            )
         if not isinstance(query, str) or not query.strip():
             raise ValueError("query must be a non-empty string")
         top_k = int(top_k or self.config.default_top_k)
@@ -264,7 +306,17 @@ class ContextFitMCPServer:
                 "method must be one of exact, bm25, sid, graph, hierarchy, hybrid"
             )
 
-        result = engine.query(query, top_k=top_k, method=method, max_tokens=int(max_tokens))
+        result = engine.query(
+            query,
+            top_k=top_k,
+            method=method,
+            max_tokens=int(max_tokens),
+            filters=filters,
+            filter_mode=filter_mode,
+            min_filter_matches=min_filter_matches,
+            filter_pushdown_threshold=filter_pushdown_threshold,
+            query_spec=query_spec,
+        )
         title = f"ContextFit search results for: {query}"
         if vault_name:
             title = f"ContextFit search results in vault '{vault_name}' for: {query}"
@@ -277,6 +329,13 @@ class ContextFitMCPServer:
             ),
             "",
         ]
+        if result.filter_trace:
+            lines.extend(
+                [
+                    f"filters: {_compact_json(result.filter_trace)}",
+                    "",
+                ]
+            )
         for rank, (chunk, score) in enumerate(
             zip(result.chunks, result.scores, strict=False),
             start=1,
@@ -471,7 +530,79 @@ def _search_schema(
         "extractive": {
             "type": "string",
             "enum": ["none", "spans", "rows", "bullets", "auto"],
-            "description": "Return deterministic query-focused evidence instead of full previews. Defaults to auto.",
+            "description": (
+                "Return deterministic query-focused evidence instead of full "
+                "previews. Defaults to auto."
+            ),
+        },
+        "filters": {
+            "description": (
+                "Optional structured metadata prefilters. Use either an array of "
+                "{field, op, value|values} predicates or an object mapping fields "
+                "to values/range operators. Retrieval remains token-native after "
+                "these deterministic filters are applied."
+            ),
+            "oneOf": [
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "field": {"type": "string"},
+                            "op": {
+                                "type": "string",
+                                "enum": [
+                                    "contains",
+                                    "exact",
+                                    "in",
+                                    "gt",
+                                    "gte",
+                                    "lt",
+                                    "lte",
+                                    "after",
+                                    "before",
+                                    "on_or_after",
+                                    "on_or_before",
+                                    "exists",
+                                ],
+                            },
+                            "value": {},
+                            "values": {"type": "array", "items": {}},
+                        },
+                        "required": ["field"],
+                    },
+                },
+                {"type": "object"},
+            ],
+        },
+        "filter_mode": {
+            "type": "string",
+            "enum": ["and", "or"],
+            "description": "How to combine metadata filters. Defaults to and.",
+        },
+        "min_filter_matches": {
+            "type": "integer",
+            "minimum": 0,
+            "description": (
+                "Broaden by ignoring structured filters if they match fewer "
+                "chunks than this threshold."
+            ),
+        },
+        "filter_pushdown_threshold": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": (
+                "Use post-filtering instead of filter pushdown when filters "
+                "match more than this corpus fraction. Defaults to 0.5."
+            ),
+        },
+        "query_spec": {
+            "type": "object",
+            "description": (
+                "Optional agent-produced query spec containing query/semantic_query, "
+                "filters, filter_mode, and min_filter_matches."
+            ),
         },
     }
     if extra_properties:

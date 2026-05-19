@@ -27,6 +27,7 @@ import numpy as np
 
 from contextfit.retrieval.engine import RetrievalEngine
 from contextfit.retrieval.memory_atoms import augment_query_for_memory_atoms, atom_type_priors, episode_relevance_score, extract_memory_atoms, query_memory_intents
+from contextfit.retrieval.evidence_atoms import rerank_sessions_by_evidence_atoms
 
 
 PREFERENCE_RE = re.compile(
@@ -264,6 +265,71 @@ def coverage_rerank_sessions(
         pool.remove(best_sid)
     return selected
 
+
+def targeted_expansion_sessions(
+    query: str,
+    session_texts: list[tuple[str, str]],
+    base_order: list[str],
+    top_k: int,
+    protected_k: int = 8,
+) -> list[str]:
+    """Source-set-preserving companion expansion for multi-session queries.
+
+    Preserve the strongest baseline anchors, then fill only the tail slots with
+    sessions from the broader retrieved pool that share anchor/entity/query
+    signatures. This is intentionally more conservative than replacement
+    reranking: it explores down the likely evidence path without discarding the
+    source set that baseline retrieval already trusted.
+    """
+    if len(base_order) <= top_k:
+        return base_order[:top_k]
+
+    text_by_sid = {str(sid): text for sid, text in session_texts}
+    pool = [str(sid) for sid in base_order if str(sid) in text_by_sid]
+    if len(pool) <= top_k:
+        return pool[:top_k]
+
+    protected_n = max(1, min(protected_k, top_k, len(pool)))
+    protected = pool[:protected_n]
+    baseline_tail = pool[protected_n:top_k]
+    candidates = [sid for sid in pool[protected_n:] if sid not in protected]
+
+    query_terms = _word_tokens(query)
+    query_entities = _entity_tokens(query)
+    session_terms = {sid: _word_tokens(text_by_sid[sid]) for sid in pool}
+    session_entities = {sid: _entity_tokens(text_by_sid[sid]) for sid in pool}
+    base_rr = {sid: 1.0 / (20 + i) for i, sid in enumerate(pool, 1)}
+    anchor_terms = set().union(*(session_terms[sid] for sid in protected))
+    anchor_entities = set().union(*(session_entities[sid] for sid in protected))
+
+    scored: list[tuple[float, int, str]] = []
+    for sid in candidates:
+        terms = session_terms[sid]
+        entities = session_entities[sid]
+        q_hits = terms & query_terms
+        entity_hits = entities & query_entities
+        anchor_term_overlap = len(terms & anchor_terms) / max(24.0, (len(terms) * len(anchor_terms)) ** 0.5)
+        anchor_entity_overlap = len(entities & anchor_entities) / max(4.0, (len(entities) * len(anchor_entities)) ** 0.5)
+        score = (
+            0.75 * base_rr[sid]
+            + 0.090 * anchor_term_overlap
+            + 0.140 * anchor_entity_overlap
+            + 0.020 * len(q_hits)
+            + 0.055 * len(entity_hits)
+        )
+        scored.append((score, pool.index(sid), sid))
+    scored.sort(key=lambda row: (-row[0], row[1]))
+
+    fill = [sid for _score, _rank, sid in scored[: max(0, top_k - protected_n)]]
+    if len(fill) < top_k - protected_n:
+        for sid in baseline_tail:
+            if sid not in fill:
+                fill.append(sid)
+            if len(fill) >= top_k - protected_n:
+                break
+    return (protected + fill)[:top_k]
+
+
 def atom_sessions_from_chunks(chunks, scores: list[float], query: str) -> list[str]:
     priors = atom_type_priors(query)
     by_session: dict[str, float] = {}
@@ -459,8 +525,11 @@ _WEEKDAYS = {name.lower(): i for i, name in enumerate(["Monday", "Tuesday", "Wed
 
 def _num_from_text(value: str) -> int | None:
     value = value.lower().strip()
+    value = re.sub(r"\s+", " ", value)
     if value.isdigit():
         return int(value)
+    if value == "a couple":
+        return 2
     return _NUM_WORDS.get(value)
 
 
@@ -484,7 +553,9 @@ def _relative_date_window(query: str) -> tuple[datetime.date, datetime.date] | N
         return None
     body = query.split("Question:", 1)[-1].lower()
 
-    m = re.search(r"\bpast\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten|couple)\s+(day|days|week|weeks|month|months)\b", body)
+    num_pat = r"\d+|one|two|three|four|five|six|seven|eight|nine|ten|couple|a\s+couple"
+
+    m = re.search(rf"\bpast\s+({num_pat})(?:\s+of)?\s+(day|days|week|weeks|month|months)\b", body)
     if m:
         n = _num_from_text(m.group(1)) or 1
         unit = m.group(2)
@@ -496,7 +567,7 @@ def _relative_date_window(query: str) -> tuple[datetime.date, datetime.date] | N
     if "this week" in body:
         return (q_date - datetime.timedelta(days=q_date.weekday()), q_date)
 
-    m = re.search(r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+months?\s+ago\b", body)
+    m = re.search(rf"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+({num_pat})\s+months?\s+ago\b", body)
     if m:
         target_wd = _WEEKDAYS[m.group(1)]
         n = _num_from_text(m.group(2)) or 1
@@ -507,7 +578,7 @@ def _relative_date_window(query: str) -> tuple[datetime.date, datetime.date] | N
             center = min(candidates, key=lambda d: abs((d - center).days))
         return (center - datetime.timedelta(days=2), center + datetime.timedelta(days=2))
 
-    m = re.search(r"\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten|couple)\s+(day|days|week|weeks|month|months)\s+ago\b", body)
+    m = re.search(rf"\b({num_pat})(?:\s+of)?\s+(day|days|week|weeks|month|months)\s+ago\b", body)
     if m:
         n = _num_from_text(m.group(1)) or 1
         unit = m.group(2)
@@ -547,6 +618,23 @@ def augment_query_with_temporal_date_hint(query: str) -> str:
         labels.append(f"{d:%Y/%m/%d} {d:%A}")
         d += datetime.timedelta(days=1)
     return query + "\nTemporal date hint: " + "; ".join(labels)
+
+
+def structured_temporal_date_filters(
+    query: str,
+    question_type: str | None,
+) -> list[dict[str, str]]:
+    """Build metadata date predicates for explicit temporal questions."""
+    if not str(question_type or "").startswith("temporal-reasoning"):
+        return []
+    window = _relative_date_window(query)
+    if window is None:
+        return []
+    start, end = window
+    return [
+        {"field": "date", "op": "on_or_after", "value": start.isoformat()},
+        {"field": "date", "op": "on_or_before", "value": end.isoformat()},
+    ]
 
 
 def temporal_date_rerank_sessions(
@@ -608,14 +696,20 @@ def eval_one(
     episode_score_fusion: bool = False,
     structural_rerank: bool = False,
     query_auto: bool = False,
+    evidence_atom_rerank: bool = False,
     score_pool: str = "first",
     recency_weight: float = 0.0,
     coverage_rerank: bool = False,
+    targeted_expansion: bool = False,
     temporal_date_rerank: bool = False,
     relationship_boost: float = 1.0,
     conversation_chunks: bool = False,
     include_answer_marker: bool = False,
     conversation_parent: bool = False,
+    structured_temporal_filters: bool = False,
+    structured_filter_fusion: str = "none",
+    filter_pushdown_threshold: float = 0.50,
+    two_stage_sessions: bool = False,
 ) -> dict[str, Any]:
     tmp = Path(tempfile.mkdtemp(prefix="cf-lme-"))
     try:
@@ -690,13 +784,29 @@ def eval_one(
         query = f"Question date: {item.get('question_date','')}\nQuestion: {item['question']}"
         if temporal_date_rerank and str(item.get("question_type") or "").startswith("temporal-reasoning"):
             query = augment_query_with_temporal_date_hint(query)
-        if query_auto:
+        filters = (
+            structured_temporal_date_filters(query, item.get("question_type"))
+            if structured_temporal_filters
+            else []
+        )
+        if two_stage_sessions:
+            two_stage = engine.query_two_stage_sessions(
+                query,
+                top_k=top_k_chunks,
+                broad_k=retrieval_k,
+                precise_k=6,
+                method=method,
+                max_tokens=200_000,
+            )
+            retrieved_sessions = two_stage["session_ids"]
+        elif query_auto:
             auto_result = engine.query_auto(
                 query,
                 top_k=top_k_chunks,
                 retrieval_k=retrieval_k,
                 method=method,
                 max_tokens=200_000,
+                evidence_atom_rerank=evidence_atom_rerank,
             )
             retrieved_sessions = auto_result["session_ids"]
         elif episode_score:
@@ -710,6 +820,8 @@ def eval_one(
                 max_tokens=200_000,
                 filter_field=("kind", "session"),
                 relationship_boost=relationship_boost,
+                filters=filters,
+                filter_pushdown_threshold=filter_pushdown_threshold,
             )
             cf_sessions = unique_sessions_from_chunks(cf_result.chunks)
             retrieved_sessions = reciprocal_rank_fusion([cf_sessions, ep_sessions])[:top_k_chunks]
@@ -721,6 +833,8 @@ def eval_one(
                 max_tokens=200_000,
                 filter_field=("kind", "session"),
                 relationship_boost=relationship_boost,
+                filters=filters,
+                filter_pushdown_threshold=filter_pushdown_threshold,
             )
             atom_result = engine.query(
                 augment_query_for_memory_atoms(query),
@@ -745,6 +859,8 @@ def eval_one(
                 method=method,
                 max_tokens=200_000,
                 relationship_boost=relationship_boost,
+                filters=filters,
+                filter_pushdown_threshold=filter_pushdown_threshold,
             )
             retrieved_sessions = token_chain_expand_sessions(
                 cf_result.chunks,
@@ -758,6 +874,8 @@ def eval_one(
                 method=method,
                 max_tokens=200_000,
                 relationship_boost=relationship_boost,
+                filters=filters,
+                filter_pushdown_threshold=filter_pushdown_threshold,
             )
             token_result = engine.query(
                 query,
@@ -766,6 +884,8 @@ def eval_one(
                 max_tokens=200_000,
                 token_rerank=True,
                 relationship_boost=relationship_boost,
+                filters=filters,
+                filter_pushdown_threshold=filter_pushdown_threshold,
             )
             cf_sessions = unique_sessions_from_chunks(cf_result.chunks)
             token_sessions = unique_sessions_from_chunks(token_result.chunks)
@@ -780,6 +900,8 @@ def eval_one(
                     max_tokens=200_000,
                     token_rerank=token_native_rerank,
                     relationship_boost=relationship_boost,
+                    filters=filters,
+                    filter_pushdown_threshold=filter_pushdown_threshold,
                 )
                 cf_sessions = unique_sessions_from_chunks(cf_result.chunks)
                 retrieved_sessions = reciprocal_rank_fusion([cf_sessions, vector_sessions])[:top_k_chunks]
@@ -787,8 +909,12 @@ def eval_one(
                 retrieved_sessions = vector_sessions[:top_k_chunks]
         elif rank_by_session:
             group_pool = top_k_chunks
-            if coverage_rerank or temporal_date_rerank:
+            if coverage_rerank or temporal_date_rerank or evidence_atom_rerank or targeted_expansion:
                 group_pool = max(top_k_chunks, 30)
+            if targeted_expansion:
+                group_pool = max(group_pool, min(retrieval_k, 50))
+            if evidence_atom_rerank:
+                group_pool = max(group_pool, min(retrieval_k, 50))
             if temporal_date_rerank:
                 group_pool = max(group_pool, min(retrieval_k, 100))
             groups = engine.query_groups(
@@ -799,10 +925,42 @@ def eval_one(
                 method=method,
                 max_tokens=200_000,
                 relationship_boost=relationship_boost,
+                filters=filters,
+                filter_pushdown_threshold=filter_pushdown_threshold,
             )
             retrieved_sessions = [g["value"] for g in groups]
+            if filters and structured_filter_fusion == "rrf":
+                broad_groups = engine.query_groups(
+                    query,
+                    group_by="session_id",
+                    top_k_groups=group_pool,
+                    retrieval_k=retrieval_k,
+                    method=method,
+                    max_tokens=200_000,
+                    relationship_boost=relationship_boost,
+                )
+                broad_sessions = [g["value"] for g in broad_groups]
+                retrieved_sessions = reciprocal_rank_fusion(
+                    [retrieved_sessions, broad_sessions]
+                )
             if coverage_rerank and str(item.get("question_type") or "").startswith("multi-session"):
                 retrieved_sessions = coverage_rerank_sessions(
+                    query,
+                    session_texts,
+                    retrieved_sessions,
+                    top_k=top_k_chunks,
+                )
+            if evidence_atom_rerank and str(item.get("question_type") or "").startswith("multi-session"):
+                session_text_map = {sid: text for sid, text in session_texts}
+                retrieved_sessions = rerank_sessions_by_evidence_atoms(
+                    query,
+                    retrieved_sessions,
+                    session_text_map,
+                    top_k=top_k_chunks,
+                    candidate_k=max(top_k_chunks, retrieval_k),
+                )
+            if targeted_expansion and str(item.get("question_type") or "").startswith("multi-session"):
+                retrieved_sessions = targeted_expansion_sessions(
                     query,
                     session_texts,
                     retrieved_sessions,
@@ -826,6 +984,8 @@ def eval_one(
                 method=method,
                 max_tokens=200_000,
                 relationship_boost=relationship_boost,
+                filters=filters,
+                filter_pushdown_threshold=filter_pushdown_threshold,
             )
             bm25_order = unique_sessions_from_chunks(result.chunks)
             # Collect per-session chunk text for the reranker
@@ -841,8 +1001,24 @@ def eval_one(
                 max_tokens=200_000,
                 token_rerank=token_native_rerank,
                 relationship_boost=relationship_boost,
+                filters=filters,
+                filter_pushdown_threshold=filter_pushdown_threshold,
             )
-            if score_pool != "first" or recency_weight > 0:
+            if filters and structured_filter_fusion == "rrf":
+                broad_result = engine.query(
+                    query,
+                    top_k=max(top_k_chunks, retrieval_k),
+                    method=method,
+                    max_tokens=200_000,
+                    token_rerank=token_native_rerank,
+                    relationship_boost=relationship_boost,
+                )
+                filtered_sessions = unique_sessions_from_chunks(result.chunks)
+                broad_sessions = unique_sessions_from_chunks(broad_result.chunks)
+                retrieved_sessions = reciprocal_rank_fusion(
+                    [filtered_sessions, broad_sessions]
+                )[:top_k_chunks]
+            elif score_pool != "first" or recency_weight > 0:
                 # Session-level score pooling + optional date-aware recency
                 session_dates = dict(zip(item["haystack_session_ids"], item["haystack_dates"]))
                 retrieved_sessions = scored_bm25_sessions(
@@ -867,6 +1043,7 @@ def eval_one(
             "gold_sessions": sorted(gold),
             "best_rank": min(ranks) if ranks else None,
             "all_found_at": max(ranks) if len(ranks) == len(gold) and ranks else None,
+            "structured_temporal_filters": filters,
         }
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -920,11 +1097,31 @@ def main() -> int:
     ap.add_argument("--episode-score-fusion", action="store_true", help="RRF-fuse ContextFit retrieval with numeric episode relevance scorer")
     ap.add_argument("--structural-rerank", action="store_true", help="BM25 retrieval + token-native structural reranker (same as production query_auto bm25 route)")
     ap.add_argument("--query-auto", action="store_true", help="Use production deterministic query router and routed retrieval modes")
+    ap.add_argument("--evidence-atom-rerank", action="store_true", help="use token-native evidence-atom/facet selection for multi-session reranking")
     ap.add_argument("--score-pool", choices=["first", "sum", "softmax_sum"], default="first", help="Session-level BM25 score pooling: 'first'=original dedup, 'sum'=sum all chunk scores, 'softmax_sum'=softmax-weighted sum")
     ap.add_argument("--recency-weight", type=float, default=0.0, help="Date-aware recency bias weight [0,1] for temporal queries. 0=disabled.")
     ap.add_argument("--coverage-rerank", action="store_true", help="greedily rerank session pools for complementary token/entity evidence coverage")
+    ap.add_argument("--targeted-expansion", action="store_true", help="preserve top source anchors and fill tail slots with targeted companion sessions")
+    ap.add_argument("--two-stage-sessions", action="store_true", help="broad session discovery followed by precise in-session retrieval")
     ap.add_argument("--temporal-date-rerank", action="store_true", help="rerank explicit relative-date temporal questions using question/session dates")
     ap.add_argument("--relationship-boost", type=float, default=1.0, help="optional derived entity/relationship backlink score boost; 1.0 disables")
+    ap.add_argument(
+        "--structured-temporal-filters",
+        action="store_true",
+        help="apply inferred metadata date filters to explicit temporal questions",
+    )
+    ap.add_argument(
+        "--structured-filter-fusion",
+        choices=["none", "rrf"],
+        default="none",
+        help="optionally RRF-fuse structured-filtered retrieval with broad retrieval",
+    )
+    ap.add_argument(
+        "--filter-pushdown-threshold",
+        type=float,
+        default=0.50,
+        help="maximum matched-chunk ratio that uses metadata filters as pushdown",
+    )
     ap.add_argument(
         "--conversation-chunks",
         action="store_true",
@@ -974,14 +1171,20 @@ def main() -> int:
             episode_score_fusion=args.episode_score_fusion,
             structural_rerank=args.structural_rerank,
             query_auto=args.query_auto,
+            evidence_atom_rerank=args.evidence_atom_rerank,
             score_pool=args.score_pool,
             recency_weight=args.recency_weight,
             coverage_rerank=args.coverage_rerank,
+            targeted_expansion=args.targeted_expansion,
             temporal_date_rerank=args.temporal_date_rerank,
             relationship_boost=args.relationship_boost,
             conversation_chunks=args.conversation_chunks,
             include_answer_marker=args.include_answer_marker,
             conversation_parent=args.conversation_parent,
+            structured_temporal_filters=args.structured_temporal_filters,
+            structured_filter_fusion=args.structured_filter_fusion,
+            filter_pushdown_threshold=args.filter_pushdown_threshold,
+            two_stage_sessions=args.two_stage_sessions,
         )
         row["seconds"] = time.time() - st
         rows.append(row)
@@ -1011,9 +1214,15 @@ def main() -> int:
         "episode_score": args.episode_score,
         "episode_score_fusion": args.episode_score_fusion,
         "query_auto": args.query_auto,
+        "evidence_atom_rerank": args.evidence_atom_rerank,
         "coverage_rerank": args.coverage_rerank,
+        "targeted_expansion": args.targeted_expansion,
+        "two_stage_sessions": args.two_stage_sessions,
         "temporal_date_rerank": args.temporal_date_rerank,
         "relationship_boost": args.relationship_boost,
+        "structured_temporal_filters": args.structured_temporal_filters,
+        "structured_filter_fusion": args.structured_filter_fusion,
+        "filter_pushdown_threshold": args.filter_pushdown_threshold,
         "conversation_chunks": args.conversation_chunks,
         "conversation_parent": args.conversation_parent,
         "include_answer_marker": args.include_answer_marker,

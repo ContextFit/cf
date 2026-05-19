@@ -689,6 +689,16 @@ def eval_one(item: dict[str, Any], mode: str, method: str, top_k: int, openai_mo
         elif mode == "auto":
             result = engine.query_auto(query, top_k=top_k, retrieval_k=50, method=method, max_tokens=100_000)
             retrieved = result["session_ids"]
+        elif mode == "two_stage":
+            result = engine.query_two_stage_sessions(
+                query,
+                top_k=top_k,
+                broad_k=50,
+                precise_k=6,
+                method=method,
+                max_tokens=100_000,
+            )
+            retrieved = result["session_ids"]
         elif mode == "episode":
 
             result = engine.query(
@@ -791,12 +801,12 @@ def summarize(rows: list[dict[str, Any]], ks=(1, 3, 5)) -> dict[str, Any]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("data", type=Path, default=Path("benchmarks/data/agent_memory_eval.json"))
-    ap.add_argument("--mode", choices=["baseline", "atoms", "fusion", "episode", "episode_fusion", "episode_score", "episode_score_fusion", "engine_episode_score", "openai_vector", "openai_fusion", "voyage_vector", "cohere_vector", "free_rerank", "free_rerank_idf", "free_rerank_slot", "free_rerank_window", "free_rerank_all", "free_rerank_fusion", "mem0", "auto"], default="baseline")
+    ap.add_argument("--mode", choices=["baseline", "atoms", "fusion", "episode", "episode_fusion", "episode_score", "episode_score_fusion", "engine_episode_score", "openai_vector", "openai_fusion", "voyage_vector", "cohere_vector", "free_rerank", "free_rerank_idf", "free_rerank_slot", "free_rerank_window", "free_rerank_all", "free_rerank_fusion", "mem0", "auto", "two_stage"], default="baseline")
     ap.add_argument("--openai-model", default="text-embedding-3-small")
     ap.add_argument("--voyage-model", default="voyage-3")
     ap.add_argument("--cohere-model", default="embed-english-v3.0")
     ap.add_argument("--embed-cache", type=Path, default=Path("benchmarks/cache/openai_embeddings"))
-    ap.add_argument("--method", choices=["exact", "bm25", "hybrid"], default="hybrid")
+    ap.add_argument("--method", choices=["exact", "bm25", "hybrid", "hybrid_rrf"], default="hybrid")
     ap.add_argument("--top-k", type=int, default=5)
     ap.add_argument("--out", type=Path)
     args = ap.parse_args()

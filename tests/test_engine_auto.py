@@ -197,3 +197,71 @@ def test_query_auto_multi_session_rerank_covers_complementary_facets(tmp_path):
     result = engine.query_auto("What should I focus on to improve my endurance?", top_k=3, retrieval_k=10)
     assert result["route"].mode == "multi_session_rerank"
     assert result["session_ids"][:2] == ["s_goal", "s_constraint"]
+
+
+def test_query_auto_can_use_evidence_atom_rerank_for_multi_session(tmp_path):
+    engine = RetrievalEngine.create(tmp_path)
+    engine.ingest_text(
+        "Session ID: s_goal\nDate: 2026/02/01\n\n"
+        "Turn 1 (user): I want to improve my endurance for a marathon this spring.\n",
+        metadata={"session_id": "s_goal", "kind": "session"},
+        update_indexes=True,
+    )
+    engine.ingest_text(
+        "Session ID: s_constraint\nDate: 2026/02/02\n\n"
+        "Turn 1 (user): I need to avoid high-impact workouts because my knee has been sore.\n",
+        metadata={"session_id": "s_constraint", "kind": "session"},
+        update_indexes=True,
+    )
+    engine.ingest_text(
+        "Session ID: s_generic\nDate: 2026/02/03\n\n"
+        "Turn 1 (user): What are some popular endurance tips and general gym ideas?\n",
+        metadata={"session_id": "s_generic", "kind": "session"},
+        update_indexes=True,
+    )
+
+    result = engine.query_auto(
+        "What should I focus on to improve my endurance?",
+        top_k=3,
+        retrieval_k=10,
+        evidence_atom_rerank=True,
+    )
+
+    assert result["details"]["evidence_atom_rerank"] is True
+    assert result["session_ids"][:2] == ["s_goal", "s_constraint"]
+
+
+def test_query_two_stage_sessions_searches_inside_discovered_parent(tmp_path):
+    engine = RetrievalEngine.create(tmp_path)
+    engine.ingest_text(
+        "Session ID: s_launch\nDate: 2026/02/01\n\n"
+        "Turn 1 (user): Project Orion launch planning notes.\n"
+        "Turn 2 (assistant): The checklist mentions buying batteries and badge clips.\n",
+        metadata={"session_id": "s_launch", "kind": "session"},
+        update_indexes=True,
+    )
+    engine.ingest_text(
+        "Session ID: s_generic\nDate: 2026/02/02\n\n"
+        "Turn 1 (user): Project Orion had a long generic planning discussion.\n"
+        "Turn 2 (assistant): We covered milestones, morale, and broad timelines.\n",
+        metadata={"session_id": "s_generic", "kind": "session"},
+        update_indexes=True,
+    )
+    engine.ingest_text(
+        "Session ID: s_supplies\nDate: 2026/02/03\n\n"
+        "Turn 1 (user): Office supply notes.\n"
+        "Turn 2 (assistant): Buying folders and pens is unrelated to the launch.\n",
+        metadata={"session_id": "s_supplies", "kind": "session"},
+        update_indexes=True,
+    )
+
+    result = engine.query_two_stage_sessions(
+        "For Project Orion launch, what buying checklist items came up?",
+        top_k=2,
+        broad_k=10,
+        precise_k=3,
+    )
+
+    assert result["route"] == "two_stage_sessions"
+    assert result["session_ids"][0] == "s_launch"
+    assert result["details"]["candidates"][0]["precise_hits"] > 0

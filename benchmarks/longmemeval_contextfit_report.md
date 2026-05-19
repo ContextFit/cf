@@ -1068,3 +1068,381 @@ Official evaluator log:
 - SHA-256: `e1b10cc582aaae4f4749c9d3571107447dad6a0582fd158f98ff20c95854eed2`
 
 This is still best framed as a local official-evaluator reproduction, not an official LongMemEval leaderboard submission. The margin versus Supermemory's public overall figure is small and judge-sensitive; the multi-session number approximately matches rather than clearly exceeds Supermemory's published multi-session figure.
+
+### 2026-05-17 structured temporal metadata filters
+
+Structured metadata filters were promoted into the main LongMemEval retrieval
+runner after the targeted temporal-filter experiments. The runner now supports:
+
+- `--structured-temporal-filters`
+- `--structured-filter-fusion none|rrf`
+- `--filter-pushdown-threshold`
+
+The main path keeps retrieval token-native. Filters are deterministic metadata
+predicates over indexed session fields; no vector embeddings, vector database,
+or LLM call is used inside retrieval. For this run, filters are only generated
+for `temporal-reasoning` rows where the question plus question date imply a
+relative date window.
+
+Full baseline rerun:
+
+```bash
+.venv/bin/python benchmarks/longmemeval_contextfit.py \
+  benchmarks/data/longmemeval_s_cleaned.json \
+  --limit 0 --method hybrid --top-k-chunks 10 --retrieval-k 100 \
+  --chunk-size 2048 --overlap 128 --rank-by-session \
+  --conversation-chunks --conversation-parent --coverage-rerank \
+  --out benchmarks/longmemeval_token_only_baseline_run_20260517.json
+```
+
+Full structured-filter rerun:
+
+```bash
+.venv/bin/python benchmarks/longmemeval_contextfit.py \
+  benchmarks/data/longmemeval_s_cleaned.json \
+  --limit 0 --method hybrid --top-k-chunks 10 --retrieval-k 100 \
+  --chunk-size 2048 --overlap 128 --rank-by-session \
+  --conversation-chunks --conversation-parent --coverage-rerank \
+  --structured-temporal-filters \
+  --out benchmarks/longmemeval_structured_temporal_filters_run_20260517.json
+```
+
+Overall retrieval results:
+
+| Metric | Baseline | Structured temporal filters | Delta |
+|---|---:|---:|---:|
+| Any@1 | 82.77% | **83.19%** | +0.43 pts |
+| Any@3 | 91.28% | **91.91%** | +0.64 pts |
+| Any@5 | 95.11% | **95.74%** | +0.64 pts |
+| Any@10 | 97.02% | **97.23%** | +0.21 pts |
+| All@5 | 80.43% | 80.43% | +0.00 pts |
+| All@10 | **86.81%** | 86.17% | -0.64 pts |
+| MRR | 0.8753 | **0.8799** | +0.0046 |
+
+Temporal-reasoning slice:
+
+| Metric | Baseline | Structured temporal filters | Delta |
+|---|---:|---:|---:|
+| Any@1 | 78.74% | **80.31%** | +1.57 pts |
+| Any@3 | 88.98% | **91.34%** | +2.36 pts |
+| Any@5 | 93.70% | **96.06%** | +2.36 pts |
+| Any@10 | 96.85% | **97.64%** | +0.79 pts |
+| All@5 | 70.08% | 70.08% | +0.00 pts |
+| All@10 | **78.74%** | 76.38% | -2.36 pts |
+| MRR | 0.8434 | **0.8605** | +0.0171 |
+
+Readout: structured temporal filters are now a clean retrieval win for early
+evidence ranking. They improve the full-run Any@K and MRR numbers and recover
+the temporal slice materially. The known tradeoff remains complete evidence
+coverage at top 10: hard date windows can exclude companion sessions outside
+the inferred date range. The right default is hard filters for explicit
+temporal windows, with broad RRF kept as an optional conservative variant if
+complete-evidence recovery becomes the objective.
+
+The QA bridge was not rerun in this pass because `OPENAI_API_KEY` was not set
+in the shell. The next apples-to-apples QA command is:
+
+```bash
+OPENAI_API_KEY=... .venv/bin/python benchmarks/longmemeval_contextfit_qa.py \
+  --retrieval-artifact benchmarks/longmemeval_structured_temporal_filters_run_20260517.json \
+  --top-k-context 10 \
+  --max-session-chars 20000 \
+  --source-aware \
+  --generation-max-tokens 1200 \
+  --hypotheses-out benchmarks/longmemeval_contextfit_qa_hypotheses_structured_temporal_filters_20260517.jsonl \
+  --judged-out benchmarks/longmemeval_contextfit_qa_judged_structured_temporal_filters_20260517.jsonl \
+  --summary-out benchmarks/longmemeval_contextfit_qa_summary_structured_temporal_filters_20260517.json
+```
+
+The structured-filter QA bridge was then run with the same source-aware answer
+path. It improved the temporal slice but did not improve the stable headline:
+
+| QA metric | Stable source-aware | Structured filters |
+|---|---:|---:|
+| Overall QA accuracy | **81.8%** | 80.8% |
+| Task-averaged QA accuracy | **83.5%** | 81.5% |
+| Temporal-reasoning accuracy | 75.9% | **77.4%** |
+| Abstention accuracy | 80.0% | **83.3%** |
+
+Artifacts:
+
+- `benchmarks/longmemeval_contextfit_qa_hypotheses_structured_temporal_filters_20260517.jsonl`
+- `benchmarks/longmemeval_contextfit_qa_judged_structured_temporal_filters_20260517.jsonl`
+- `benchmarks/longmemeval_contextfit_qa_summary_structured_temporal_filters_20260517.json`
+
+### 2026-05-17 evidence-contract QA ablation
+
+An evidence-contract prompt was added to the QA bridge to test the product
+principle without more retrieval parameter tuning:
+
+- primary evidence: structured-filter retrieval sessions
+- supporting evidence: non-duplicate broad retrieval sessions
+- fallback: source-aware behavior for rows without structured filters
+
+The contract is only triggered when the retrieval artifact contains
+`structured_temporal_filters`, so it does not use LongMemEval question labels as
+a router. The ablation was run on the 16 rows where structured filters actually
+fired, then combined with the unchanged stable source-aware judged rows.
+
+Focused 16-row temporal-filter slice:
+
+| QA path | Correct | Accuracy |
+|---|---:|---:|
+| Stable source-aware | 9 / 16 | 56.25% |
+| Hard structured filters | 9 / 16 | 56.25% |
+| Filtered top-4 + broad backfill | 5 / 16 | 31.25% |
+| Evidence contract | **10 / 16** | **62.50%** |
+
+Combined with unchanged stable source-aware rows:
+
+| QA metric | Stable source-aware | Evidence contract combined |
+|---|---:|---:|
+| Overall QA accuracy | 81.8% | **82.0%** |
+| Task-averaged QA accuracy | 83.5% | **83.7%** |
+| Temporal-reasoning accuracy | 75.9% | **76.7%** |
+| Abstention accuracy | 80.0% | 80.0% |
+
+Artifacts:
+
+- `benchmarks/longmemeval_evidence_contract_filter_qids_20260517.txt`
+- `benchmarks/longmemeval_contextfit_qa_hypotheses_evidence_contract_temporal_20260517.jsonl`
+- `benchmarks/longmemeval_contextfit_qa_judged_evidence_contract_temporal_20260517.jsonl`
+- `benchmarks/longmemeval_contextfit_qa_summary_evidence_contract_temporal_20260517.json`
+- `benchmarks/longmemeval_contextfit_qa_judged_evidence_contract_combined_20260517.jsonl`
+- `benchmarks/longmemeval_contextfit_qa_summary_evidence_contract_combined_20260517.json`
+
+Readout: this is a useful product-shape signal, not a new public headline. The
+sample is only 16 filtered rows and the gain is one additional correct answer.
+It supports the general design of keeping high-precision filtered evidence
+separate from broader companion context, but it should be validated on a
+held-out temporal set or a separate agent-memory QA set before being promoted.
+
+### 2026-05-17 deterministic evidence packet probe
+
+A deterministic evidence assembly packet was added to the QA bridge via
+`--evidence-packet`. This is a non-LLM reducer that extracts source-linked
+candidate evidence from already-retrieved sessions before answer generation:
+
+- events with dates/source sessions
+- state/update/current-vs-previous candidates
+- count/list candidates with simple dedupe keys
+- temporal relation candidates
+- preference/constraint hints
+
+This does not change ContextFit retrieval. It changes the answer substrate that
+the generation LLM receives after retrieval.
+
+Probe design:
+
+- 91 stable source-aware misses
+- 91 matched stable-correct guardrail rows by question type
+- same baseline retrieval artifact
+- same GPT-4o source-aware generation/judge path
+
+Probe result on the 182-row slice:
+
+| Metric | Stable source-aware on slice | Evidence packet |
+|---|---:|---:|
+| Correct rows | 91 / 182 | **111 / 182** |
+| Accuracy | 50.0% | **60.99%** |
+| Wins | - | 25 |
+| Regressions | - | 5 |
+
+Wins by type:
+
+- temporal-reasoning: 10
+- multi-session: 9
+- knowledge-update: 4
+- single-session-preference: 1
+- single-session-assistant: 1
+
+Regressions were all multi-session rows, mostly count/current-role shapes where
+the packet appears to add distracting candidate facts.
+
+Artifacts:
+
+- `benchmarks/longmemeval_evidence_packet_probe_qids_20260517.txt`
+- `benchmarks/longmemeval_contextfit_qa_hypotheses_evidence_packet_probe_20260517.jsonl`
+- `benchmarks/longmemeval_contextfit_qa_judged_evidence_packet_probe_20260517.jsonl`
+- `benchmarks/longmemeval_contextfit_qa_summary_evidence_packet_probe_20260517.json`
+- `benchmarks/longmemeval_contextfit_qa_judged_evidence_packet_combined_probe_20260517.jsonl`
+- `benchmarks/longmemeval_contextfit_qa_summary_evidence_packet_combined_probe_20260517.json`
+
+Readout: this is the strongest general improvement signal so far, but the
+probe intentionally includes known misses and therefore is not a valid headline
+score. It shows that deterministic evidence assembly addresses the dominant
+failure modes: temporal arithmetic/order, multi-session count/list aggregation,
+knowledge updates, and preference context. The next unbiased validation is a
+full 500-row run or a held-out agent-memory eval with the same packet enabled.
+
+Follow-up routing fix: the unbiased full run showed that applying the packet to
+all count/list wording was too broad. Overall QA improved from **81.8%** to
+**82.6%**, but multi-session QA regressed from **71.4%** to **69.9%**. A first
+guard that skipped only multi-session count/list rows was not enough: the
+2026-05-18 safe-general validation landed at **82.0%** overall but still
+regressed multi-session to **68.4%**. It also regressed the preference slice to
+**63.3%** versus the stable **70.0%**. The `--evidence-packet general` router now
+skips all multi-session and single-session-preference rows by default while
+preserving temporal/update/knowledge-update routing. A recombined estimate using
+stable source-aware judgments for skipped rows and safe-general judgments for
+routed rows gives **83.2%** overall, **85.0%** task-averaged, **71.4%**
+multi-session, and **70.0%** preference. Use `--evidence-packet all` only for
+forced ablations that intentionally test the risky full-packet behavior.
+
+### 2026-05-18 multi-session coverage QA probe
+
+The next multi-session probe kept generation on GPT-4o for comparability and
+tested whether the existing token-native coverage rerank retrieval artifact
+improves QA when paired with the stable source-aware answer prompt.
+
+Two evidence-compiler prompts were tried first and rejected before scaling:
+
+- `--multi-session-evidence-compiler strict`: 4 / 10 on the gate slice.
+- `--multi-session-evidence-compiler guided`: 4 / 10 on the same gate slice.
+
+Both compiler prompts underperformed the plain source-aware prompt because the
+deterministic ledger sometimes omitted companion facts or caused over-strict
+abstention. This is distinct from the earlier broad `--evidence-packet` failure:
+it shows that a narrow multi-session ledger is not enough unless the compiler
+can guarantee complete candidate coverage.
+
+The useful signal came from retrieval only. On the same 10-row gate, plain
+source-aware synthesis over `longmemeval_coverage_companion_full.json` scored
+6 / 10, versus 5 / 10 for the stable source-aware baseline artifact.
+
+Full multi-session QA result:
+
+```bash
+OPENAI_API_KEY=... .venv/bin/python benchmarks/longmemeval_contextfit_qa.py \
+  --retrieval-artifact benchmarks/longmemeval_coverage_companion_full.json \
+  --question-type multi-session \
+  --top-k-context 10 \
+  --max-session-chars 20000 \
+  --source-aware \
+  --generation-model gpt-4o-2024-08-06 \
+  --judge-model gpt-4o-2024-08-06 \
+  --generation-max-tokens 1200 \
+  --judge-max-tokens 20 \
+  --hypotheses-out benchmarks/longmemeval_contextfit_qa_hypotheses_multisession_coverage_source_full_20260518.jsonl \
+  --judged-out benchmarks/longmemeval_contextfit_qa_judged_multisession_coverage_source_full_20260518.jsonl \
+  --summary-out benchmarks/longmemeval_contextfit_qa_summary_multisession_coverage_source_full_20260518.json
+```
+
+| Multi-session QA | Correct | Accuracy |
+|---|---:|---:|
+| Stable source-aware artifact | 95 / 133 | 71.43% |
+| Coverage-rerank artifact + source-aware QA | **96 / 133** | **72.18%** |
+
+Flip analysis versus the stable source-aware judged artifact:
+
+- wins: 8
+- regressions: 7
+- unchanged correct: 88
+- unchanged wrong: 30
+- abstention accuracy unchanged: 83.33% on 12 rows
+
+Readout: token-native coverage reranking gives a small positive end-to-end
+multi-session QA lift when used directly with the stable source-aware prompt.
+This is not yet a strong headline improvement, but it validates the narrower
+direction: improve multi-session retrieval coverage first, and avoid adding
+deterministic evidence ledgers unless they can prove complete candidate recall.
+
+### 2026-05-18 token-native evidence-atom selector probe
+
+As a broader search-style retrieval idea, we tried an off-by-default
+token-native evidence-atom selector: retrieved sessions are decomposed into
+deterministic facets such as goal, constraint, preference, temporal, decision,
+open-loop, entity-context, date, and number, then selected by marginal coverage.
+This is not an LLM prompt compiler and does not use embeddings or gold labels.
+
+This is distinct from prior attempts:
+
+- Earlier `memory_atoms` indexed extracted user-memory facts.
+- Earlier coverage reranking used lexical/entity overlap around an anchor.
+- Earlier multi-session compiler prompts changed the QA prompt and failed 4/10.
+- This probe changed candidate selection with deterministic evidence atoms.
+
+Retrieval-only gate on the 133 multi-session rows:
+
+| Multi-session retrieval | Any@10 | All@10 | MRR |
+|---|---:|---:|---:|
+| Rank-by-session baseline | **95.04%** | **73.55%** | **0.837** |
+| Evidence-atom selector | 94.21% | 42.15% | 0.825 |
+
+Flip analysis on All@10: 7 wins, 45 losses. The selector found some
+complementary facets, but it displaced required companion evidence too often.
+Conclusion: reject this selector as a default. Keep it only as an experimental
+diagnostic path. The next promising direction is not more prompt compilation or
+generic facet diversity; it is source-set preservation: keep the high-recall
+baseline top-K set intact, then add a separate targeted expansion lane for
+missing entities/dates/count candidates instead of replacing sessions.
+
+### 2026-05-18 source-set-preserving targeted expansion probe
+
+The next probe tested the source-set-preserving version of parent/companion
+traversal. Instead of replacing the source set, `--targeted-expansion` protects
+the strongest baseline anchors and only fills the tail slots from a broader
+retrieved pool using token/entity overlap with the anchors and query.
+
+Retrieval-only gate on the same 133 multi-session rows:
+
+| Multi-session retrieval | Any@10 | All@10 | MRR |
+|---|---:|---:|---:|
+| Rank-by-session baseline | 95.04% | 73.55% | 0.837 |
+| Evidence-atom selector | 94.21% | 42.15% | 0.825 |
+| Targeted expansion | **95.04%** | **77.69%** | **0.837** |
+
+Targeted expansion kept Any@10 and MRR unchanged while improving All@10 by
+4.13 points. All@10 flips: 8 wins, 3 losses. This validates the traversal
+shape: preserve strong anchors, then add targeted companions.
+
+A small GPT-4o source-aware QA gate on the 11 changed rows did not promote the
+method yet:
+
+| Changed-row QA gate | Correct | Accuracy |
+|---|---:|---:|
+| Stable 20k source-aware artifact on same qids | 9 / 11 | 81.82% |
+| Coverage-rerank artifact on same qids | 9 / 11 | 81.82% |
+| Targeted expansion artifact | 7 / 11 | 63.64% |
+
+Readout: targeted expansion is a useful retrieval primitive, but more complete
+retrieval did not automatically improve answer synthesis on the changed rows.
+Do not promote it as a QA path yet.
+
+Follow-up source-set-aware synthesis kept the baseline source set as Primary
+Sources and targeted-expansion additions as Added Companion Sources, requiring
+the answer prompt to audit whether each companion changed the candidate set.
+This also failed the changed-row gate:
+
+| Changed-row QA gate | Correct | Accuracy |
+|---|---:|---:|
+| Source-set-aware targeted expansion | 7 / 11 | 63.64% |
+
+It recovered a different subset of rows than plain targeted expansion but did
+not beat the stable or coverage-rerank 9/11 gates. Conclusion: keep
+`--targeted-expansion` and `--source-set-aware` off by default as diagnostics.
+
+### 2026-05-18 aggregation assembly probe
+
+The next probe tested a deterministic aggregation assembly path for
+multi-session count/list questions. `--aggregation-assembly
+multi_session_count_list` builds source-linked `C#` candidate rows and dedupe
+groups before generation, then asks the answer model to include/exclude
+candidates and answer from the deduped set.
+
+20-row multi-session count/list gate:
+
+| Count/list QA gate | Correct | Accuracy |
+|---|---:|---:|
+| Historical stable 20k source-aware on same qids | 12 / 20 | 60.00% |
+| Same retrieval artifact, source-aware | 9 / 20 | 45.00% |
+| Aggregation assembly | 6 / 20 | 30.00% |
+
+Flip analysis against the exact same retrieval artifact showed no wins and 3
+losses for aggregation assembly (`3a704032`, `28dc39ac`, `80ec1f4f`). The
+assembly table made the model more constrained, but not more correct; it
+appears to omit or mis-group the evidence that the plain prompt can sometimes
+use. Keep `--aggregation-assembly` off by default as a failed diagnostic. The
+next useful path is not another table-to-prompt wrapper; it is typed extraction
+with row-level verification or a deterministic reducer that can abstain before
+the answer model sees an incomplete candidate set.

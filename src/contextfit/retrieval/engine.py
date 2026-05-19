@@ -22,7 +22,9 @@ from contextfit.hierarchy.levels import HierarchyBuilder
 from contextfit.index.bm25 import BM25Scorer
 from contextfit.index.inverted import InvertedIndex, SegmentWriter, SegmentMerger
 from contextfit.metadata.index import MetadataIndex
+from contextfit.retrieval.evidence_atoms import rerank_sessions_by_evidence_atoms
 from contextfit.retrieval.memory_atoms import augment_query_for_memory_atoms, atom_type_priors, episode_relevance_score, extract_memory_atoms, query_memory_intents
+from contextfit.retrieval.query_spec import MetadataPredicate, QuerySpec
 from contextfit.retrieval.query_router import QueryRoute, describe_route, route_query
 from contextfit.retrieval.relationships import RelationshipIndex
 from contextfit.retrieval.token_rerank import RerankTrace, TokenNativeReranker
@@ -48,6 +50,7 @@ class RetrievalResult:
     semantic_ids: list[tuple[int, ...]] | None = None
     sid_predictions: list[SIDPrediction] | None = None
     rerank_traces: list[RerankTrace] | None = None
+    filter_trace: dict | None = None
 
 
 class RetrievalEngine:
@@ -827,6 +830,142 @@ class RetrievalEngine:
             selected.append(remaining.pop(best_i))
         return [sid for _score, _pos, sid, _facets, _words in selected]
 
+    def rerank_sessions_by_evidence_atoms(
+        self,
+        query: str,
+        bm25_session_order: list[str],
+        session_texts: dict[str, str],
+        top_k: int = 10,
+        candidate_k: int = 40,
+    ) -> list[str]:
+        """Token-native evidence-atom/facet selector for multi-session queries."""
+        return rerank_sessions_by_evidence_atoms(
+            query,
+            bm25_session_order,
+            session_texts,
+            top_k=top_k,
+            candidate_k=candidate_k,
+        )
+
+    def query_two_stage_sessions(
+        self,
+        query: str,
+        top_k: int = 10,
+        broad_k: int = 50,
+        precise_k: int = 6,
+        method: str = "hybrid",
+        max_tokens: int = 200_000,
+        session_field: str = "session_id",
+        broad_filter_field: tuple[str, str] | None = ("kind", "session"),
+    ) -> dict:
+        """Broad parent/session discovery followed by precise in-session search.
+
+        This is intentionally opt-in.  It is meant for cross-thread/count/list
+        questions where the first pass should identify candidate parent sessions
+        and the second pass should search only inside those discovered paths.
+        """
+        import math
+        import re
+
+        _WORD_RE = re.compile(r"[a-z0-9][a-z0-9'_-]*")
+        _STOPWORDS = {
+            "a", "an", "and", "are", "as", "at", "be", "been", "but", "by",
+            "can", "could", "did", "do", "does", "for", "from", "had", "has",
+            "have", "he", "her", "him", "his", "how", "i", "if", "in", "is",
+            "it", "me", "my", "of", "on", "or", "our", "she", "so", "that",
+            "the", "their", "them", "they", "this", "to", "was", "we", "were",
+            "what", "when", "where", "which", "who", "why", "will", "with",
+            "would", "you", "your", "should", "help", "about", "anything",
+            "something", "list", "count", "many",
+        }
+
+        def _words(text: str) -> set[str]:
+            return {w for w in _WORD_RE.findall(text.lower()) if len(w) > 2 and w not in _STOPWORDS}
+
+        def _overlap(a: set[str], b: set[str]) -> float:
+            if not a or not b:
+                return 0.0
+            return len(a & b) / math.sqrt(len(a) * len(b))
+
+        broad_result = self.query(
+            query,
+            top_k=broad_k,
+            method=method,
+            max_tokens=max_tokens,
+            filter_field=broad_filter_field,
+        )
+        broad_order: list[str] = []
+        broad_rank: dict[str, int] = {}
+        broad_scores: dict[str, float] = {}
+        broad_texts: dict[str, list[str]] = {}
+        for rank, (chunk, score) in enumerate(zip(broad_result.chunks, broad_result.scores), start=1):
+            sid = str(chunk.metadata.get(session_field) or self.metadata.get(chunk.chunk_id).get(session_field) or "")
+            if not sid:
+                continue
+            if sid not in broad_rank:
+                broad_rank[sid] = rank
+                broad_order.append(sid)
+                broad_scores[sid] = score
+            else:
+                broad_scores[sid] = max(broad_scores[sid], score)
+            try:
+                txt = self.tokenizer.decode(chunk.tokens.tolist())
+            except Exception:
+                txt = ""
+            if txt:
+                broad_texts.setdefault(sid, []).append(txt)
+
+        q_words = _words(query)
+        rows: list[dict] = []
+        for sid in broad_order:
+            precise = self.query(
+                query,
+                top_k=precise_k,
+                method="bm25",
+                max_tokens=max_tokens,
+                filter_field=(session_field, sid),
+            )
+            precise_scores = [score for score in precise.scores if score > 0]
+            precise_text_parts: list[str] = []
+            for chunk in precise.chunks:
+                try:
+                    txt = self.tokenizer.decode(chunk.tokens.tolist())
+                except Exception:
+                    txt = ""
+                if txt:
+                    precise_text_parts.append(txt)
+            evidence_text = "\n".join(precise_text_parts or broad_texts.get(sid, []))
+            lexical = _overlap(q_words, _words(evidence_text))
+            rank_bonus = 1.0 / (60 + broad_rank[sid])
+            precise_score = max(precise_scores, default=0.0)
+            # Keep broad path discovery dominant, then let in-session precise
+            # evidence break ties and demote broad-but-unsubstantiated parents.
+            score = 1.00 * rank_bonus + 0.12 * math.log1p(precise_score) + 0.35 * lexical
+            rows.append(
+                {
+                    "session_id": sid,
+                    "score": score,
+                    "broad_rank": broad_rank[sid],
+                    "broad_score": broad_scores.get(sid, 0.0),
+                    "precise_score": precise_score,
+                    "lexical_overlap": lexical,
+                    "precise_hits": len(precise_scores),
+                }
+            )
+
+        rows.sort(key=lambda r: (-r["score"], r["broad_rank"]))
+        session_ids = [str(r["session_id"]) for r in rows[:top_k]]
+        return {
+            "route": "two_stage_sessions",
+            "session_ids": session_ids,
+            "details": {
+                "broad_k": broad_k,
+                "precise_k": precise_k,
+                "method": method,
+                "candidates": rows[: min(len(rows), max(top_k, 10))],
+            },
+        }
+
     def query_auto(
         self,
         query: str,
@@ -835,6 +974,7 @@ class RetrievalEngine:
         method: str = "hybrid",
         max_tokens: int = 200_000,
         session_field: str = "session_id",
+        evidence_atom_rerank: bool = False,
     ) -> dict:
         """Auto-route a query to the best retrieval mode and return results.
 
@@ -974,9 +1114,15 @@ class RetrievalEngine:
                     txt = ""
                 c_texts.setdefault(sid, []).append(txt)
             flat_c_texts = {sid: "\n".join(parts) for sid, parts in c_texts.items()}
-            session_ids = self.rerank_sessions_by_evidence_coverage(
-                query, c_order, flat_c_texts, top_k=top_k
-            )
+            if evidence_atom_rerank:
+                session_ids = self.rerank_sessions_by_evidence_atoms(
+                    query, c_order, flat_c_texts, top_k=top_k, candidate_k=retrieval_k
+                )
+                details["evidence_atom_rerank"] = True
+            else:
+                session_ids = self.rerank_sessions_by_evidence_coverage(
+                    query, c_order, flat_c_texts, top_k=top_k
+                )
 
         elif route.mode == "atom_fusion":
             # BM25 session retrieval + structural reranking (replaces atom-type fusion)
@@ -1050,6 +1196,10 @@ class RetrievalEngine:
         sum_score_weight: float = 0.10,
         count_weight: float = 0.01,
         relationship_boost: float = 1.0,
+        filters: list[MetadataPredicate | dict] | dict | None = None,
+        filter_mode: str = "and",
+        min_filter_matches: int = 1,
+        filter_pushdown_threshold: float = 0.50,
     ) -> list[dict]:
         """Retrieve chunks, then rank grouped evidence by metadata field.
 
@@ -1065,6 +1215,10 @@ class RetrievalEngine:
             method=method,
             max_tokens=max_tokens,
             relationship_boost=relationship_boost,
+            filters=filters,
+            filter_mode=filter_mode,
+            min_filter_matches=min_filter_matches,
+            filter_pushdown_threshold=filter_pushdown_threshold,
         )
         groups: dict[str, dict] = {}
         for rank, (chunk, score) in enumerate(zip(result.chunks, result.scores), start=1):
@@ -1185,7 +1339,13 @@ class RetrievalEngine:
         overlap: int = 64,
         update_indexes: bool = True,
     ) -> list[Chunk]:
-        """Ingest a text file, preserving known document structure when possible."""
+        """Ingest a text file, preserving known document structure when possible.
+
+        File-ingested chunks need a stable session_id so session-oriented
+        retrieval paths can group them by source. Conversation ingestion already
+        sets this; file ingestion fills it from the source path unless the
+        extractor supplied a more specific value.
+        """
         from contextfit.extractors import auto as auto_extractor
         from contextfit.extractors import calendar as calendar_extractor
         from contextfit.extractors import code as code_extractor
@@ -1197,6 +1357,7 @@ class RetrievalEngine:
         path = Path(path)
         text = path.read_text()
         suffix = path.suffix.lower()
+        default_session_id = path.as_posix()
 
         if suffix == ".tmd":
             text_chunks = tmd_extractor.chunk_tmd(path, text, chunk_size=chunk_size, overlap=overlap)
@@ -1225,9 +1386,11 @@ class RetrievalEngine:
         chunks: list[Chunk] = []
         for item in text_chunks:
             tokens = self.tokenizer.encode(item["text"])
+            meta = dict(item.get("metadata") or auto_extractor.extract(path, item["text"]))
+            meta.setdefault("session_id", default_session_id)
             chunks.extend(self.ingest_token_chunks(
                 [tokens],
-                metadata=item.get("metadata") or auto_extractor.extract(path, item["text"]),
+                metadata=meta,
                 update_indexes=update_indexes,
             ))
         return chunks
@@ -1309,6 +1472,11 @@ class RetrievalEngine:
         # --- new: metadata pre-filter ---
         filter_domain: str | None = None,
         filter_field: tuple[str, str] | None = None,
+        filters: list[MetadataPredicate | dict] | dict | None = None,
+        filter_mode: str = "and",
+        min_filter_matches: int = 0,
+        filter_pushdown_threshold: float = 0.50,
+        query_spec: QuerySpec | dict | None = None,
         # --- new: hybrid scoring ---
         metadata_boost: float = 1.0,
         relationship_boost: float = 1.0,
@@ -1322,7 +1490,8 @@ class RetrievalEngine:
         Args:
             query: Query text or token IDs
             top_k: Number of chunks to retrieve
-            method: "exact", "bm25", "sid", "graph", "hierarchy", or "hybrid"
+            method: "exact", "bm25", "sid", "graph", "hierarchy", "hybrid",
+                    or "hybrid_rrf" for rank-fusion ablations
             use_hierarchy: Navigate hierarchy if available
             expand_graph: Expand results via graph neighbors
             max_tokens: Maximum total tokens in result
@@ -1330,6 +1499,21 @@ class RetrievalEngine:
                            e.g. filter_domain="acme.example"
             filter_field: Pre-filter tuple (field, value)
                           e.g. filter_field=("subject", "Acme")
+            filters: Structured metadata predicates from an agent/MCP query
+                     spec. Supported operators include exact, contains, in,
+                     gt/gte/lt/lte, after/before, and exists.
+            filter_mode: Combine structured filters with "and" or "or".
+            min_filter_matches: If structured filters match fewer chunks than
+                                this threshold, broaden by ignoring those
+                                filters. This keeps agent/planner mistakes
+                                from silently over-filtering evidence.
+            filter_pushdown_threshold: If filters match more than this fraction
+                                       of indexed metadata, do normal candidate
+                                       generation and post-filter instead of
+                                       scoring a very broad explicit candidate
+                                       list. Set to 1.0 to always push down.
+            query_spec: Optional structured request containing query, filters,
+                        filter_mode, and min_filter_matches.
             metadata_boost: Score multiplier when query terms appear in
                             metadata fields. Default 1.0 because broad fields
                             like dates/session ids can otherwise swamp text
@@ -1341,6 +1525,17 @@ class RetrievalEngine:
             token_rerank: Rerank candidate chunks using token-native phrase,
                           local-window, preference, and temporal structure.
         """
+        if query_spec is not None:
+            spec = QuerySpec.from_obj(query_spec)
+            query = spec.query
+            filters = spec.filters
+            filter_mode = spec.filter_mode
+            min_filter_matches = spec.min_filter_matches
+            filter_pushdown_threshold = spec.filter_pushdown_threshold
+
+        use_hybrid_rrf = method == "hybrid_rrf"
+        is_hybrid = method in ("hybrid", "hybrid_rrf")
+
         # Tokenize query if needed
         query_text: str = query if isinstance(query, str) else ""
         if isinstance(query, str):
@@ -1369,20 +1564,69 @@ class RetrievalEngine:
 
         # --- Metadata pre-filter: compute allowed chunk_id set ---
         filter_set: set[int] | None = None
+        post_filter_set: set[int] | None = None
+        filter_trace: dict | None = None
         if filter_domain:
             filter_set = self.metadata.filter_sender_domain(filter_domain)
         if filter_field:
             field_matches = self.metadata.filter(filter_field[0], filter_field[1])
             filter_set = field_matches if filter_set is None else filter_set & field_matches
+        if filters:
+            filter_items = filters
+            if isinstance(filter_items, dict):
+                filter_items = QuerySpec.from_obj(
+                    {"query": query_text or "__query__", "filters": filter_items}
+                ).filters
+            predicates = [MetadataPredicate.from_obj(item) for item in filter_items]
+            structured_matches = self.metadata.filter_predicates(
+                predicates,
+                mode=filter_mode,
+            )
+            filtered_count = len(structured_matches)
+            broadened = min_filter_matches > 0 and filtered_count < min_filter_matches
+            filter_trace = {
+                "mode": filter_mode,
+                "predicates": [
+                    {
+                        "field": p.field,
+                        "op": p.op,
+                        "value": p.value,
+                        "values": p.values,
+                    }
+                    for p in predicates
+                ],
+                "matched_chunks": filtered_count,
+                "min_filter_matches": min_filter_matches,
+                "broadened": broadened,
+            }
+            if not broadened:
+                filter_set = (
+                    structured_matches
+                    if filter_set is None
+                    else filter_set & structured_matches
+                )
+
+        if filter_set is not None and len(self.metadata) > 0:
+            filter_ratio = len(filter_set) / len(self.metadata)
+            pushdown = filter_ratio <= filter_pushdown_threshold
+            if filter_trace is not None:
+                filter_trace["filter_ratio"] = round(filter_ratio, 6)
+                filter_trace["pushdown"] = pushdown
+                filter_trace["pushdown_threshold"] = filter_pushdown_threshold
+            if not pushdown:
+                post_filter_set = filter_set
+                filter_set = None
 
         candidates: list[tuple[int, float]] = []
         sid_predictions: list[SIDPrediction] | None = None
+        exact_set: set[int] = set()
+        source_ranks: dict[str, list[int]] = {}
 
         # Exact/token search.  This gives ContextFit grep-like behavior while
         # staying in token space: exact phrase hits rank highest, then chunks
         # containing every query token.  Hybrid mode includes these candidates
         # before semantic/graph expansion so literal matches are not drowned out.
-        if method in ("exact", "hybrid"):
+        if method == "exact" or is_hybrid:
             exact_results: list[tuple[int, float]] = []
             query_token_list = query_tokens.tolist()
             if query_token_list:
@@ -1412,17 +1656,25 @@ class RetrievalEngine:
                 )
 
             candidates.extend(exact_results[:top_k * 4])
+            if use_hybrid_rrf:
+                exact_set = {cid for cid, _score in exact_results}
 
         # BM25 search (with expanded tokens)
-        if method in ("bm25", "hybrid"):
-            bm25_results = self.bm25.top_k(query_tokens_expanded, k=top_k * 4)
-            # Apply pre-filter
+        if method == "bm25" or is_hybrid:
             if filter_set is not None:
-                bm25_results = [(cid, s) for cid, s in bm25_results if cid in filter_set]
+                bm25_results = self.bm25.top_k(
+                    query_tokens_expanded,
+                    k=top_k * 4,
+                    chunk_ids=list(filter_set),
+                )
+            else:
+                bm25_results = self.bm25.top_k(query_tokens_expanded, k=top_k * 4)
             candidates.extend(bm25_results[:top_k * 2])
+            if use_hybrid_rrf:
+                source_ranks["bm25"] = [cid for cid, _score in bm25_results]
 
         # Semantic ID prefix search
-        if self.sid_generator is not None and method in ("sid", "hybrid"):
+        if self.sid_generator is not None and (method == "sid" or is_hybrid):
             if self.learned_sid_generator is not None and self.learned_sid_generator.trained_chunks:
                 sid_predictions = self.learned_sid_generator.predict(
                     query_tokens,
@@ -1447,36 +1699,59 @@ class RetrievalEngine:
                     prediction_k=max(top_k, 5),
                     candidate_k=top_k * 8,
                 )
+            if filter_set is not None:
+                sid_results = [(cid, s) for cid, s in sid_results if cid in filter_set]
             candidates.extend(sid_results)
+            if use_hybrid_rrf:
+                source_ranks["sid"] = [cid for cid, _score in sid_results]
 
             # Natural-language queries may not produce a known SID prefix yet.
             # Until a trained SID generator exists, keep `method="sid"` usable by
             # falling back to lexical candidates while still returning their SIDs.
             if method == "sid" and not candidates:
-                candidates.extend(self.bm25.top_k(query_tokens, k=top_k * 2))
+                candidates.extend(
+                    self.bm25.top_k(
+                        query_tokens,
+                        k=top_k * 2,
+                        chunk_ids=list(filter_set) if filter_set is not None else None,
+                    )
+                )
         
         # Hierarchy navigation
-        if use_hierarchy and self.hierarchy and method in ("hierarchy", "hybrid"):
+        if use_hierarchy and self.hierarchy and (method == "hierarchy" or is_hybrid):
             hier_chunks = self.hierarchy.navigate(
                 query_tokens,
                 top_k=top_k,
             )
             for chunk in hier_chunks:
+                if filter_set is not None and chunk.chunk_id not in filter_set:
+                    continue
                 # Score with BM25
                 score = self.bm25.score_chunk(query_tokens.tolist(), chunk.chunk_id)
                 candidates.append((chunk.chunk_id, score))
+            if use_hybrid_rrf:
+                source_ranks["hierarchy"] = [chunk.chunk_id for chunk in hier_chunks]
         
         # Graph expansion
-        if expand_graph and method in ("graph", "hybrid"):
+        if expand_graph and (method == "graph" or is_hybrid):
             # Expand top candidates via LSH
             chunk_ids_to_expand = [cid for cid, _ in candidates[:top_k]]
+            graph_neighbors: list[int] = []
             for cid in chunk_ids_to_expand:
                 sig = self.lsh.get_signature(cid)
                 if sig:
                     neighbors = self.lsh.query(sig)
                     for neighbor_id in neighbors:
+                        if filter_set is not None and neighbor_id not in filter_set:
+                            continue
                         score = self.bm25.score_chunk(query_tokens.tolist(), neighbor_id)
                         candidates.append((neighbor_id, score))
+                        graph_neighbors.append(neighbor_id)
+            if use_hybrid_rrf:
+                seen_graph: set[int] = set()
+                source_ranks["graph"] = [
+                    cid for cid in graph_neighbors if not (cid in seen_graph or seen_graph.add(cid))
+                ]
         
         # --- Metadata hybrid boost ---
         if metadata_boost > 1.0 and len(self.metadata) > 0 and query_text:
@@ -1494,6 +1769,9 @@ class RetrievalEngine:
                 append=True,
             )
 
+        if post_filter_set is not None:
+            candidates = [(cid, score) for cid, score in candidates if cid in post_filter_set]
+
         # Deduplicate and sort
         seen = set()
         unique_candidates = []
@@ -1501,6 +1779,32 @@ class RetrievalEngine:
             if cid not in seen:
                 seen.add(cid)
                 unique_candidates.append((cid, score))
+
+        use_rrf = (
+            use_hybrid_rrf
+            and bool(source_ranks)
+            and metadata_boost == 1.0
+            and relationship_boost == 1.0
+        )
+        if use_rrf:
+            rrf_k = 60
+            rank_lookups = {
+                source: {cid: rank for rank, cid in enumerate(ids, start=1)}
+                for source, ids in source_ranks.items()
+                if ids
+            }
+
+            def rrf_score(cid: int) -> float:
+                return 1000.0 * sum(
+                    1.0 / (rrf_k + lookup[cid])
+                    for lookup in rank_lookups.values()
+                    if cid in lookup
+                )
+
+            unique_candidates = [
+                (cid, raw_score if cid in exact_set else rrf_score(cid))
+                for cid, raw_score in unique_candidates
+            ]
         
         unique_candidates.sort(key=lambda x: -x[1])
 
@@ -1551,6 +1855,7 @@ class RetrievalEngine:
             semantic_ids=semantic_ids or None,
             sid_predictions=sid_predictions,
             rerank_traces=rerank_traces[: len(chunks)] if rerank_traces else None,
+            filter_trace=filter_trace,
         )
     
     def _assemble_input_ids(self, chunks: list[Chunk]) -> np.ndarray:

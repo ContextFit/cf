@@ -203,6 +203,40 @@ You should see JSON-RPC responses that include tools such as `contextfit_search`
 
 If this fails, fix the command path or KB path before trying Claude again.
 
+## Structured metadata filters
+
+ContextFit search tools accept optional structured metadata filters. This lets
+Claude, OpenClaw, or another MCP host compile user intent into a deterministic
+prefilter before ContextFit runs token-native retrieval.
+
+Example tool arguments:
+
+```json
+{
+  "query": "metadata prefiltering decisions",
+  "filters": [
+    {"field": "kind", "op": "exact", "value": "decision"},
+    {"field": "date", "op": "on_or_after", "value": "2026-05-01"}
+  ],
+  "filter_mode": "and",
+  "min_filter_matches": 1,
+  "filter_pushdown_threshold": 0.5
+}
+```
+
+Supported operators include `contains`, `exact`, `in`, `gt`, `gte`, `lt`,
+`lte`, `after`, `before`, `on_or_after`, `on_or_before`, and `exists`.
+If `min_filter_matches` is set and the structured filters are too narrow,
+ContextFit broadens by ignoring those filters rather than silently returning no
+evidence.
+If filters match more than `filter_pushdown_threshold` of the corpus, ContextFit
+uses normal token-native candidate generation and post-filters the candidates
+instead of scoring a very broad explicit candidate list.
+
+This does not add vector embeddings or LLM retrieval inside ContextFit. The MCP
+host may plan the query, but ContextFit applies metadata filters and retrieves
+evidence with its local token-native indexes.
+
 ---
 
 ## Multiple knowledge bases / vaults

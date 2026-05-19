@@ -92,6 +92,37 @@ project_launch[task-02]: status=idea, target_date=2026-06-01, depends_on=task-01
     assert "Waiting for package release" in text
 
 
+def test_mcp_search_accepts_structured_metadata_filters(tmp_path: Path) -> None:
+    kb_path = tmp_path / "kb"
+    engine = RetrievalEngine.create(kb_path)
+    engine.ingest_text(
+        "ContextFit metadata prefilter decision from April.",
+        metadata={"source": "april.md", "kind": "decision", "date": "2026-04-01"},
+    )
+    engine.ingest_text(
+        "ContextFit metadata prefilter decision from May.",
+        metadata={"source": "may.md", "kind": "decision", "date": "2026-05-17"},
+    )
+    engine.save(kb_path)
+    server = ContextFitMCPServer(MCPServerConfig(kb_path=kb_path))
+
+    text = _call_tool(
+        server,
+        "contextfit_search",
+        {
+            "query": "ContextFit metadata prefilter",
+            "top_k": 3,
+            "filters": [
+                {"field": "date", "op": "on_or_after", "value": "2026-05-01"},
+            ],
+        },
+    )
+
+    assert "filters:" in text
+    assert "may.md" in text
+    assert "april.md" not in text
+
+
 def test_mcp_get_chunk(tmp_path: Path) -> None:
     kb_path = tmp_path / "kb"
     _build_kb(kb_path)

@@ -3,6 +3,33 @@ from contextfit.extractors import calendar, email
 from contextfit.retrieval.engine import RetrievalEngine
 
 
+def test_ingest_file_populates_session_id_for_session_retrieval(tmp_path):
+    eml = tmp_path / "message.eml"
+    eml.write_text(
+        "From: Alice <alice@example.com>\n"
+        "To: Bob <bob@example.com>\n"
+        "Subject: Coffee\n"
+        "Date: Wed, 13 May 2026 10:00:00 -0500\n"
+        "Content-Type: text/plain; charset=utf-8\n"
+        "\n"
+        "I switched to a new coffee shop this morning.\n"
+    )
+    txt = tmp_path / "memo.txt"
+    txt.write_text("The new shipment of supplies arrived on Friday.\n")
+    engine = RetrievalEngine.create(tmp_path / "kb")
+
+    eml_chunks = engine.ingest_file(eml)
+    txt_chunks = engine.ingest_file(txt)
+
+    assert eml_chunks
+    assert txt_chunks
+    assert all("session_id" in chunk.metadata for chunk in eml_chunks)
+    assert all("session_id" in chunk.metadata for chunk in txt_chunks)
+    assert {chunk.metadata["session_id"] for chunk in eml_chunks}.isdisjoint(
+        {chunk.metadata["session_id"] for chunk in txt_chunks}
+    )
+
+
 def test_email_chunking_preserves_headers_and_body(tmp_path):
     path = tmp_path / "message.eml"
     path.write_text(
