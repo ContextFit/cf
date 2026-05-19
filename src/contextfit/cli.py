@@ -684,14 +684,16 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     engine.store.flush(force=True)
 
     build_index_seconds = 0.0
-    if args.defer_index_build:
-        print("\nIndex build deferred. Run `contextfit build-index` next.")
-    elif args.rebuild_index_after_ingest:
+    index_built = not args.defer_index_build
+    if args.rebuild_index_after_ingest:
         print("\nRebuilding indexes in batch...", flush=True)
         start_rebuild = time.time()
         engine.rebuild_indexes(include_semantic_ids=True)
         build_index_seconds = time.time() - start_rebuild
+        index_built = True
         print(f"  ✓ Rebuilt indexes in {_format_time(build_index_seconds)}")
+    elif args.defer_index_build:
+        print("\nIndex build deferred. Run `contextfit build-index` next.")
 
     train_sid_seconds = 0.0
     if args.train_sid_generator:
@@ -727,7 +729,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     _update_phase_metric(manifest, "save_seconds", save_seconds)
     manifest["status"] = "completed"
     manifest["phases"]["ingest_complete"] = True
-    manifest["phases"]["index_built"] = not args.defer_index_build
+    manifest["phases"]["index_built"] = index_built
     _save_manifest(kb_path, manifest)
 
     stats = engine.stats()

@@ -14,6 +14,37 @@ ContextFit keeps everything—storage, indexing, search, relationships, traversa
 - **Direct LLM injection** — feed `input_ids` directly, no conversion
 - **Structure-aware ingestion** — Markdown sections, text paragraphs, and TMD ledger rows become retrievable units
 
+## Fastest Path
+
+Use this when you just want to confirm ContextFit works locally:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install contextfit
+
+mkdir -p /tmp/contextfit-demo
+cat > /tmp/contextfit-demo/project-orion.md <<'EOF'
+# Project Orion
+
+The launch checklist has three open items: pricing review, docs polish, and support handoff.
+The preferred launch voice is concise, technical, and practical.
+EOF
+
+contextfit --kb /tmp/contextfit-kb ingest /tmp/contextfit-demo \
+  --defer-index-build \
+  --rebuild-index-after-ingest
+
+contextfit --kb /tmp/contextfit-kb query "What are the open launch items?" --json
+```
+
+You should see JSON results with chunks from `project-orion.md`. From there:
+
+- For Claude Desktop, follow [`docs/CLAUDE_DESKTOP_MCP.md`](docs/CLAUDE_DESKTOP_MCP.md).
+- For local agents and automation, use `contextfit search ... --json --extractive auto --compact`.
+- For contributor development, clone this repo and run `python -m pip install -e .`.
+
 ## Architecture
 
 ```
@@ -111,19 +142,19 @@ ContextFit keeps everything—storage, indexing, search, relationships, traversa
 # Install ContextFit
 pip install contextfit
 
-# Ingest a knowledge base
-contextfit ingest ./documents --tokenizer tiktoken
+# Ingest a knowledge base into an explicit local KB path
+contextfit --kb ~/contextfit_kb ingest ./documents --tokenizer tiktoken
 
 # Query
-contextfit query "What is ContextFit?"
+contextfit --kb ~/contextfit_kb query "What is ContextFit?"
 
 # Query through Semantic IDs
-contextfit query "async retrieval" --method sid
+contextfit --kb ~/contextfit_kb query "async retrieval" --method sid
 
 # Agent-friendly machine-readable output
-contextfit query "What is ContextFit?" --method hybrid --json
-contextfit search "Acme renewal audit" --json --extractive auto --compact
-contextfit stats --json
+contextfit --kb ~/contextfit_kb query "What is ContextFit?" --method hybrid --json
+contextfit --kb ~/contextfit_kb search "Acme renewal audit" --json --extractive auto --compact
+contextfit --kb ~/contextfit_kb stats --json
 
 # Run a deterministic sample benchmark
 python examples/benchmark_sample_corpus.py --docs-per-topic 100 --json
@@ -132,7 +163,7 @@ python examples/benchmark_sample_corpus.py --docs-per-topic 100 --json
 python examples/benchmark_needle_haystack.py --needles 20 --distractors 200 --top-k 5 --json
 
 # Ingest and train the learned SID generator
-contextfit ingest ./documents --train-sid-generator
+contextfit --kb ~/contextfit_kb ingest ./documents --train-sid-generator
 ```
 
 For contributor installs from source, clone the repo and run `pip install -e .` from the project root.

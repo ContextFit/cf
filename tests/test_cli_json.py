@@ -78,6 +78,37 @@ def test_cli_deferred_ingest_build_index_and_train_sid(tmp_path: Path):
     assert stats["manifest"]["phases"]["sid_trained"] is True
 
 
+def test_cli_deferred_ingest_can_rebuild_after_ingest(tmp_path: Path):
+    repo = Path(__file__).resolve().parents[1]
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "note.md").write_text("Project Orion has pricing review and support handoff open.\n")
+    kb = tmp_path / "kb"
+
+    run_contextfit(
+        [
+            "--kb",
+            str(kb),
+            "ingest",
+            str(docs),
+            "--defer-index-build",
+            "--rebuild-index-after-ingest",
+        ],
+        cwd=repo,
+    )
+
+    query_proc = run_contextfit(
+        ["--kb", str(kb), "query", "Project Orion support handoff", "--json"],
+        cwd=repo,
+    )
+    payload = json.loads(query_proc.stdout)
+    assert payload["retrieved_chunks"] == 1
+
+    stats_proc = run_contextfit(["--kb", str(kb), "stats", "--json"], cwd=repo)
+    stats = json.loads(stats_proc.stdout)
+    assert stats["manifest"]["phases"]["index_built"] is True
+
+
 def test_cli_vault_search_all_and_chunk_json(tmp_path: Path):
     repo = Path(__file__).resolve().parents[1]
     docs = tmp_path / "docs"
