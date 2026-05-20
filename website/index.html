@@ -2184,37 +2184,37 @@
   })();
 
 
-  // Scroll tokenization: text is split into visual whole-word chunks, then
-  // condenses into compact pills as its section exits the reading zone.
-  // The hero uses the same chunks in reverse on load: pills sprinkle into text.
-  (function initScrollTokenization() {
+  // Hero tokenization: the headline starts as compact token-like pieces and
+  // resolves into readable text. Body copy is intentionally left untouched.
+  (function initHeroTokenization() {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const tokenTargetSelector = [
-      '.scroll-tokenize',
-      '.install-prefix', '.install-cmd',
-      '.stat-pill .val', '.stat-pill .lbl', '.stat-pill .sub',
-      'section h2', 'section h3', 'section h4', 'section p', 'section a',
-      'section th', 'section td', 'section .section-label', 'section .primitive-num',
-      'section .pipe-step', 'section .pipe-arrow', 'section .bar-label', 'section .bar-val',
-      'section .bar-chart-label', 'section .behavior-desc', 'footer a', 'footer p'
-    ].join(',');
+    const tokenTargetSelector = '.hero-tokenize';
     const rawTargets = Array.from(document.querySelectorAll(tokenTargetSelector));
     const targets = rawTargets.filter((el, _i, all) => {
       if (el.closest('pre, code, script, style, svg')) return false;
-      // Controls should remain stable and readable; tokenizing them makes CTAs
-      // feel jumpy and harder to click/read.
-      if (el.matches('button, .copy-btn, .btn-primary, .btn-ghost, .btn-outline, .gh-star-btn')) return false;
-      // Keep the blue-bordered hero badge readable on first impression. It sits
-      // inside the compression zone and tokenizes too early if included.
-      if (el.classList.contains('hero-badge')) return false;
       return !all.some(other => other !== el && other.contains(el));
     });
     if (!targets.length) return;
 
-    // Whole-word visual tokens avoid the broken-word look during scrolling and
-    // orientation changes while preserving the token-space visual language.
+    // Visual approximation only. ContextFit stores LLM token IDs; real tokenizers
+    // can split words into subwords/punctuation. This keeps the page dependency-free
+    // while demonstrating that words are made of smaller token-like units.
     const splitVisualTokens = (word) => {
-      return [word];
+      const parts = word.match(/^([\w]+)([^\w]*)$/u);
+      if (!parts) return [word];
+      const core = parts[1];
+      const punct = parts[2];
+      if (core.length <= 7) return [word];
+      const chunks = [];
+      let i = 0;
+      while (i < core.length) {
+        const remaining = core.length - i;
+        const size = remaining <= 5 ? remaining : (i === 0 ? 4 : 5);
+        chunks.push(core.slice(i, i + size));
+        i += size;
+      }
+      if (punct) chunks[chunks.length - 1] += punct;
+      return chunks;
     };
 
     const tokenRE = /\S+|\s+/g;
@@ -2264,22 +2264,14 @@
     });
 
     const allTokens = Array.from(document.querySelectorAll('.scroll-tokenized .cf-token'));
-    const measureTokens = () => {
-      allTokens.forEach((tok, i) => {
-        const textEl = tok.querySelector('.cf-token-text');
-        const measured = textEl?.scrollWidth || textEl?.getBoundingClientRect().width || tok.scrollWidth || tok.getBoundingClientRect().width;
-        const width = Math.ceil(measured + Math.max(6, measured * 0.04));
-        tok.style.setProperty('--tok-natural-width', width + 'px');
-        tok.style.setProperty('--tok-width', width + 'px');
-        tok.style.setProperty('--tok-min-width', '0px');
-        tok.style.setProperty('--tok-sprinkle-x', (((i % 5) - 2) * 9) + 'px');
-        tok.style.setProperty('--tok-sprinkle-y', ((i % 2 ? -1 : 1) * (10 + (i % 4) * 4)) + 'px');
-      });
-    };
-    measureTokens();
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => {
-      measureTokens();
-      if (!reduceMotion) requestUpdate();
+    allTokens.forEach((tok, i) => {
+      const textEl = tok.querySelector('.cf-token-text');
+      const width = Math.ceil((textEl?.scrollWidth || textEl?.getBoundingClientRect().width || tok.scrollWidth || tok.getBoundingClientRect().width) + 1);
+      tok.style.setProperty('--tok-natural-width', width + 'px');
+      tok.style.setProperty('--tok-width', width + 'px');
+      tok.style.setProperty('--tok-min-width', '0px');
+      tok.style.setProperty('--tok-sprinkle-x', (((i % 5) - 2) * 9) + 'px');
+      tok.style.setProperty('--tok-sprinkle-y', ((i % 2 ? -1 : 1) * (10 + (i % 4) * 4)) + 'px');
     });
 
     const hero = document.querySelector('.hero-tokenize');
@@ -2298,64 +2290,6 @@
         setTimeout(() => hero.classList.add('hero-ready'), lastDelay + 1160);
       }
     }
-    if (reduceMotion) return;
-
-    const scrollContexts = new WeakMap();
-    const getScrollContext = (el) => {
-      if (scrollContexts.has(el)) return scrollContexts.get(el);
-      const context = el.closest('section, footer') || el;
-      scrollContexts.set(el, context);
-      return context;
-    };
-
-    let ticking = false;
-    const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
-    const ease = t => t * t * (3 - 2 * t);
-    const update = () => {
-      ticking = false;
-      const navBottom = Math.max(
-        96,
-        ...Array.from(document.querySelectorAll('.gh-banner, nav'))
-          .map(el => el.getBoundingClientRect().bottom)
-      );
-      const zoneStart = navBottom + Math.min(145, window.innerHeight * 0.18);
-      const zoneEnd = navBottom + 8;
-      targets.forEach(el => {
-        if (el.classList.contains('hero-tokenize') && !el.classList.contains('hero-ready')) return;
-        const contextRect = getScrollContext(el).getBoundingClientRect();
-        const sectionEnd = contextRect.bottom;
-        const raw = (zoneStart - sectionEnd) / Math.max(1, zoneStart - zoneEnd);
-        const p = ease(clamp(raw, 0, 1));
-        const textAlpha = Math.max(0, 1 - p * 1.35);
-        el.style.setProperty('--hero-p', (1 - p).toFixed(3));
-        el.style.setProperty('--tok-gap', (p * 0.045).toFixed(3) + 'em');
-        el.style.setProperty('--tok-pad-y', (p * 0.04).toFixed(3) + 'em');
-        el.style.setProperty('--tok-pad-x', (p * 0.06).toFixed(3) + 'em');
-        el.style.setProperty('--tok-radius', (p * 0.42).toFixed(3) + 'em');
-        el.style.setProperty('--tok-border-alpha', (p * 0.34).toFixed(3));
-        el.style.setProperty('--tok-bg-alpha', (p * 0.14).toFixed(3));
-        el.style.setProperty('--tok-glow', (p * 12).toFixed(1) + 'px');
-        el.style.setProperty('--tok-lift', (p * -1.2).toFixed(2) + 'px');
-        el.style.setProperty('--tok-text-alpha', textAlpha.toFixed(3));
-        el.style.setProperty('--tok-dot-alpha', Math.max(0, p - 0.45).toFixed(3));
-        el.querySelectorAll('.cf-token').forEach(tok => {
-          const natural = parseFloat(tok.style.getPropertyValue('--tok-natural-width')) || tok.offsetWidth;
-          const condensed = 14;
-          tok.style.setProperty('--tok-width', (natural * (1 - p) + condensed * p).toFixed(1) + 'px');
-          tok.style.setProperty('--tok-min-width', (condensed * p).toFixed(1) + 'px');
-        });
-        el.classList.toggle('token-zone-active', p > 0.04);
-      });
-    };
-    const requestUpdate = () => {
-      if (!ticking) {
-        ticking = true;
-        requestAnimationFrame(update);
-      }
-    };
-    update();
-    window.addEventListener('scroll', requestUpdate, { passive: true });
-    window.addEventListener('resize', requestUpdate);
   })();
 
   // Animate stat pill counters
