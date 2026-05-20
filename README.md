@@ -4,6 +4,8 @@
 
 ContextFit keeps everything—storage, indexing, search, relationships, traversal, and commonality detection—inside discrete token-ID space until the very last step, when you decode only the final retrieved token chunks for the LLM's output.
 
+Latest LongMemEval-S retrieval artifact: pure token-native ContextFit reaches **95.1% Any@5** with conversation-aware parent/child chunks. With optional OpenAI fusion, ContextFit reaches **96.6% Any@5** and **98.7% Any@10** evidence retrieval with no vector database required. See [`benchmarks/longmemeval_fusion_claim_966_987_20260519.md`](benchmarks/longmemeval_fusion_claim_966_987_20260519.md).
+
 ## Why Token-Native?
 
 - **~2× smaller storage** than raw text (no repeated tokenization)

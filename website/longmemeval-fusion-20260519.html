@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ContextFit LongMemEval-S Fusion Result</title>
+  <meta name="description" content="ContextFit optional OpenAI fusion reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval on LongMemEval-S with no vector database required." />
+  <style>
+    :root {
+      --bg: #080b12;
+      --panel: #101620;
+      --text: #eef4f8;
+      --muted: #a7b2bd;
+      --line: rgba(255,255,255,0.12);
+      --sky: #2bc1ec;
+      --green: #7ee787;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    main { max-width: 960px; margin: 0 auto; padding: 56px 22px 80px; }
+    nav { margin-bottom: 56px; }
+    nav a { color: var(--sky); text-decoration: none; font-weight: 600; }
+    h1 { font-size: clamp(2.2rem, 6vw, 4.8rem); line-height: 0.98; letter-spacing: 0; margin: 0 0 24px; }
+    h2 { font-size: 1.35rem; margin: 48px 0 14px; }
+    p { color: var(--muted); font-size: 1.05rem; }
+    .lede { font-size: 1.25rem; max-width: 760px; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin: 34px 0;
+    }
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+    }
+    .metric strong {
+      display: block;
+      color: var(--text);
+      font-size: 1.75rem;
+      line-height: 1;
+    }
+    .metric span { color: var(--muted); font-size: 0.9rem; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; }
+    th { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; }
+    td:last-child, th:last-child { text-align: right; }
+    code, pre {
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9rem;
+    }
+    pre {
+      overflow-x: auto;
+      padding: 18px;
+      background: #05070b;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .callout {
+      border-left: 3px solid var(--sky);
+      background: rgba(43,193,236,0.08);
+      padding: 14px 18px;
+      border-radius: 6px;
+      margin: 28px 0;
+    }
+    .good { color: var(--green); }
+    a { color: var(--sky); }
+  </style>
+</head>
+<body>
+  <main>
+    <nav><a href="/">ContextFit</a> / Benchmark Note</nav>
+
+    <h1>96.6% Any@5.<br />98.7% Any@10.</h1>
+    <p class="lede">ContextFit with optional OpenAI fusion reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval on LongMemEval-S, with no vector database required.</p>
+
+    <div class="metrics">
+      <div class="metric"><strong>96.60%</strong><span>Any evidence @5</span></div>
+      <div class="metric"><strong>98.72%</strong><span>Any evidence @10</span></div>
+      <div class="metric"><strong>91.28%</strong><span>All evidence @10</span></div>
+      <div class="metric"><strong>0.8999</strong><span>MRR</span></div>
+    </div>
+
+    <div class="callout">
+      This is a retrieval/evidence-ranking result, not an official end-to-end LongMemEval QA score. The run uses OpenAI <code>text-embedding-3-small</code> embeddings as an optional cached fusion signal. No vector database is required.
+    </div>
+
+    <h2>Result</h2>
+    <table>
+      <thead><tr><th>Metric</th><th>Score</th></tr></thead>
+      <tbody>
+        <tr><td>Scored examples</td><td>470</td></tr>
+        <tr><td>Abstention examples skipped</td><td>30</td></tr>
+        <tr><td>Any evidence @1</td><td>84.68%</td></tr>
+        <tr><td>Any evidence @3</td><td>94.26%</td></tr>
+        <tr><td>Any evidence @5</td><td><strong class="good">96.60%</strong></td></tr>
+        <tr><td>Any evidence @10</td><td><strong class="good">98.72%</strong></td></tr>
+        <tr><td>All evidence @5</td><td>83.62%</td></tr>
+        <tr><td>All evidence @10</td><td>91.28%</td></tr>
+        <tr><td>MRR</td><td>0.8999</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Configuration</h2>
+    <p>LongMemEval-S cleaned, 500 total rows, 470 scored after abstention exclusion. ContextFit used hybrid retrieval, parent/child conversation chunks, session ranking, coverage reranking, structured temporal filters, and optional OpenAI fusion. Answer markers were disabled.</p>
+
+    <h2>Reproduction Command</h2>
+    <pre><code>.venv/bin/python benchmarks/longmemeval_contextfit.py \
+  benchmarks/data/longmemeval_s_cleaned.json \
+  --limit 0 \
+  --method hybrid \
+  --top-k-chunks 10 \
+  --retrieval-k 100 \
+  --chunk-size 2048 \
+  --overlap 128 \
+  --rank-by-session \
+  --conversation-chunks \
+  --conversation-parent \
+  --coverage-rerank \
+  --structured-temporal-filters \
+  --openai-fusion \
+  --out benchmarks/longmemeval_fusion_claim_966_987_20260519.json</code></pre>
+
+    <h2>Artifact</h2>
+    <p>Raw JSON artifact: <code>benchmarks/longmemeval_fusion_claim_966_987_20260519.json</code></p>
+    <p>SHA-256: <code>059c778ca389e2a5939505800acffd6349f0be7ada579238023d342784214932</code></p>
+    <p>GitHub report: <a href="https://github.com/ContextFit/cf/blob/contextfit-lockin-20260518/benchmarks/longmemeval_fusion_claim_966_987_20260519.md">benchmarks/longmemeval_fusion_claim_966_987_20260519.md</a></p>
+
+    <h2>Recommended Wording</h2>
+    <p><strong>ContextFit with optional OpenAI fusion reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval on LongMemEval-S, with no vector database required.</strong></p>
+  </main>
+</body>
+</html>

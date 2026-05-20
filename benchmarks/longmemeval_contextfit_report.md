@@ -41,6 +41,53 @@ Abstention examples were excluded from the main score because this harness does 
 | All gold evidence @10 | 85.5% |
 | MRR | 0.861 |
 
+## 2026-05-19 Optional OpenAI Fusion Claim Artifact
+
+This fresh run supports the public wording:
+
+> ContextFit with optional OpenAI fusion reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval on LongMemEval-S, with no vector database required.
+
+This is still a retrieval/evidence-ranking result, not an official end-to-end LongMemEval QA score. It uses OpenAI `text-embedding-3-small` embeddings as an optional cached fusion signal; ContextFit still stores and searches the corpus without a vector database.
+
+| Metric | Score |
+|---|---:|
+| Scored examples | 470 |
+| Abstention examples skipped | 30 |
+| Any gold evidence @1 | 84.68% |
+| Any gold evidence @3 | 94.26% |
+| Any gold evidence @5 | **96.60%** |
+| Any gold evidence @10 | **98.72%** |
+| All gold evidence @5 | 83.62% |
+| All gold evidence @10 | 91.28% |
+| MRR | 0.8999 |
+
+Artifact:
+
+- Report: `benchmarks/longmemeval_fusion_claim_966_987_20260519.md`
+- Raw JSON: `benchmarks/longmemeval_fusion_claim_966_987_20260519.json`
+- SHA-256: `059c778ca389e2a5939505800acffd6349f0be7ada579238023d342784214932`
+- Runtime: 15,773.8 seconds
+
+Reproduction command:
+
+```bash
+.venv/bin/python benchmarks/longmemeval_contextfit.py \
+  benchmarks/data/longmemeval_s_cleaned.json \
+  --limit 0 \
+  --method hybrid \
+  --top-k-chunks 10 \
+  --retrieval-k 100 \
+  --chunk-size 2048 \
+  --overlap 128 \
+  --rank-by-session \
+  --conversation-chunks \
+  --conversation-parent \
+  --coverage-rerank \
+  --structured-temporal-filters \
+  --openai-fusion \
+  --out benchmarks/longmemeval_fusion_claim_966_987_20260519.json
+```
+
 ## Baseline by question type
 
 | Type | n | Any@1 | Any@5 | Any@10 | All@5 | All@10 | MRR |
