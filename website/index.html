@@ -2184,8 +2184,8 @@
   })();
 
 
-  // Scroll tokenization: text is split into visual token chunks, then
-  // condenses into compact pills as it enters the fixed-header compression zone.
+  // Scroll tokenization: text is split into visual whole-word chunks, then
+  // condenses into compact pills as its section exits the reading zone.
   // The hero uses the same chunks in reverse on load: pills sprinkle into text.
   (function initScrollTokenization() {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -2211,25 +2211,10 @@
     });
     if (!targets.length) return;
 
-    // Visual approximation only. ContextFit stores LLM token IDs; real tokenizers
-    // can split words into subwords/punctuation. This keeps the page dependency-free
-    // while demonstrating that words are made of smaller token-like units.
+    // Whole-word visual tokens avoid the broken-word look during scrolling and
+    // orientation changes while preserving the token-space visual language.
     const splitVisualTokens = (word) => {
-      const parts = word.match(/^([\w]+)([^\w]*)$/u);
-      if (!parts) return [word];
-      const core = parts[1];
-      const punct = parts[2];
-      if (core.length <= 7) return [word];
-      const chunks = [];
-      let i = 0;
-      while (i < core.length) {
-        const remaining = core.length - i;
-        const size = remaining <= 5 ? remaining : (i === 0 ? 4 : 5);
-        chunks.push(core.slice(i, i + size));
-        i += size;
-      }
-      if (punct) chunks[chunks.length - 1] += punct;
-      return chunks;
+      return [word];
     };
 
     const tokenRE = /\S+|\s+/g;
@@ -2279,14 +2264,22 @@
     });
 
     const allTokens = Array.from(document.querySelectorAll('.scroll-tokenized .cf-token'));
-    allTokens.forEach((tok, i) => {
-      const textEl = tok.querySelector('.cf-token-text');
-      const width = Math.ceil((textEl?.scrollWidth || textEl?.getBoundingClientRect().width || tok.scrollWidth || tok.getBoundingClientRect().width) + 1);
-      tok.style.setProperty('--tok-natural-width', width + 'px');
-      tok.style.setProperty('--tok-width', width + 'px');
-      tok.style.setProperty('--tok-min-width', '0px');
-      tok.style.setProperty('--tok-sprinkle-x', (((i % 5) - 2) * 9) + 'px');
-      tok.style.setProperty('--tok-sprinkle-y', ((i % 2 ? -1 : 1) * (10 + (i % 4) * 4)) + 'px');
+    const measureTokens = () => {
+      allTokens.forEach((tok, i) => {
+        const textEl = tok.querySelector('.cf-token-text');
+        const measured = textEl?.scrollWidth || textEl?.getBoundingClientRect().width || tok.scrollWidth || tok.getBoundingClientRect().width;
+        const width = Math.ceil(measured + Math.max(6, measured * 0.04));
+        tok.style.setProperty('--tok-natural-width', width + 'px');
+        tok.style.setProperty('--tok-width', width + 'px');
+        tok.style.setProperty('--tok-min-width', '0px');
+        tok.style.setProperty('--tok-sprinkle-x', (((i % 5) - 2) * 9) + 'px');
+        tok.style.setProperty('--tok-sprinkle-y', ((i % 2 ? -1 : 1) * (10 + (i % 4) * 4)) + 'px');
+      });
+    };
+    measureTokens();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => {
+      measureTokens();
+      if (!reduceMotion) requestUpdate();
     });
 
     const hero = document.querySelector('.hero-tokenize');
@@ -2307,6 +2300,14 @@
     }
     if (reduceMotion) return;
 
+    const scrollContexts = new WeakMap();
+    const getScrollContext = (el) => {
+      if (scrollContexts.has(el)) return scrollContexts.get(el);
+      const context = el.closest('section, footer') || el;
+      scrollContexts.set(el, context);
+      return context;
+    };
+
     let ticking = false;
     const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
     const ease = t => t * t * (3 - 2 * t);
@@ -2317,13 +2318,13 @@
         ...Array.from(document.querySelectorAll('.gh-banner, nav'))
           .map(el => el.getBoundingClientRect().bottom)
       );
-      const zoneStart = navBottom + Math.min(125, window.innerHeight * 0.16);
+      const zoneStart = navBottom + Math.min(145, window.innerHeight * 0.18);
       const zoneEnd = navBottom + 8;
       targets.forEach(el => {
         if (el.classList.contains('hero-tokenize') && !el.classList.contains('hero-ready')) return;
-        const rect = el.getBoundingClientRect();
-        const anchor = rect.top + Math.min(rect.height * 0.18, 28);
-        const raw = (zoneStart - anchor) / Math.max(1, zoneStart - zoneEnd);
+        const contextRect = getScrollContext(el).getBoundingClientRect();
+        const sectionEnd = contextRect.bottom;
+        const raw = (zoneStart - sectionEnd) / Math.max(1, zoneStart - zoneEnd);
         const p = ease(clamp(raw, 0, 1));
         const textAlpha = Math.max(0, 1 - p * 1.35);
         el.style.setProperty('--hero-p', (1 - p).toFixed(3));
