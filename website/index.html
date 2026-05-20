@@ -2196,25 +2196,10 @@
     });
     if (!targets.length) return;
 
-    // Visual approximation only. ContextFit stores LLM token IDs; real tokenizers
-    // can split words into subwords/punctuation. This keeps the page dependency-free
-    // while demonstrating that words are made of smaller token-like units.
+    // Keep the hero animation word-level so it reads as intentional text reveal,
+    // not broken typography.
     const splitVisualTokens = (word) => {
-      const parts = word.match(/^([\w]+)([^\w]*)$/u);
-      if (!parts) return [word];
-      const core = parts[1];
-      const punct = parts[2];
-      if (core.length <= 7) return [word];
-      const chunks = [];
-      let i = 0;
-      while (i < core.length) {
-        const remaining = core.length - i;
-        const size = remaining <= 5 ? remaining : (i === 0 ? 4 : 5);
-        chunks.push(core.slice(i, i + size));
-        i += size;
-      }
-      if (punct) chunks[chunks.length - 1] += punct;
-      return chunks;
+      return [word];
     };
 
     const tokenRE = /\S+|\s+/g;
