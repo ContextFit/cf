@@ -474,6 +474,19 @@
       max-width: 620px;
       margin-bottom: 3.5rem;
     }
+    .section-intro a,
+    .section-intro a:visited {
+      color: var(--sky);
+      text-decoration: underline;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 0.16em;
+      text-decoration-color: rgba(56,189,248,0.45);
+      transition: color 0.2s, text-decoration-color 0.2s;
+    }
+    .section-intro a:hover {
+      color: #7dd3fc;
+      text-decoration-color: #7dd3fc;
+    }
     .divider { border: none; border-top: 1px solid var(--border); margin: 0; }
 
     /* ── PROBLEM ─────────────────────────────────────── */
@@ -582,7 +595,7 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       overflow: hidden;
-      margin-bottom: 2.5rem;
+      margin-bottom: 0.75rem;
     }
     .bench-table {
       width: 100%;
@@ -616,6 +629,13 @@
     .bench-table .row-cf .highlight-num { color: var(--sky); }
     .cost-free { color: var(--green); font-weight: 600; }
     .cost-paid { color: var(--muted); }
+    .bench-note {
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      line-height: 1.6;
+      margin-bottom: 2.5rem;
+    }
 
     /* bar chart */
     .bar-chart { margin-top: 2rem; }
@@ -1251,7 +1271,9 @@
       .pipe-step { text-align: center; white-space: normal; }
       .pipe-arrow { transform: rotate(90deg); text-align: center; }
       .bench-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-      .bench-table { min-width: 620px; }
+      .bench-table { min-width: 580px; }
+      .bench-table th,
+      .bench-table td { padding-left: 1rem; padding-right: 1rem; }
       .bar-label { text-align: left; font-size: 0.72rem; }
       pre {
         padding: 1rem;
@@ -1622,6 +1644,11 @@
           </tr>
         </tbody>
       </table>
+    </div>
+    <div class="bench-note">
+      Agent-memory retrieval eval. Mem0 was measured on the original 79-case subset;
+      Cohere, ContextFit, and OpenAI were measured on the expanded 499-case benchmark.
+      LongMemEval evidence and QA results are reported separately in the links above.
     </div>
 
     <div class="bar-chart reveal">
