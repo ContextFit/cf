@@ -18,7 +18,7 @@ ContextFit is a filesystem-native Python memory retrieval engine for AI agents. 
 - 499-case agent-memory eval: 62.3% R@1 / 93.0% R@3 with routed rerankers.
 - Preference recommendation: 85.5% R@1, ahead of OpenAI embed-3-small on that behavior.
 - Multi-session synthesis: 82.1% R@1, narrowing the embedding gap substantially.
-- LongMemEval-S: 95.1% Any@5 pure token-native ContextFit with conversation-aware parent/child chunks. It matches OpenAI fusion on preference Any@5 (83.3%) and narrows multi-session Any@5 to within ~0.8 pts. A token-only companion-evidence coverage reranker preserves 95.1% Any@5 while improving overall All@5 from 77.9% to 80.4% and multi-session All@5 from 55.4% to 65.3%. A fresh optional OpenAI fusion artifact reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval with no vector database required.
+- LongMemEval-S: 95.1% Any@5 pure token-native ContextFit with conversation-aware parent/child chunks. It matches OpenAI fusion on preference Any@5 (83.3%) and narrows multi-session Any@5 to within ~0.8 pts. A token-only companion-evidence coverage reranker preserves 95.1% Any@5 while improving overall All@5 from 77.9% to 80.4% and multi-session All@5 from 55.4% to 65.3%. A fresh optional OpenAI fusion artifact reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval with no vector database required. Its end-to-end GPT-4o QA companion reports 84.8% overall accuracy and 86.8% task-averaged accuracy using source-aware answer generation and GPT-4o judging.
 
 ## Install
 
@@ -50,6 +50,8 @@ print(result["session_ids"])
 - LLM-readable site brief: https://context.fit/site.md
 - Whitepaper markdown: https://context.fit/token-native-agent-memory.md
 - Whitepaper HTML: https://context.fit/whitepaper.html
+- LongMemEval-S retrieval artifact: https://context.fit/longmemeval-fusion-20260519.html
+- LongMemEval-S end-to-end QA artifact: https://context.fit/longmemeval-fusion-qa-20260519.html
 - GitHub: https://github.com/ContextFit/cf
 - Creator: Christophe Ponsart — https://x.com/cponsart
 
