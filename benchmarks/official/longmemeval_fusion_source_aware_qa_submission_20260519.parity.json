@@ -1,0 +1,13 @@
+{
+  "source_file": "benchmarks/longmemeval_contextfit_qa_hypotheses_fusion_source_aware_20260519.jsonl",
+  "source_sha256": "530ac6b4125594c689530bc8f542fcff261effc8b7cbcf4e18241b3120574434",
+  "source_lines": 500,
+  "output_file": "benchmarks/official/longmemeval_fusion_source_aware_qa_submission_20260519.jsonl",
+  "output_sha256": "3a6406516ec033dedf412a3a38df7a050ac49cebe78568c62ab5363d042fa8c5",
+  "output_lines": 500,
+  "schema": {
+    "question_id": "string",
+    "hypothesis": "string"
+  },
+  "line_count_matches": true
+}
