@@ -98,6 +98,43 @@ ACTION_RE = re.compile(
     r"read|listened|watched|joined|registered|moved|changed|switched|invested)\b",
     re.I,
 )
+SESSION_DATE_ANCHOR_RE = re.compile(
+    r"\b(?:just|recently|today|yesterday|earlier today|this week|last week)?\s*"
+    r"(?:got|bought|purchased|received|started|launched|signed|met|visited|"
+    r"attended|joined|registered|finished|completed|picked\s+up|collected|retrieved)\b",
+    re.I,
+)
+PERSON_RELATIONSHIP_TERMS = {
+    "friend",
+    "friends",
+    "dad",
+    "father",
+    "mom",
+    "mother",
+    "parent",
+    "parents",
+    "family",
+    "coworker",
+    "coworkers",
+    "colleague",
+    "colleagues",
+    "client",
+    "clients",
+    "wife",
+    "husband",
+    "partner",
+    "sister",
+    "brother",
+    "daughter",
+    "son",
+    "niece",
+    "nephew",
+}
+RELATIONSHIP_CONFLICT_GROUPS = [
+    {"friend", "friends", "dad", "father", "mom", "mother", "parent", "parents", "family"},
+    {"coworker", "coworkers", "colleague", "colleagues", "client", "clients"},
+    {"wife", "husband", "partner", "sister", "brother", "daughter", "son", "niece", "nephew"},
+]
 PICKUP_RETURN_QUERY_RE = re.compile(
     r"\b(?:pick(?:ed)?\s*up|pickup|collect|collected|retrieve|retrieved|return(?:ed)?|"
     r"drop(?:ped)?\s*off|exchange|exchanged|mail(?:ed)?\s*back|ship(?:ped)?\s*back|bring(?:ing)?\s*back)\b",
@@ -334,6 +371,26 @@ def question_keywords(question: str) -> set[str]:
         else:
             variants.add(f"{word}s")
     return variants
+
+
+def question_relationship_constraints(question: str) -> tuple[set[str], set[str]]:
+    """Return relationship/person terms in the question and conflicting peers.
+
+    Temporal questions often hinge on "with a friend" or "with my dad". The
+    compiler should surface that constraint so answer synthesis does not use a
+    better-dated but wrong-person event.
+    """
+    question_terms = set(re.findall(r"[a-zA-Z][a-zA-Z'-]{2,}", question.lower()))
+    constraints = PERSON_RELATIONSHIP_TERMS & question_terms
+    conflicts: set[str] = set()
+    for group in RELATIONSHIP_CONFLICT_GROUPS:
+        if constraints & group:
+            conflicts.update(group - constraints)
+    return constraints, conflicts
+
+
+def _has_session_date_anchor(sentence: str) -> bool:
+    return bool(SESSION_DATE_ANCHOR_RE.search(sentence)) and not DATE_RE.search(sentence)
 
 
 AGGREGATION_GENERIC_TERMS = {
@@ -1394,6 +1451,7 @@ def build_fusion_evidence_map(
     update hints while keeping the full retrieved sessions authoritative.
     """
     keywords = question_keywords(item["question"])
+    relationship_constraints, relationship_conflicts = question_relationship_constraints(item["question"])
     question_type = item["question_type"]
     source_rows: list[tuple[int, int, str]] = []
     temporal_rows: list[tuple[int, str]] = []
@@ -1427,13 +1485,38 @@ def build_fusion_evidence_map(
                     re.search(r"\b(?:but|however|instead|actually|rather than|not|no longer|changed|updated)\b", compact, re.I)
                 )
                 has_event = bool(ACTION_RE.search(compact))
-                if not (score or has_date or has_temporal or has_update or has_preference or has_conflict):
+                has_session_anchor = bool(date and _has_session_date_anchor(compact) and (score or has_event))
+                relationship_terms = set(re.findall(r"[a-zA-Z][a-zA-Z'-]{2,}", compact.lower())) & PERSON_RELATIONSHIP_TERMS
+                relationship_mismatch = bool(
+                    relationship_constraints
+                    and relationship_conflicts
+                    and relationship_terms
+                    and not (relationship_terms & relationship_constraints)
+                    and bool(relationship_terms & relationship_conflicts)
+                )
+                if not (
+                    score
+                    or has_date
+                    or has_temporal
+                    or has_update
+                    or has_preference
+                    or has_conflict
+                    or has_session_anchor
+                    or relationship_mismatch
+                ):
                     continue
-                weighted = score + int(has_date) + int(has_temporal) + int(has_update) + int(has_conflict)
+                weighted = (
+                    score
+                    + int(has_date)
+                    + int(has_temporal)
+                    + int(has_update)
+                    + int(has_conflict)
+                    + (2 if has_session_anchor else 0)
+                )
                 source_score += weighted
                 if score:
                     signals.add("query_overlap")
-                if has_date or has_temporal:
+                if has_date or has_temporal or has_session_anchor:
                     signals.add("temporal")
                 if has_update:
                     signals.add("update")
@@ -1444,22 +1527,28 @@ def build_fusion_evidence_map(
                 strong_temporal_signal = bool(
                     question_type == "temporal-reasoning"
                     and date
-                    and (score or has_event or has_update or has_conflict or has_date or has_temporal)
+                    and (score or has_event or has_update or has_conflict or has_date or has_temporal or has_session_anchor)
                 )
                 if strong_temporal_signal:
                     signals.add("dated_event")
                     temporal_evidence_sources.add(source_idx)
-                row = f"[S{source_idx}; sid={sid}; date={date}; turn={turn_idx}; {role}] {compact}"
+                row_markers: list[str] = []
+                if has_session_anchor:
+                    row_markers.append("session_date_anchor")
+                if relationship_mismatch:
+                    row_markers.append("relationship_constraint_mismatch")
+                marker_text = f"; {'; '.join(row_markers)}" if row_markers else ""
+                row = f"[S{source_idx}; sid={sid}; date={date}; turn={turn_idx}; {role}{marker_text}] {compact}"
                 key = _dedupe_key(row)
                 if key in seen_facts:
                     continue
                 seen_facts.add(key)
                 best.append((weighted, turn_idx, row))
-                if has_date or has_temporal or strong_temporal_signal:
+                if has_date or has_temporal or has_session_anchor or strong_temporal_signal:
                     temporal_rows.append((weighted, row))
                 if has_update:
                     update_rows.append((weighted, row))
-                if has_conflict:
+                if has_conflict or relationship_mismatch:
                     conflict_rows.append((weighted, row))
                 if has_preference:
                     preference_rows.append((weighted, row))
@@ -1494,6 +1583,15 @@ def build_fusion_evidence_map(
     ]
     for _score, _source_idx, text in sorted(source_rows, key=lambda row: (row[1], row[2])):
         lines.append(f"- {text}")
+
+    if relationship_constraints:
+        conflict_text = ", ".join(sorted(relationship_conflicts)) if relationship_conflicts else "(none)"
+        lines.append("")
+        lines.append("Temporal Constraints:")
+        lines.append(f"- Question companion/person constraints: {', '.join(sorted(relationship_constraints))}.")
+        lines.append(
+            f"- Prefer temporal facts satisfying those constraints; do not substitute conflicting relationship terms unless the full sessions explicitly connect them. Conflicting terms to treat cautiously: {conflict_text}."
+        )
 
     def add_section(title: str, rows: list[tuple[int, str]], include: bool) -> None:
         if not include:

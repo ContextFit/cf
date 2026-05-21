@@ -365,6 +365,46 @@ def test_targeted_source_highlights_matches_question_derived_temporal_endpoints(
     assert "15 days" in highlights
 
 
+def test_fusion_evidence_map_preserves_relationship_constraints() -> None:
+    item = {
+        "question": "How many months have passed since I last visited a museum with a friend?",
+        "question_type": "temporal-reasoning",
+    }
+    selected = ["friend-visit", "dad-visit"]
+    date_by_sid = {"friend-visit": "2022/10/22", "dad-visit": "2023/02/18"}
+    turns_by_sid = {
+        "friend-visit": [{"role": "user", "content": "I visited the Science Museum with a friend."}],
+        "dad-visit": [{"role": "user", "content": "I visited the Natural History Museum with my dad."}],
+    }
+
+    evidence_map = build_fusion_evidence_map(item, selected, date_by_sid, turns_by_sid)
+
+    assert "Temporal Constraints" in evidence_map
+    assert "Question companion/person constraints: friend" in evidence_map
+    assert "do not substitute conflicting relationship terms" in evidence_map
+    assert "relationship_constraint_mismatch" in evidence_map
+    assert "Natural History Museum with my dad" in evidence_map
+
+
+def test_fusion_evidence_map_anchors_recent_actions_to_session_date() -> None:
+    item = {
+        "question": "How many days ago did I buy a smoker?",
+        "question_type": "temporal-reasoning",
+    }
+    selected = ["smoker", "cookout"]
+    date_by_sid = {"smoker": "2023/03/15", "cookout": "2023/03/20"}
+    turns_by_sid = {
+        "smoker": [{"role": "user", "content": "I just got a smoker for the backyard."}],
+        "cookout": [{"role": "user", "content": "I used the smoker for a cookout."}],
+    }
+
+    evidence_map = build_fusion_evidence_map(item, selected, date_by_sid, turns_by_sid)
+
+    assert "session_date_anchor" in evidence_map
+    assert "date=2023/03/15" in evidence_map
+    assert "I just got a smoker" in evidence_map
+
+
 def test_targeted_source_highlights_prefers_direct_extraction_over_update() -> None:
     item = {
         "question": "When does my first sprint end?",
