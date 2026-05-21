@@ -10,6 +10,7 @@ prompts to score the resulting hypotheses.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -21,6 +22,24 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+from contextfit.retrieval.evidence_compiler import (
+    DATE_RE,
+    NUMBER_RE,
+    TEMPORAL_QUERY_RE,
+    TEMPORAL_RE,
+    build_deterministic_aggregation_assembly,
+    build_evidence_packet,
+    build_fusion_evidence_map,
+    build_multi_session_evidence_ledger,
+    build_token_evidence_table,
+    effective_aggregation_assembly_mode,
+    effective_fusion_evidence_map_mode,
+    is_count_list_question,
+    scrub_turn,
+    should_use_aggregation_assembly,
+    should_use_evidence_packet,
+    should_use_fusion_evidence_map,
+)
 
 DEFAULT_GENERATION_MODEL = "gpt-4o-2024-08-06"
 DEFAULT_JUDGE_MODEL = "gpt-4o-2024-08-06"
@@ -48,86 +67,23 @@ STRUCTURED_FALLBACK_MARKERS = (
     "insufficient information",
     "unknown",
 )
-TEMPORAL_QUERY_RE = re.compile(
-    r"\b("
-    r"current|currently|latest|last|previous|previously|before|after|when|"
-    r"since|ago|now|no longer|changed|switch(?:ed)?|update(?:d)?|"
-    r"how long|how many (?:days|weeks|months|years)"
-    r")\b",
-    re.I,
-)
-QUESTION_STOPWORDS = {
-    "about",
-    "after",
-    "again",
-    "also",
-    "because",
-    "been",
-    "before",
-    "being",
-    "between",
-    "could",
-    "current",
-    "does",
-    "during",
-    "from",
-    "have",
-    "having",
-    "into",
-    "like",
-    "many",
-    "much",
-    "need",
-    "only",
-    "should",
-    "that",
-    "their",
-    "there",
-    "these",
-    "thing",
-    "this",
-    "those",
-    "through",
-    "what",
-    "when",
-    "where",
-    "which",
-    "while",
-    "with",
-    "would",
-    "your",
-}
-NUMBER_RE = re.compile(r"\b(?:\d+(?:[.,]\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b", re.I)
-DATE_RE = re.compile(
-    r"\b(?:\d{4}[-/]\d{1,2}[-/]\d{1,2}|"
-    r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d{1,2}|"
-    r"\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?)\b",
-    re.I,
-)
-TEMPORAL_RE = re.compile(r"\b(?:current|currently|latest|now|previous|before|after|then|today|yesterday|tomorrow|updated|changed|switched|no longer|used to|last|next)\b", re.I)
-PREFERENCE_RE = re.compile(r"\b(?:like|love|prefer|favorite|favourite|enjoy|hate|dislike|avoid|interested|want|need|goal|constraint|allergic|can't|cannot)\b", re.I)
-PREFERENCE_QUERY_RE = re.compile(
-    r"\b(?:recommend|suggest|advice|tips|prefer|favorite|favourite|like|love|enjoy|"
-    r"interested|goal|constraint|allergic|avoid|watch|serve|hotel|activities)\b",
-    re.I,
-)
-COUNT_LIST_QUERY_RE = re.compile(
-    r"\b(?:how many|number of|total|count|list|which .*\b(?:ones|things|items)|"
-    r"what .*\b(?:items|things|events)|including|include|percentage|percent)\b",
-    re.I,
-)
-UPDATE_RE = re.compile(
-    r"\b(?:now|currently|current|latest|previous|previously|before|after|then|"
-    r"updated|changed|switched|replaced|moved|started|stopped|finished|completed|"
-    r"no longer|used to|instead|but|however)\b",
-    re.I,
-)
-ACTION_RE = re.compile(
-    r"\b(?:went|visited|attended|met|bought|purchased|received|gave|started|finished|"
-    r"completed|signed|redeemed|used|picked|returned|assembled|sold|fixed|worked|"
-    r"read|listened|watched|joined|registered|moved|changed|switched|invested)\b",
-    re.I,
-)
+
+
+def should_use_evidence_packet_for_item(item: dict[str, Any], args: argparse.Namespace) -> bool:
+    if (
+        item.get("question_type") == "temporal-reasoning"
+        and getattr(args, "temporal_evidence_packet", "inherit") == "off"
+    ):
+        return False
+    return should_use_evidence_packet(item, args.evidence_packet)
+
+
+def effective_top_k_context(item: dict[str, Any], args: argparse.Namespace) -> int:
+    if item["question_type"] == "multi-session" and args.multi_session_top_k_context:
+        return args.multi_session_top_k_context
+    if item["question_type"] == "temporal-reasoning" and args.temporal_top_k_context:
+        return args.temporal_top_k_context
+    return args.top_k_context
 
 
 def chat_completion(
@@ -138,9 +94,14 @@ def chat_completion(
     temperature: float = 0.0,
     api_key: str | None = None,
     retries: int = 6,
+    seed: int | None = None,
+    metadata_out: dict[str, Any] | None = None,
 ) -> str:
     if model.startswith(OPENCLAW_MODEL_PREFIX):
-        return openclaw_model_completion(model.removeprefix(OPENCLAW_MODEL_PREFIX), messages, retries=retries)
+        text = openclaw_model_completion(model.removeprefix(OPENCLAW_MODEL_PREFIX), messages, retries=retries)
+        if metadata_out is not None:
+            metadata_out.update({"provider": "openclaw", "model": model.removeprefix(OPENCLAW_MODEL_PREFIX)})
+        return text
     if model.startswith(OPENAI_COMPATIBLE_MODEL_PREFIX):
         base_url, local_model = parse_openai_compatible_model(model)
         return openai_compatible_completion(
@@ -150,20 +111,23 @@ def chat_completion(
             max_tokens=max_tokens,
             temperature=temperature,
             retries=retries,
+            seed=seed,
+            metadata_out=metadata_out,
         )
 
     api_key = api_key or os.environ.get("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY is required")
 
-    payload = json.dumps(
-        {
-            "model": model,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        }
-    ).encode("utf-8")
+    request_payload: dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    if seed is not None:
+        request_payload["seed"] = seed
+    payload = json.dumps(request_payload).encode("utf-8")
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -179,6 +143,18 @@ def chat_completion(
         try:
             with urllib.request.urlopen(req, timeout=120) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
+            if metadata_out is not None:
+                metadata_out.update(
+                    {
+                        "provider": "openai",
+                        "id": data.get("id"),
+                        "model": data.get("model", model),
+                        "created": data.get("created"),
+                        "system_fingerprint": data.get("system_fingerprint"),
+                        "seed": seed,
+                        "usage": data.get("usage"),
+                    }
+                )
             return str(data["choices"][0]["message"]["content"]).strip()
         except urllib.error.HTTPError as exc:
             last_error = exc
@@ -195,6 +171,28 @@ def strip_think_blocks(text: str) -> str:
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.I | re.S)
     text = re.sub(r"<think>.*", "", text, flags=re.I | re.S)
     return text.strip()
+
+
+CHAT_ROLE_ECHO_RE = re.compile(r"^\s*(?:<\|im_start\|>)?\s*(?:system|user|assistant)\s*:?\s*$", re.I)
+CHAT_TEMPLATE_TOKEN_RE = re.compile(r"<\|(?:im_start|im_end|endoftext)\|>")
+
+
+def sanitize_openai_compatible_text(text: str) -> str:
+    """Trim local chat-template echoes without relying on server-side stop tokens."""
+    text = strip_think_blocks(text)
+    lines: list[str] = []
+    saw_content = False
+    for raw_line in text.splitlines():
+        line = CHAT_TEMPLATE_TOKEN_RE.sub("", raw_line).rstrip()
+        if CHAT_ROLE_ECHO_RE.match(line):
+            if saw_content:
+                break
+            continue
+        if line.strip():
+            saw_content = True
+        lines.append(line)
+    cleaned = "\n".join(lines).strip()
+    return cleaned or text.strip()
 
 
 def parse_openai_compatible_model(model: str) -> tuple[str, str]:
@@ -216,16 +214,19 @@ def openai_compatible_completion(
     max_tokens: int,
     temperature: float,
     retries: int = 6,
+    seed: int | None = None,
+    metadata_out: dict[str, Any] | None = None,
 ) -> str:
-    payload = json.dumps(
-        {
-            "model": model,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "stream": False,
-        }
-    ).encode("utf-8")
+    request_payload: dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "stream": False,
+    }
+    if seed is not None:
+        request_payload["seed"] = seed
+    payload = json.dumps(request_payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     last_error: Exception | None = None
     for attempt in range(retries):
@@ -242,7 +243,19 @@ def openai_compatible_completion(
             text = str(message.get("content") or "")
             if not text and message.get("reasoning"):
                 text = str(message["reasoning"])
-            return strip_think_blocks(text)
+            if metadata_out is not None:
+                metadata_out.update(
+                    {
+                        "provider": "openai-compatible",
+                        "id": data.get("id"),
+                        "model": data.get("model", model),
+                        "created": data.get("created"),
+                        "system_fingerprint": data.get("system_fingerprint"),
+                        "seed": seed,
+                        "usage": data.get("usage"),
+                    }
+                )
+            return sanitize_openai_compatible_text(text)
         except urllib.error.HTTPError as exc:
             last_error = exc
             body = exc.read().decode("utf-8", errors="replace")[:1000]
@@ -318,11 +331,262 @@ def default_openclaw_config_path() -> Path:
     return home_config
 
 
-def scrub_turn(turn: dict[str, Any]) -> dict[str, str]:
-    return {
-        "role": str(turn.get("role", "unknown")),
-        "content": " ".join(str(turn.get("content", "")).split()),
+def completion_seed_for_purpose(args: argparse.Namespace, purpose: str) -> int | None:
+    if purpose == "judge":
+        return args.judge_seed
+    if purpose == "answerability":
+        return args.answerability_seed if args.answerability_seed is not None else args.judge_seed
+    return args.generation_seed
+
+
+def completion_cache_key(
+    *,
+    purpose: str,
+    qid: str,
+    model: str,
+    messages: list[dict[str, str]],
+    max_tokens: int,
+    temperature: float,
+    seed: int | None,
+) -> str:
+    payload = {
+        "version": 1,
+        "purpose": purpose,
+        "question_id": qid,
+        "model": model,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "seed": seed,
     }
+    raw = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
+def sha256_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def sha256_file(path: Path | None) -> str | None:
+    if path is None or not path.exists() or not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def git_output(args: list[str]) -> str | None:
+    try:
+        return subprocess.check_output(["git", *args], text=True, stderr=subprocess.DEVNULL).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+
+def jsonable_arg_value(value: Any) -> Any:
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if isinstance(value, list):
+        return [jsonable_arg_value(item) for item in value]
+    if isinstance(value, tuple):
+        return [jsonable_arg_value(item) for item in value]
+    return str(value)
+
+
+def sanitized_args_dict(args: argparse.Namespace) -> dict[str, Any]:
+    excluded = {"api_key"}
+    return {
+        key: jsonable_arg_value(value)
+        for key, value in sorted(vars(args).items())
+        if key not in excluded and not key.endswith("_key")
+    }
+
+
+def cache_metadata_summary(cache_dir: Path | None, qids: set[str]) -> dict[str, Any]:
+    if cache_dir is None or not cache_dir.exists():
+        return {"cache_dir": str(cache_dir) if cache_dir else None, "present": False}
+
+    by_purpose: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {
+            "count": 0,
+            "models": set(),
+            "seeds": set(),
+            "system_fingerprints": set(),
+        }
+    )
+    matched = 0
+    for path in cache_dir.glob("*.json"):
+        try:
+            row = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        qid = row.get("question_id")
+        if qids and qid not in qids:
+            continue
+        purpose = str(row.get("purpose", "unknown"))
+        metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+        bucket = by_purpose[purpose]
+        bucket["count"] += 1
+        matched += 1
+        if row.get("model"):
+            bucket["models"].add(str(row["model"]))
+        if row.get("seed") is not None:
+            bucket["seeds"].add(str(row["seed"]))
+        if metadata.get("system_fingerprint"):
+            bucket["system_fingerprints"].add(str(metadata["system_fingerprint"]))
+
+    serializable = {
+        purpose: {
+            "count": values["count"],
+            "models": sorted(values["models"]),
+            "seeds": sorted(values["seeds"]),
+            "system_fingerprints": sorted(values["system_fingerprints"]),
+        }
+        for purpose, values in sorted(by_purpose.items())
+    }
+    return {
+        "cache_dir": str(cache_dir),
+        "present": True,
+        "matched_files": matched,
+        "by_purpose": serializable,
+    }
+
+
+def build_run_provenance(args: argparse.Namespace, judged: list[dict[str, Any]]) -> dict[str, Any]:
+    qids = {str(row["question_id"]) for row in judged if "question_id" in row}
+    script_path = Path(__file__).resolve()
+    compiler_path = script_path.parents[1] / "src" / "contextfit" / "retrieval" / "evidence_compiler.py"
+    input_hashes = {
+        "data": sha256_file(args.data),
+        "retrieval_artifact": sha256_file(args.retrieval_artifact),
+        "question_id_file": sha256_file(args.question_id_file),
+        "supporting_retrieval_artifact": sha256_file(getattr(args, "supporting_retrieval_artifact", None)),
+        "primary_retrieval_artifact": sha256_file(getattr(args, "primary_retrieval_artifact", None)),
+    }
+    code_hashes = {
+        "benchmark_script": sha256_file(script_path),
+        "evidence_compiler": sha256_file(compiler_path),
+    }
+    git_diff = git_output(["diff", "--", "benchmarks/longmemeval_contextfit_qa.py", "src/contextfit/retrieval/evidence_compiler.py", "tests/test_longmemeval_qa_routing.py", "tests/test_evidence_compiler.py"])
+    git_status = git_output(["status", "--short"])
+    args_payload = sanitized_args_dict(args)
+    route_settings = {
+        "top_k_context": args.top_k_context,
+        "multi_session_top_k_context": args.multi_session_top_k_context,
+        "temporal_top_k_context": args.temporal_top_k_context,
+        "evidence_packet": args.evidence_packet,
+        "temporal_evidence_packet": args.temporal_evidence_packet,
+        "fusion_evidence_map": args.fusion_evidence_map,
+        "aggregation_assembly": args.aggregation_assembly,
+        "source_aware": args.source_aware,
+        "source_sufficiency": args.source_sufficiency,
+    }
+    run_hash_payload = {
+        "args": args_payload,
+        "input_hashes": input_hashes,
+        "code_hashes": code_hashes,
+        "git_diff_sha256": sha256_text(git_diff or ""),
+        "question_ids": sorted(qids),
+    }
+    return {
+        "run_hash": sha256_text(json.dumps(run_hash_payload, sort_keys=True, separators=(",", ":"))),
+        "args": args_payload,
+        "route_settings": route_settings,
+        "inputs": input_hashes,
+        "code": code_hashes,
+        "git": {
+            "head": git_output(["rev-parse", "HEAD"]),
+            "status_short": git_status,
+            "status_short_sha256": sha256_text(git_status or ""),
+            "diff_sha256": sha256_text(git_diff or ""),
+        },
+        "outputs": {
+            "hypotheses_out": str(args.hypotheses_out),
+            "judged_out": str(args.judged_out),
+            "summary_out": str(args.summary_out),
+            "answerability_out": str(args.answerability_out),
+            "extract_out": str(args.extract_out),
+        },
+        "models": {
+            "generation_model": args.generation_model,
+            "judge_model": args.judge_model,
+            "answerability_model": args.answerability_model,
+            "extraction_model": args.extraction_model,
+            "generation_seed": args.generation_seed,
+            "judge_seed": args.judge_seed,
+            "answerability_seed": args.answerability_seed,
+        },
+        "cache": cache_metadata_summary(args.completion_cache_dir, qids),
+    }
+
+
+def cached_chat_completion(
+    args: argparse.Namespace,
+    *,
+    purpose: str,
+    qid: str,
+    model: str,
+    messages: list[dict[str, str]],
+    max_tokens: int,
+    temperature: float = 0.0,
+) -> str:
+    seed = completion_seed_for_purpose(args, purpose)
+    cache_dir = args.completion_cache_dir
+    key = completion_cache_key(
+        purpose=purpose,
+        qid=qid,
+        model=model,
+        messages=messages,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        seed=seed,
+    )
+    cache_path = cache_dir / f"{key}.json" if cache_dir else None
+    if cache_path and cache_path.exists():
+        data = json.loads(cache_path.read_text())
+        return str(data["text"])
+
+    metadata: dict[str, Any] = {}
+    text = chat_completion(
+        model,
+        messages,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        api_key=args.api_key,
+        seed=seed,
+        metadata_out=metadata,
+    )
+    if cache_path:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(
+            json.dumps(
+                {
+                    "text": text,
+                    "metadata": metadata,
+                    "cache_key": key,
+                    "purpose": purpose,
+                    "question_id": qid,
+                    "model": model,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                    "seed": seed,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+    return text
+
+
+def parse_yes_no_label(response: str) -> bool:
+    match = re.search(r"\b(yes|no)\b", response.strip(), flags=re.I)
+    if match:
+        return match.group(1).lower() == "yes"
+    return "yes" in response.lower()
+
 
 
 def session_to_text(session_id: str, date: str, turns: list[dict[str, Any]], max_chars: int) -> str:
@@ -335,308 +599,6 @@ def session_to_text(session_id: str, date: str, turns: list[dict[str, Any]], max
     if len(text) > max_chars:
         return text[: max_chars - 80].rstrip() + "\n[session truncated for context budget]"
     return text
-
-
-def question_keywords(question: str) -> set[str]:
-    words = re.findall(r"[a-zA-Z][a-zA-Z0-9_'-]{2,}", question.lower())
-    return {word.strip("'") for word in words if len(word) >= 4 and word not in QUESTION_STOPWORDS}
-
-
-def split_fact_candidates(text: str) -> list[str]:
-    parts = re.split(r"(?<=[.!?])\s+|\n+", text)
-    return [" ".join(part.split()) for part in parts if part.strip()]
-
-
-def score_fact(sentence: str, keywords: set[str], question_type: str) -> int:
-    lower = sentence.lower()
-    score = sum(2 for word in keywords if word in lower)
-    if NUMBER_RE.search(sentence):
-        score += 2
-    if DATE_RE.search(sentence):
-        score += 2
-    if TEMPORAL_RE.search(sentence):
-        score += 2 if question_type in {"temporal-reasoning", "knowledge-update"} else 1
-    if PREFERENCE_RE.search(sentence):
-        score += 2 if question_type == "single-session-preference" else 1
-    if re.search(r"\b(?:but|however|instead|actually|rather than|not|no longer)\b", lower):
-        score += 1
-    return score
-
-
-def compact_fact(sentence: str, max_chars: int = 260) -> str:
-    sentence = sentence.strip()
-    if len(sentence) <= max_chars:
-        return sentence
-    return sentence[: max_chars - 1].rstrip() + "..."
-
-
-def build_token_evidence_table(
-    item: dict[str, Any],
-    selected: list[str],
-    date_by_sid: dict[str, str],
-    turns_by_sid: dict[str, list[dict[str, Any]]],
-    *,
-    max_lines: int,
-    include_signals: bool,
-) -> str:
-    """Build deterministic source-linked evidence hints from retrieved sessions.
-
-    This intentionally uses only token/regex signals. It is not an answerer; it
-    gives the LLM a compact correlation layer over the same retrieved context.
-    """
-    keywords = question_keywords(item["question"])
-    question_type = item["question_type"]
-    lines = [
-        "Token Evidence Table:",
-        f"- Question type: {question_type}",
-        f"- Question keywords: {', '.join(sorted(keywords)) if keywords else '(none)'}",
-    ]
-    global_numbers: list[str] = []
-    global_dates: list[str] = []
-    global_temporal: list[str] = []
-    seen_facts: set[str] = set()
-
-    for source_idx, sid in enumerate(selected, start=1):
-        scored: list[tuple[int, int, str]] = []
-        numbers: list[str] = []
-        dates: list[str] = []
-        temporal_markers: list[str] = []
-        for turn_idx, turn in enumerate(turns_by_sid[sid], start=1):
-            clean = scrub_turn(turn)
-            content = clean["content"]
-            if not content:
-                continue
-            numbers.extend(match.group(0) for match in NUMBER_RE.finditer(content))
-            dates.extend(match.group(0) for match in DATE_RE.finditer(content))
-            temporal_markers.extend(match.group(0) for match in TEMPORAL_RE.finditer(content))
-            for sentence in split_fact_candidates(content):
-                score = score_fact(sentence, keywords, question_type)
-                if score:
-                    scored.append((score, turn_idx, f"{clean['role']}: {compact_fact(sentence)}"))
-        top_facts: list[str] = []
-        for _score, turn_idx, sentence in sorted(scored, key=lambda row: (-row[0], row[1], row[2])):
-            dedupe_key = sentence.lower()
-            if dedupe_key in seen_facts:
-                continue
-            seen_facts.add(dedupe_key)
-            top_facts.append(f"  - turn {turn_idx}: {sentence}")
-            if len(top_facts) >= max_lines:
-                break
-        if top_facts or (include_signals and (numbers or dates or temporal_markers)):
-            lines.append(f"Source {source_idx} ({sid}, {date_by_sid.get(sid, '')}):")
-            if include_signals and dates:
-                unique_dates = list(dict.fromkeys(dates))[:8]
-                lines.append(f"  - dates/times: {', '.join(unique_dates)}")
-                global_dates.extend(unique_dates)
-            if include_signals and numbers:
-                unique_numbers = list(dict.fromkeys(numbers))[:10]
-                lines.append(f"  - numeric/count tokens: {', '.join(unique_numbers)}")
-                global_numbers.extend(unique_numbers)
-            if include_signals and temporal_markers:
-                unique_temporal = list(dict.fromkeys(marker.lower() for marker in temporal_markers))[:8]
-                lines.append(f"  - temporal/update markers: {', '.join(unique_temporal)}")
-                global_temporal.extend(unique_temporal)
-            lines.extend(top_facts or ["  - no high-overlap fact sentence found"])
-
-    if include_signals and (global_numbers or global_dates or global_temporal):
-        lines.append("Cross-source token signals:")
-        if global_dates:
-            lines.append(f"- dates/times seen: {', '.join(list(dict.fromkeys(global_dates))[:20])}")
-        if global_numbers:
-            lines.append(f"- numeric/count tokens seen: {', '.join(list(dict.fromkeys(global_numbers))[:20])}")
-        if global_temporal:
-            lines.append(f"- temporal/update markers seen: {', '.join(list(dict.fromkeys(global_temporal))[:20])}")
-    lines.append(
-        "Reducer instruction: use this table to notice correlations, counts, dates, updates, and repeated facts; verify every final answer against the full retrieved sessions below."
-    )
-    return "\n".join(lines)
-
-
-def _dedupe_key(text: str) -> str:
-    words = [
-        word
-        for word in re.findall(r"[a-zA-Z0-9][a-zA-Z0-9_'-]{2,}", text.lower())
-        if word not in QUESTION_STOPWORDS
-    ]
-    return " ".join(words[:14])
-
-
-def build_evidence_packet(
-    item: dict[str, Any],
-    selected: list[str],
-    date_by_sid: dict[str, str],
-    turns_by_sid: dict[str, list[dict[str, Any]]],
-    *,
-    max_items_per_section: int = 24,
-    max_chars: int = 12_000,
-) -> str:
-    """Build deterministic evidence candidates for the answer model.
-
-    This is intentionally token/regex based. It does not answer the question;
-    it assembles dated, source-linked candidates that are easy for an answer
-    model to audit for temporal ordering, updates, counts, and preferences.
-    """
-    keywords = question_keywords(item["question"])
-    question_type = item["question_type"]
-    events: list[tuple[int, str]] = []
-    updates: list[tuple[int, str]] = []
-    counts: list[tuple[int, str]] = []
-    preferences: list[tuple[int, str]] = []
-    temporal: list[tuple[int, str]] = []
-    seen: set[str] = set()
-
-    for source_idx, sid in enumerate(selected, start=1):
-        source = f"S{source_idx} {sid} {date_by_sid.get(sid, '')}".strip()
-        for turn_idx, turn in enumerate(turns_by_sid[sid], start=1):
-            clean = scrub_turn(turn)
-            role = clean["role"]
-            content = clean["content"]
-            if not content:
-                continue
-            for sentence in split_fact_candidates(content):
-                compact = compact_fact(sentence, max_chars=300)
-                if not compact:
-                    continue
-                score = score_fact(compact, keywords, question_type)
-                has_date = bool(DATE_RE.search(compact))
-                has_number = bool(NUMBER_RE.search(compact))
-                has_temporal = bool(TEMPORAL_RE.search(compact))
-                has_update = bool(UPDATE_RE.search(compact))
-                has_action = bool(ACTION_RE.search(compact))
-                has_preference = bool(PREFERENCE_RE.search(compact))
-                if not (score or has_date or has_number or has_temporal or has_update or has_action or has_preference):
-                    continue
-                row = f"[{source}; turn {turn_idx}; {role}] {compact}"
-                key = _dedupe_key(row)
-                if key in seen:
-                    continue
-                seen.add(key)
-                weighted = score + int(has_action) + int(has_update) + int(has_temporal)
-                if has_action or score >= 4:
-                    events.append((weighted, row))
-                if has_update:
-                    updates.append((weighted, row))
-                if has_number or is_count_list_question(item["question"]):
-                    counts.append((weighted + int(has_number), f"{row} | dedupe_key={_dedupe_key(compact)}"))
-                if has_temporal or has_date:
-                    temporal.append((weighted + int(has_date), row))
-                if has_preference:
-                    preferences.append((weighted, row))
-
-    def section(title: str, rows: list[tuple[int, str]], empty: str) -> list[str]:
-        out = [f"{title}:"]
-        if not rows:
-            out.append(f"- {empty}")
-            return out
-        for _score, text in sorted(rows, key=lambda row: (-row[0], row[1]))[:max_items_per_section]:
-            out.append(f"- {text}")
-        return out
-
-    lines = [
-        "Deterministic Evidence Packet:",
-        "- Built with token/regex rules from the retrieved sessions; verify against the full sessions below.",
-        "- Use source ids and dates for ordering, current-vs-previous state, counts/lists, and provenance.",
-        f"- Question keywords: {', '.join(sorted(keywords)) if keywords else '(none)'}",
-    ]
-    lines.extend(section("Events", events, "no event candidates detected"))
-    lines.extend(section("State Updates", updates, "no update/currentness candidates detected"))
-    lines.extend(section("Count/List Candidates", counts, "no count/list candidates detected"))
-    lines.extend(section("Temporal Relations", temporal, "no temporal candidates detected"))
-    lines.extend(section("Preference/Constraint Hints", preferences, "no preference or constraint candidates detected"))
-    lines.append(
-        "Reducer instruction: treat these as candidate evidence, not conclusions. Dedupe repeated candidates, preserve dates, and cite the source sessions in Source Notes."
-    )
-    packet = "\n".join(lines)
-    if len(packet) > max_chars:
-        return packet[: max_chars - 86].rstrip() + "\n[deterministic evidence packet truncated for budget]"
-    return packet
-
-
-def build_multi_session_evidence_ledger(
-    item: dict[str, Any],
-    selected: list[str],
-    date_by_sid: dict[str, str],
-    turns_by_sid: dict[str, list[dict[str, Any]]],
-    *,
-    max_rows: int = 40,
-    max_chars: int = 12_000,
-) -> str:
-    """Build a narrow deterministic ledger for multi-session synthesis.
-
-    This is intentionally separate from the broad evidence packet. It only
-    emits source-linked candidate facts that can participate in cross-session
-    aggregation, comparison, temporal ordering, or dedupe.
-    """
-    keywords = question_keywords(item["question"])
-    question_type = item["question_type"]
-    rows: list[tuple[int, int, int, str]] = []
-    seen: set[str] = set()
-
-    for source_idx, sid in enumerate(selected, start=1):
-        source = f"S{source_idx}"
-        date = date_by_sid.get(sid, "")
-        for turn_idx, turn in enumerate(turns_by_sid[sid], start=1):
-            clean = scrub_turn(turn)
-            role = clean["role"]
-            content = clean["content"]
-            if not content:
-                continue
-            for sentence in split_fact_candidates(content):
-                compact = compact_fact(sentence, max_chars=320)
-                if not compact:
-                    continue
-                score = score_fact(compact, keywords, question_type)
-                signals: list[str] = []
-                if DATE_RE.search(compact):
-                    signals.append("date")
-                if NUMBER_RE.search(compact):
-                    signals.append("number")
-                if TEMPORAL_RE.search(compact):
-                    signals.append("temporal")
-                if UPDATE_RE.search(compact):
-                    signals.append("update")
-                if ACTION_RE.search(compact):
-                    signals.append("event")
-                if PREFERENCE_RE.search(compact):
-                    signals.append("preference_or_constraint")
-                if score:
-                    signals.append("query_overlap")
-                if not signals:
-                    continue
-                key = _dedupe_key(compact)
-                dedupe_scope = f"{key}|{source}|{turn_idx}"
-                if dedupe_scope in seen:
-                    continue
-                seen.add(dedupe_scope)
-                weight = score + len(set(signals)) + int("number" in signals) + int("date" in signals)
-                row = (
-                    f"source={source} sid={sid} date={date} turn={turn_idx} role={role} "
-                    f"type={','.join(dict.fromkeys(signals))} dedupe_key={key or '(none)'} "
-                    f"fact={compact}"
-                )
-                rows.append((weight, source_idx, turn_idx, row))
-
-    lines = [
-        "Multi-Session Evidence Ledger:",
-        "- Built deterministically from retrieved sessions using token/regex signals only.",
-        "- Each ledger row is a candidate fact, not a conclusion.",
-        "- Use dedupe_key to merge repeated real-world items/events while keeping distinct items/events separate.",
-        f"- Question keywords: {', '.join(sorted(keywords)) if keywords else '(none)'}",
-    ]
-    if not rows:
-        lines.append("- No candidate facts were detected.")
-    else:
-        selected_rows = sorted(rows, key=lambda row: (-row[0], row[1], row[2], row[3]))[:max_rows]
-        selected_rows = sorted(selected_rows, key=lambda row: (row[1], row[2], row[3]))
-        for idx, (_weight, _source_idx, _turn_idx, row) in enumerate(selected_rows, start=1):
-            lines.append(f"E{idx}: {row}")
-    lines.append(
-        "Reducer instruction: construct Candidate Set, Deduped Set, Missing/Excluded Evidence, and Final Answer from this ledger. Cite E# ids for every included candidate."
-    )
-    ledger = "\n".join(lines)
-    if len(ledger) > max_chars:
-        return ledger[: max_chars - 87].rstrip() + "\n[multi-session evidence ledger truncated for budget]"
-    return ledger
 
 
 def build_multi_session_compiler_prompt(
@@ -733,155 +695,7 @@ def build_multi_session_guided_prompt(
     )
 
 
-def is_count_list_question(question: str) -> bool:
-    return bool(COUNT_LIST_QUERY_RE.search(question))
 
-
-def should_use_evidence_packet(item: dict[str, Any], mode: str) -> bool:
-    if mode == "all":
-        return True
-    if mode == "off":
-        return False
-    if mode == "general":
-        question = item["question"]
-        count_list = is_count_list_question(question)
-        if item["question_type"] in {"multi-session", "single-session-preference"}:
-            return False
-        return (
-            bool(TEMPORAL_QUERY_RE.search(question))
-            or bool(UPDATE_RE.search(question))
-            or bool(PREFERENCE_QUERY_RE.search(question))
-            or count_list
-            or item["question_type"] == "knowledge-update"
-        )
-    raise ValueError(f"unknown evidence packet mode: {mode}")
-
-
-def should_use_aggregation_assembly(item: dict[str, Any], mode: str) -> bool:
-    if mode == "off":
-        return False
-    if mode == "count_list":
-        return is_count_list_question(item["question"])
-    if mode == "multi_session_count_list":
-        return item["question_type"] == "multi-session" and is_count_list_question(item["question"])
-    raise ValueError(f"unknown aggregation assembly mode: {mode}")
-
-
-def build_deterministic_aggregation_assembly(
-    item: dict[str, Any],
-    selected: list[str],
-    date_by_sid: dict[str, str],
-    turns_by_sid: dict[str, list[dict[str, Any]]],
-    *,
-    max_candidates: int = 36,
-    max_chars: int = 12_000,
-) -> dict[str, Any]:
-    """Assemble source-linked aggregation candidates before answer synthesis.
-
-    This is a conservative bridge for count/list/cross-thread questions. It
-    does not decide the answer; it builds a compact candidate table and dedupe
-    groups from retrieved sessions. If the candidate set is too sparse or too
-    noisy, callers should fall back to normal source-aware synthesis.
-    """
-    keywords = question_keywords(item["question"])
-    candidate_rows: list[tuple[int, int, int, str, str, str]] = []
-    seen_sentence_scope: set[str] = set()
-
-    for source_idx, sid in enumerate(selected, start=1):
-        date = date_by_sid.get(sid, "")
-        for turn_idx, turn in enumerate(turns_by_sid[sid], start=1):
-            clean = scrub_turn(turn)
-            role = clean["role"]
-            content = clean["content"]
-            if not content:
-                continue
-            for sentence in split_fact_candidates(content):
-                compact = compact_fact(sentence, max_chars=320)
-                if not compact:
-                    continue
-                lower = compact.lower()
-                score = score_fact(compact, keywords, item["question_type"])
-                has_signal = bool(
-                    score
-                    or NUMBER_RE.search(compact)
-                    or DATE_RE.search(compact)
-                    or ACTION_RE.search(compact)
-                    or UPDATE_RE.search(compact)
-                    or any(word in lower for word in keywords)
-                )
-                if not has_signal:
-                    continue
-                dedupe_key = _dedupe_key(compact)
-                sentence_scope = f"{sid}|{turn_idx}|{dedupe_key}"
-                if sentence_scope in seen_sentence_scope:
-                    continue
-                seen_sentence_scope.add(sentence_scope)
-                weight = (
-                    score
-                    + int(bool(NUMBER_RE.search(compact))) * 2
-                    + int(bool(DATE_RE.search(compact)))
-                    + int(bool(ACTION_RE.search(compact)))
-                    + int(bool(UPDATE_RE.search(compact)))
-                )
-                candidate_rows.append(
-                    (
-                        weight,
-                        source_idx,
-                        turn_idx,
-                        dedupe_key or f"source-{source_idx}-turn-{turn_idx}",
-                        f"S{source_idx}",
-                        f"[S{source_idx}; sid={sid}; date={date}; turn={turn_idx}; role={role}] {compact}",
-                    )
-                )
-
-    ranked = sorted(candidate_rows, key=lambda row: (-row[0], row[1], row[2], row[5]))[:max_candidates]
-    ranked = sorted(ranked, key=lambda row: (row[1], row[2], row[5]))
-    groups: dict[str, list[tuple[int, str, str]]] = defaultdict(list)
-    for idx, (_weight, _source_idx, _turn_idx, dedupe_key, source, row_text) in enumerate(ranked, start=1):
-        groups[dedupe_key].append((idx, source, row_text))
-
-    coherent = bool(ranked) and len(ranked) <= max_candidates
-    if is_count_list_question(item["question"]) and len(groups) == 0:
-        coherent = False
-
-    lines = [
-        "Deterministic Aggregation Assembly:",
-        "- Built from retrieved sessions before answer synthesis using token/regex signals only.",
-        "- Candidate rows are evidence candidates, not conclusions.",
-        "- Dedupe groups merge repeated real-world items/events; keep distinct items/events separate.",
-        f"- Question keywords: {', '.join(sorted(keywords)) if keywords else '(none)'}",
-        f"- Coherence: {'coherent' if coherent else 'not_coherent'}",
-        "",
-        "Candidate Rows:",
-    ]
-    if not ranked:
-        lines.append("- No aggregation candidates detected.")
-    else:
-        for idx, (_weight, _source_idx, _turn_idx, dedupe_key, _source, row_text) in enumerate(ranked, start=1):
-            lines.append(f"C{idx}: group={dedupe_key} {row_text}")
-    lines.append("")
-    lines.append("Dedupe Groups:")
-    if not groups:
-        lines.append("- No dedupe groups.")
-    else:
-        for group_idx, (dedupe_key, group_rows) in enumerate(sorted(groups.items()), start=1):
-            row_ids = ", ".join(f"C{idx}" for idx, _source, _row_text in group_rows)
-            sources = ", ".join(dict.fromkeys(source for _idx, source, _row_text in group_rows))
-            lines.append(f"G{group_idx}: key={dedupe_key} rows={row_ids} sources={sources}")
-    lines.append(
-        "Reducer instruction: answer count/list/cross-thread questions from Dedupe Groups. "
-        "Cite C# row ids for included and excluded candidates. If the groups do not contain enough evidence, answer unavailable."
-    )
-    text = "\n".join(lines)
-    if len(text) > max_chars:
-        text = text[: max_chars - 92].rstrip() + "\n[deterministic aggregation assembly truncated for budget]"
-
-    return {
-        "coherent": coherent,
-        "candidate_count": len(ranked),
-        "dedupe_group_count": len(groups),
-        "text": text,
-    }
 
 
 def _section_after(label: str, text: str) -> str:
@@ -978,6 +792,9 @@ def build_correction_prompt(
         source_sufficiency=True,
         token_evidence=False,
         evidence_packet=evidence_packet,
+        fusion_evidence_map=False,
+        fusion_evidence_map_max_items=0,
+        fusion_evidence_map_max_chars=0,
         evidence_packet_max_items=evidence_packet_max_items,
         evidence_packet_max_chars=evidence_packet_max_chars,
         token_evidence_max_lines=0,
@@ -1007,6 +824,9 @@ def build_answer_prompt(
     source_sufficiency: bool,
     token_evidence: bool,
     evidence_packet: bool,
+    fusion_evidence_map: bool,
+    fusion_evidence_map_max_items: int,
+    fusion_evidence_map_max_chars: int,
     evidence_packet_max_items: int,
     evidence_packet_max_chars: int,
     token_evidence_max_lines: int,
@@ -1041,6 +861,17 @@ def build_answer_prompt(
             )
             + "\n\n"
         )
+    if fusion_evidence_map:
+        fusion_map = build_fusion_evidence_map(
+            item,
+            selected,
+            date_by_sid,
+            turns_by_sid,
+            max_items=fusion_evidence_map_max_items,
+            max_chars=fusion_evidence_map_max_chars,
+        )
+        if fusion_map:
+            evidence_table += fusion_map + "\n\n"
     if evidence_packet:
         evidence_table += (
             build_evidence_packet(
@@ -1094,8 +925,10 @@ def build_answer_prompt(
             "First write Source Notes: for every retrieved session that contains relevant evidence, list the concrete facts from that session. "
             "For multi-session, counting, total, list, and comparison questions, scan all retrieved sessions and combine distinct facts across sources; do not stop after the first matching session. "
             "Use dates and temporal wording to decide whether facts are current, previous, updated, or superseded. "
+            "For temporal questions, identify the two or more dated events or states needed for the calculation or ordering before writing the answer. "
             "If several sessions mention the same item, count it once unless the question asks for mentions or events. "
             "Then write Final Answer with the concise answer. "
+            "The Final Answer must be one concise line and must not introduce facts absent from Source Notes. "
             "For recommendation or preference questions, use indirect personal context such as the user's interests, tools, constraints, goals, and prior activities. "
             "If the provided history truly does not contain enough relevant information, say that the information is not available in the provided history."
         )
@@ -1164,6 +997,7 @@ def build_aggregation_assembly_prompt(
         "Use the aggregation assembly as the working set for count/list/cross-thread synthesis. "
         "First write Candidate Review: include or exclude each relevant C# candidate and explain dedupe decisions. "
         "Then write Deduped Set: one bullet per distinct included real-world item/event/value with C# citations. "
+        "For pickup/return questions, prefer rows explicitly marked as pickup/return obligations, keep pickup and return obligations separate when both are stated, and exclude third-party returns such as someone returning borrowed clothing. "
         "For count questions, the Final Answer must be the count implied by the Deduped Set. "
         "For list questions, the Final Answer must list exactly the included deduped items. "
         "Use the full History Chats only to verify or clarify the C# candidates, not to invent uncited candidates. "
@@ -1480,15 +1314,17 @@ def get_answerability_prompt(item: dict[str, Any], hypothesis: str) -> str:
 
 
 def answerability_label(args: argparse.Namespace, item: dict[str, Any], hypothesis: str) -> dict[str, Any]:
-    response = chat_completion(
-        args.answerability_model,
-        [{"role": "user", "content": get_answerability_prompt(item, hypothesis)}],
+    response = cached_chat_completion(
+        args,
+        purpose="answerability",
+        qid=item["question_id"],
+        model=args.answerability_model,
+        messages=[{"role": "user", "content": get_answerability_prompt(item, hypothesis)}],
         max_tokens=args.answerability_max_tokens,
-        api_key=args.api_key,
     )
     return {
         "model": args.answerability_model,
-        "answerable": "yes" in response.lower(),
+        "answerable": parse_yes_no_label(response),
         "raw": response,
     }
 
@@ -1517,6 +1353,8 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
     data = filter_items(data, args)
     retrieval = json.loads(args.retrieval_artifact.read_text())
     rows_by_qid = {row["question_id"]: row for row in retrieval["rows"]}
+    aggregation_assembly_mode = effective_aggregation_assembly_mode(args)
+    fusion_evidence_map_mode = effective_fusion_evidence_map_mode(args)
     supporting_rows_by_qid: dict[str, dict[str, Any]] = {}
     primary_rows_by_qid: dict[str, dict[str, Any]] = {}
     if args.evidence_contract:
@@ -1539,6 +1377,7 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
             continue
         retrieval_row = rows_by_qid[qid]
         retrieved = retrieval_row["retrieved_sessions"]
+        top_k_context = effective_top_k_context(item, args)
         route = "source_aware"
         aggregation_report: dict[str, Any] | None = None
         if args.source_set_aware:
@@ -1550,35 +1389,39 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                 item,
                 primary_row["retrieved_sessions"],
                 retrieved,
-                primary_top_k=args.top_k_context,
+                primary_top_k=top_k_context,
                 companion_top_k=args.source_set_companion_top_k,
                 max_session_chars=args.max_session_chars,
             )
-            hypothesis = chat_completion(
-                args.generation_model,
-                [{"role": "user", "content": prompt}],
+            hypothesis = cached_chat_completion(
+                args,
+                purpose="generation",
+                qid=qid,
+                model=args.generation_model,
+                messages=[{"role": "user", "content": prompt}],
                 max_tokens=args.generation_max_tokens,
-                api_key=args.api_key,
             )
             append_jsonl(args.hypotheses_out, {"question_id": qid, "hypothesis": hypothesis, "route": route})
             print(f"[generate {i}/{len(data)}] {qid} {item['question_type']} route={route}", flush=True)
             continue
-        if should_use_aggregation_assembly(item, args.aggregation_assembly):
+        if should_use_aggregation_assembly(item, aggregation_assembly_mode):
             prompt, aggregation_report = build_aggregation_assembly_prompt(
                 item,
                 retrieved,
-                top_k=args.top_k_context,
+                top_k=top_k_context,
                 max_session_chars=args.max_session_chars,
                 aggregation_max_candidates=args.aggregation_max_candidates,
                 aggregation_max_chars=args.aggregation_max_chars,
             )
             if aggregation_report["coherent"]:
                 route = "aggregation_assembly"
-                hypothesis = chat_completion(
-                    args.generation_model,
-                    [{"role": "user", "content": prompt}],
+                hypothesis = cached_chat_completion(
+                    args,
+                    purpose="generation",
+                    qid=qid,
+                    model=args.generation_model,
+                    messages=[{"role": "user", "content": prompt}],
                     max_tokens=args.generation_max_tokens,
-                    api_key=args.api_key,
                 )
                 append_jsonl(
                     args.hypotheses_out,
@@ -1601,16 +1444,18 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
             prompt = build_prompt(
                 item,
                 retrieved,
-                top_k=args.top_k_context,
+                top_k=top_k_context,
                 max_session_chars=args.max_session_chars,
                 max_ledger_rows=args.multi_session_ledger_max_rows,
                 max_ledger_chars=args.multi_session_ledger_max_chars,
             )
-            hypothesis = chat_completion(
-                args.generation_model,
-                [{"role": "user", "content": prompt}],
+            hypothesis = cached_chat_completion(
+                args,
+                purpose="generation",
+                qid=qid,
+                model=args.generation_model,
+                messages=[{"role": "user", "content": prompt}],
                 max_tokens=args.generation_max_tokens,
-                api_key=args.api_key,
             )
             append_jsonl(args.hypotheses_out, {"question_id": qid, "hypothesis": hypothesis, "route": route})
             print(f"[generate {i}/{len(data)}] {qid} {item['question_type']} route={route}", flush=True)
@@ -1628,11 +1473,13 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                 supporting_top_k=args.evidence_contract_supporting_top_k,
                 max_session_chars=args.max_session_chars,
             )
-            hypothesis = chat_completion(
-                args.generation_model,
-                [{"role": "user", "content": prompt}],
+            hypothesis = cached_chat_completion(
+                args,
+                purpose="generation",
+                qid=qid,
+                model=args.generation_model,
+                messages=[{"role": "user", "content": prompt}],
                 max_tokens=args.generation_max_tokens,
-                api_key=args.api_key,
             )
             append_jsonl(args.hypotheses_out, {"question_id": qid, "hypothesis": hypothesis, "route": route})
             print(f"[generate {i}/{len(data)}] {qid} {item['question_type']} route={route}", flush=True)
@@ -1645,15 +1492,17 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                 extract_prompt = build_structured_extraction_prompt(
                     item,
                     retrieved,
-                    top_k=args.top_k_context,
+                    top_k=top_k_context,
                     max_session_chars=args.max_session_chars,
                     include_question_type=args.include_question_type_in_prompts,
                 )
-                structured_facts = chat_completion(
-                    args.extraction_model,
-                    [{"role": "user", "content": extract_prompt}],
+                structured_facts = cached_chat_completion(
+                    args,
+                    purpose="extraction",
+                    qid=qid,
+                    model=args.extraction_model,
+                    messages=[{"role": "user", "content": extract_prompt}],
                     max_tokens=args.extraction_max_tokens,
-                    api_key=args.api_key,
                 )
                 extract_row = {"question_id": qid, "structured_facts": structured_facts}
                 append_jsonl(args.extract_out, extract_row)
@@ -1663,24 +1512,29 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                 structured_facts,
                 include_question_type=args.include_question_type_in_prompts,
             )
-            hypothesis = chat_completion(
-                args.generation_model,
-                [{"role": "user", "content": prompt}],
+            hypothesis = cached_chat_completion(
+                args,
+                purpose="generation",
+                qid=qid,
+                model=args.generation_model,
+                messages=[{"role": "user", "content": prompt}],
                 max_tokens=args.generation_max_tokens,
-                api_key=args.api_key,
             )
             if should_fallback_from_structured_answer(item, hypothesis):
                 structured_hypothesis = hypothesis
                 fallback_prompt = build_answer_prompt(
                     item,
                     retrieved,
-                    top_k=args.top_k_context,
+                    top_k=top_k_context,
                     max_session_chars=args.max_session_chars,
                     cot=False,
                     source_aware=True,
                     source_sufficiency=False,
                     token_evidence=False,
                     evidence_packet=False,
+                    fusion_evidence_map=False,
+                    fusion_evidence_map_max_items=args.fusion_evidence_map_max_items,
+                    fusion_evidence_map_max_chars=args.fusion_evidence_map_max_chars,
                     evidence_packet_max_items=args.evidence_packet_max_items,
                     evidence_packet_max_chars=args.evidence_packet_max_chars,
                     token_evidence_max_lines=args.token_evidence_max_lines,
@@ -1688,11 +1542,13 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                     count_list_mode=False,
                     strict_missing_final_answer=False,
                 )
-                hypothesis = chat_completion(
-                    args.generation_model,
-                    [{"role": "user", "content": fallback_prompt}],
+                hypothesis = cached_chat_completion(
+                    args,
+                    purpose="generation",
+                    qid=qid,
+                    model=args.generation_model,
+                    messages=[{"role": "user", "content": fallback_prompt}],
                     max_tokens=args.generation_max_tokens,
-                    api_key=args.api_key,
                 )
                 route = "source_aware_fallback_after_structured_unavailable"
                 append_jsonl(
@@ -1716,15 +1572,17 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                 extract_prompt = build_structured_extraction_prompt(
                     item,
                     retrieved,
-                    top_k=args.top_k_context,
+                    top_k=top_k_context,
                     max_session_chars=args.max_session_chars,
                     include_question_type=args.include_question_type_in_prompts,
                 )
-                structured_facts = chat_completion(
-                    args.extraction_model,
-                    [{"role": "user", "content": extract_prompt}],
+                structured_facts = cached_chat_completion(
+                    args,
+                    purpose="extraction",
+                    qid=qid,
+                    model=args.extraction_model,
+                    messages=[{"role": "user", "content": extract_prompt}],
                     max_tokens=args.extraction_max_tokens,
-                    api_key=args.api_key,
                 )
                 extract_row = {"question_id": qid, "structured_facts": structured_facts}
                 append_jsonl(args.extract_out, extract_row)
@@ -1738,13 +1596,16 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
             prompt = build_answer_prompt(
                 item,
                 retrieved,
-                top_k=args.top_k_context,
+                top_k=top_k_context,
                 max_session_chars=args.max_session_chars,
                 cot=args.cot,
                 source_aware=args.source_aware,
                 source_sufficiency=args.source_sufficiency,
                 token_evidence=args.token_evidence,
-                evidence_packet=should_use_evidence_packet(item, args.evidence_packet),
+                evidence_packet=should_use_evidence_packet_for_item(item, args),
+                fusion_evidence_map=should_use_fusion_evidence_map(item, fusion_evidence_map_mode),
+                fusion_evidence_map_max_items=args.fusion_evidence_map_max_items,
+                fusion_evidence_map_max_chars=args.fusion_evidence_map_max_chars,
                 evidence_packet_max_items=args.evidence_packet_max_items,
                 evidence_packet_max_chars=args.evidence_packet_max_chars,
                 token_evidence_max_lines=args.token_evidence_max_lines,
@@ -1754,11 +1615,13 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
             )
             if not args.source_aware:
                 route = "standard"
-        hypothesis = chat_completion(
-            args.generation_model,
-            [{"role": "user", "content": prompt}],
+        hypothesis = cached_chat_completion(
+            args,
+            purpose="generation",
+            qid=qid,
+            model=args.generation_model,
+            messages=[{"role": "user", "content": prompt}],
             max_tokens=args.generation_max_tokens,
-            api_key=args.api_key,
         )
         row: dict[str, Any] = {"question_id": qid, "hypothesis": hypothesis, "route": route}
         if aggregation_report is not None:
@@ -1772,17 +1635,19 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                     retrieved,
                     hypothesis,
                     verifier_report,
-                    top_k=args.top_k_context,
+                    top_k=top_k_context,
                     max_session_chars=args.max_session_chars,
-                    evidence_packet=should_use_evidence_packet(item, args.evidence_packet),
+                    evidence_packet=should_use_evidence_packet_for_item(item, args),
                     evidence_packet_max_items=args.evidence_packet_max_items,
                     evidence_packet_max_chars=args.evidence_packet_max_chars,
                 )
-                corrected = chat_completion(
-                    args.generation_model,
-                    [{"role": "user", "content": correction_prompt}],
+                corrected = cached_chat_completion(
+                    args,
+                    purpose="correction",
+                    qid=qid,
+                    model=args.generation_model,
+                    messages=[{"role": "user", "content": correction_prompt}],
                     max_tokens=args.generation_max_tokens,
-                    api_key=args.api_key,
                 )
                 row["original_hypothesis"] = hypothesis
                 row["hypothesis"] = corrected
@@ -1827,23 +1692,25 @@ def judge_hypotheses(args: argparse.Namespace) -> None:
             row_for_judge["hypothesis"],
             abstention=qid.endswith("_abs"),
         )
-        response = chat_completion(
-            args.judge_model,
-            [{"role": "user", "content": prompt}],
+        response = cached_chat_completion(
+            args,
+            purpose="judge",
+            qid=qid,
+            model=args.judge_model,
+            messages=[{"role": "user", "content": prompt}],
             max_tokens=args.judge_max_tokens,
-            api_key=args.api_key,
         )
         judged = dict(row_for_judge)
         judged["autoeval_label"] = {
             "model": args.judge_model,
-            "label": "yes" in response.lower(),
+            "label": parse_yes_no_label(response),
             "raw": response,
         }
         append_jsonl(args.judged_out, judged)
         print(f"[judge {i}/{len(hypotheses)}] {qid} label={judged['autoeval_label']['label']}", flush=True)
 
 
-def summarize(judged_path: Path, data_path: Path) -> dict[str, Any]:
+def summarize(judged_path: Path, data_path: Path, args: argparse.Namespace | None = None) -> dict[str, Any]:
     judged = read_jsonl(judged_path)
     data = {item["question_id"]: item for item in json.loads(data_path.read_text())}
     type2acc: dict[str, list[int]] = defaultdict(list)
@@ -1863,7 +1730,7 @@ def summarize(judged_path: Path, data_path: Path) -> dict[str, Any]:
         for qt, vals in sorted(type2acc.items())
     }
     non_empty_types = [v["accuracy"] for v in by_type.values() if v["n"]]
-    return {
+    summary = {
         "n": len(all_acc),
         "overall_accuracy": sum(all_acc) / len(all_acc) if all_acc else 0.0,
         "task_averaged_accuracy": sum(non_empty_types) / len(non_empty_types) if non_empty_types else 0.0,
@@ -1872,6 +1739,9 @@ def summarize(judged_path: Path, data_path: Path) -> dict[str, Any]:
         "by_type": by_type,
         "route_counts": dict(sorted(route_counts.items())),
     }
+    if args is not None:
+        summary["provenance"] = build_run_provenance(args, judged)
+    return summary
 
 
 def filter_items(data: list[dict[str, Any]], args: argparse.Namespace) -> list[dict[str, Any]]:
@@ -1910,6 +1780,29 @@ def main() -> int:
     ap.add_argument("--judge-max-tokens", type=int, default=10)
     ap.add_argument("--extraction-max-tokens", type=int, default=1200)
     ap.add_argument("--answerability-max-tokens", type=int, default=10)
+    ap.add_argument(
+        "--generation-seed",
+        type=int,
+        default=None,
+        help="best-effort deterministic seed for generation, extraction, and correction calls",
+    )
+    ap.add_argument(
+        "--judge-seed",
+        type=int,
+        default=None,
+        help="best-effort deterministic seed for judge calls",
+    )
+    ap.add_argument(
+        "--answerability-seed",
+        type=int,
+        default=None,
+        help="best-effort deterministic seed for answerability gate calls; defaults to --judge-seed",
+    )
+    ap.add_argument(
+        "--completion-cache-dir",
+        type=Path,
+        help="cache LLM outputs by prompt/model/seed hash so exact reruns reuse identical answer and judge text",
+    )
     ap.add_argument("--structured-extract", action="store_true", help="run a two-pass structured fact extraction before answering")
     ap.add_argument(
         "--temporal-hybrid",
@@ -1935,6 +1828,15 @@ def main() -> int:
     ap.add_argument("--cot", action="store_true", help="use extract-then-reason answer prompt")
     ap.add_argument("--source-aware", action="store_true", help="use source-notes plus final-answer prompt")
     ap.add_argument("--source-sufficiency", action="store_true", help="use source notes plus an in-answer sufficiency decision")
+    ap.add_argument(
+        "--expert-ensemble",
+        choices=("off", "moe"),
+        default="off",
+        help=(
+            "enable a conservative mixture-of-experts preset; moe currently adds knowledge-update/temporal "
+            "fusion-map hints without changing preference, broad multi-session, or aggregation rows"
+        ),
+    )
     ap.add_argument(
         "--evidence-contract",
         action="store_true",
@@ -2014,6 +1916,27 @@ def main() -> int:
         default=10_000,
         help="max total characters for the deterministic evidence packet",
     )
+    ap.add_argument(
+        "--fusion-evidence-map",
+        choices=("off", "all", "general", "targeted", "moe", "temporal"),
+        default="off",
+        help=(
+            "prepend a lightweight coverage/timeline/update map while keeping fused source-aware context authoritative; "
+            "moe is the conservative expert mode for knowledge-update and temporal rows; temporal isolates temporal rows only"
+        ),
+    )
+    ap.add_argument(
+        "--fusion-evidence-map-max-items",
+        type=int,
+        default=12,
+        help="max candidate rows per fusion evidence map section",
+    )
+    ap.add_argument(
+        "--fusion-evidence-map-max-chars",
+        type=int,
+        default=5_000,
+        help="max total characters for the lightweight fusion evidence map",
+    )
     ap.add_argument("--token-evidence-max-lines", type=int, default=5, help="max fact lines per retrieved source in the token evidence table")
     ap.add_argument("--token-evidence-signals", action="store_true", help="include raw date/number/temporal token dumps in the token evidence table")
     ap.add_argument(
@@ -2066,6 +1989,24 @@ def main() -> int:
     ap.add_argument("--non-abstention-only", action="store_true")
     ap.add_argument("--count-list-only", action="store_true", help="only run questions matching count/list wording")
     ap.add_argument("--top-k-context", type=int, default=5)
+    ap.add_argument(
+        "--multi-session-top-k-context",
+        type=int,
+        default=0,
+        help="override --top-k-context for multi-session questions; 0 keeps the global value",
+    )
+    ap.add_argument(
+        "--temporal-top-k-context",
+        type=int,
+        default=0,
+        help="override --top-k-context for temporal-reasoning questions; 0 keeps the global value",
+    )
+    ap.add_argument(
+        "--temporal-evidence-packet",
+        choices=("inherit", "off"),
+        default="inherit",
+        help="override --evidence-packet for temporal-reasoning rows",
+    )
     ap.add_argument("--max-session-chars", type=int, default=16_000)
     ap.add_argument("--limit", type=int, default=0, help="0 means all rows")
     ap.add_argument("--skip-generate", action="store_true")
@@ -2089,7 +2030,7 @@ def main() -> int:
         generate_hypotheses(args)
     if not args.skip_judge:
         judge_hypotheses(args)
-    summary = summarize(args.judged_out, args.data)
+    summary = summarize(args.judged_out, args.data, args)
     args.summary_out.write_text(json.dumps(summary, indent=2))
     print(json.dumps(summary, indent=2))
     print(f"Wrote {args.summary_out}")

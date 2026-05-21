@@ -60,6 +60,7 @@ index.json
 Thumbs.db
 benchmarks/data/longmemeval_*.json
 benchmarks/cache/
+benchmarks/.completion_cache/
 benchmarks/longmemeval_contextfit_*.json
 benchmarks/longmemeval_contextfit_*.jsonl
 benchmarks/longmemeval_*.json
