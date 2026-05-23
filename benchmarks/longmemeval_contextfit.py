@@ -28,6 +28,7 @@ import numpy as np
 from contextfit.retrieval.engine import RetrievalEngine
 from contextfit.retrieval.memory_atoms import augment_query_for_memory_atoms, atom_type_priors, episode_relevance_score, extract_memory_atoms, query_memory_intents
 from contextfit.retrieval.evidence_atoms import rerank_sessions_by_evidence_atoms
+from contextfit.retrieval.evidence_compiler import EvidenceSource, promote_evidence_sources_for_count_list
 
 
 PREFERENCE_RE = re.compile(
@@ -328,6 +329,27 @@ def targeted_expansion_sessions(
             if len(fill) >= top_k - protected_n:
                 break
     return (protected + fill)[:top_k]
+
+
+def safe_promotion_rerank_sessions(
+    query: str,
+    session_texts: list[tuple[str, str]],
+    base_order: list[str],
+    top_k: int,
+    protected_k: int = 4,
+) -> list[str]:
+    """LongMemEval adapter for reusable EvidenceSource promotion."""
+    sources = [
+        EvidenceSource(source_id=str(sid), text=text, metadata={"rank": rank})
+        for rank, (sid, text) in enumerate(session_texts, start=1)
+    ]
+    return promote_evidence_sources_for_count_list(
+        {"question": query, "question_type": "multi-session"},
+        sources,
+        source_order=[str(sid) for sid in base_order],
+        top_k=top_k,
+        protected_k=protected_k,
+    )
 
 
 def atom_sessions_from_chunks(chunks, scores: list[float], query: str) -> list[str]:
@@ -701,6 +723,7 @@ def eval_one(
     recency_weight: float = 0.0,
     coverage_rerank: bool = False,
     targeted_expansion: bool = False,
+    safe_promotion_rerank: bool = False,
     temporal_date_rerank: bool = False,
     relationship_boost: float = 1.0,
     conversation_chunks: bool = False,
@@ -909,9 +932,9 @@ def eval_one(
                 retrieved_sessions = vector_sessions[:top_k_chunks]
         elif rank_by_session:
             group_pool = top_k_chunks
-            if coverage_rerank or temporal_date_rerank or evidence_atom_rerank or targeted_expansion:
+            if coverage_rerank or temporal_date_rerank or evidence_atom_rerank or targeted_expansion or safe_promotion_rerank:
                 group_pool = max(top_k_chunks, 30)
-            if targeted_expansion:
+            if targeted_expansion or safe_promotion_rerank:
                 group_pool = max(group_pool, min(retrieval_k, 50))
             if evidence_atom_rerank:
                 group_pool = max(group_pool, min(retrieval_k, 50))
@@ -943,7 +966,7 @@ def eval_one(
                 retrieved_sessions = reciprocal_rank_fusion(
                     [retrieved_sessions, broad_sessions]
                 )
-            if coverage_rerank and str(item.get("question_type") or "").startswith("multi-session"):
+            if coverage_rerank and not safe_promotion_rerank and str(item.get("question_type") or "").startswith("multi-session"):
                 retrieved_sessions = coverage_rerank_sessions(
                     query,
                     session_texts,
@@ -961,6 +984,13 @@ def eval_one(
                 )
             if targeted_expansion and str(item.get("question_type") or "").startswith("multi-session"):
                 retrieved_sessions = targeted_expansion_sessions(
+                    query,
+                    session_texts,
+                    retrieved_sessions,
+                    top_k=top_k_chunks,
+                )
+            if safe_promotion_rerank and str(item.get("question_type") or "").startswith("multi-session"):
+                retrieved_sessions = safe_promotion_rerank_sessions(
                     query,
                     session_texts,
                     retrieved_sessions,
@@ -1102,6 +1132,7 @@ def main() -> int:
     ap.add_argument("--recency-weight", type=float, default=0.0, help="Date-aware recency bias weight [0,1] for temporal queries. 0=disabled.")
     ap.add_argument("--coverage-rerank", action="store_true", help="greedily rerank session pools for complementary token/entity evidence coverage")
     ap.add_argument("--targeted-expansion", action="store_true", help="preserve top source anchors and fill tail slots with targeted companion sessions")
+    ap.add_argument("--safe-promotion-rerank", action="store_true", help="promote count/list user-fact sessions from ranks 11-50 while preserving top anchors")
     ap.add_argument("--two-stage-sessions", action="store_true", help="broad session discovery followed by precise in-session retrieval")
     ap.add_argument("--temporal-date-rerank", action="store_true", help="rerank explicit relative-date temporal questions using question/session dates")
     ap.add_argument("--relationship-boost", type=float, default=1.0, help="optional derived entity/relationship backlink score boost; 1.0 disables")
@@ -1176,6 +1207,7 @@ def main() -> int:
             recency_weight=args.recency_weight,
             coverage_rerank=args.coverage_rerank,
             targeted_expansion=args.targeted_expansion,
+            safe_promotion_rerank=args.safe_promotion_rerank,
             temporal_date_rerank=args.temporal_date_rerank,
             relationship_boost=args.relationship_boost,
             conversation_chunks=args.conversation_chunks,
@@ -1217,6 +1249,7 @@ def main() -> int:
         "evidence_atom_rerank": args.evidence_atom_rerank,
         "coverage_rerank": args.coverage_rerank,
         "targeted_expansion": args.targeted_expansion,
+        "safe_promotion_rerank": args.safe_promotion_rerank,
         "two_stage_sessions": args.two_stage_sessions,
         "temporal_date_rerank": args.temporal_date_rerank,
         "relationship_boost": args.relationship_boost,

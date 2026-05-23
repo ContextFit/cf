@@ -55,6 +55,31 @@ class MemoryAtom:
         return "\n".join(parts)
 
 
+@dataclass(frozen=True)
+class PreferenceSupport:
+    """Source-linked support useful for preference/advice synthesis."""
+
+    kind: str
+    text: str
+    source_id: str | None = None
+    source_date: str | None = None
+    turn_index: int | None = None
+    score: float = 0.0
+
+    def to_evidence_text(self) -> str:
+        parts = [f"- [{self.kind}] {self.text}"]
+        meta = []
+        if self.source_id:
+            meta.append(f"source={self.source_id}")
+        if self.source_date:
+            meta.append(f"date={self.source_date}")
+        if self.turn_index is not None:
+            meta.append(f"turn={self.turn_index}")
+        if meta:
+            parts.append("  " + ", ".join(meta))
+        return "\n".join(parts)
+
+
 # Broad language markers, intentionally domain-neutral.
 ATOM_PATTERNS: list[tuple[str, re.Pattern[str], float]] = [
     (
@@ -152,9 +177,104 @@ ATOM_PATTERNS: list[tuple[str, re.Pattern[str], float]] = [
 ]
 
 QUESTION_INTEREST_RE = re.compile(
-    r"\b(can you recommend|recommend|suggest|any tips|any advice|what should i|do you think|should i|help me|i'?m looking for)\b",
+    r"\b(can you recommend|recommend|suggest|any tips|any advice|what should i|do you think|should i|help me|i'?m looking for|do you have (?:any )?(?:suggestions|recommendations|tips|advice))\b",
     re.I,
 )
+QUESTION_FIELD_RE = re.compile(r"(?:^|\n)\s*Question:\s*(.+)\s*$", re.I | re.S)
+PREFERENCE_SUPPORT_PATTERNS: list[tuple[str, re.Pattern[str], float]] = [
+    (
+        "explicit_preference",
+        re.compile(
+            r"\b(?:i\s+(?:really\s+|usually\s+|generally\s+|always\s+|tend\s+to\s+)?"
+            r"(?:like|love|prefer|enjoy|hate|dislike|avoid|can't stand|cannot stand)|"
+            r"my\s+(?:favorite|favourite|go-?to|preference|preferred)|"
+            r"works\s+(?:best|better)\s+for\s+me|i'?m\s+(?:a\s+)?(?:fan|not\s+a\s+fan)\s+of)\b",
+            re.I,
+        ),
+        1.00,
+    ),
+    (
+        "prior_success",
+        re.compile(
+            r"\b(?:success|successful|worked\s+(?:well|great)|went\s+well|hit|loved\s+it|"
+            r"liked\s+it|turned\s+out|was\s+a\s+hit|really\s+worked)\b",
+            re.I,
+        ),
+        0.92,
+    ),
+    (
+        "owned_resource",
+        re.compile(
+            r"\b(?:i\s+(?:always\s+|usually\s+|often\s+)?"
+            r"(?:have|own|bought|got|use|using|carry|harvested|grew|made|built)|"
+            r"i(?:'ve| have)\s+(?:been\s+)?"
+            r"(?:using|carrying|harvesting|harvested|growing|grown|making|made|building|built)|"
+            r"(?:my|our)\s+(?:new|fresh|homegrown|own|current|existing|portable|wireless|compact)\s+"
+            r"[\w\s-]{2,48}\b|"
+            r"my\s+\w+\s+(?:has|have|is|are|uses|keeps)|"
+            r"we\s+(?:have|own|bought|got|use|using|carry|harvested|grew|made|built))\b",
+            re.I,
+        ),
+        0.82,
+    ),
+    (
+        "style_theme",
+        re.compile(
+            r"\b(?:style|theme|design|genre|medium|ingredient|tool|resource|platform|setup|"
+            r"brand|material|flavo[u]?r|aesthetic|decor|format|language|tone|voice)\b",
+            re.I,
+        ),
+        0.76,
+    ),
+    (
+        "constraint_problem",
+        re.compile(
+            r"\b(?:i\s+(?:need|can't|cannot|have\s+trouble|am\s+struggling|am\s+stuck|"
+            r"am\s+trying)|problem|issue|concern|constraint|requirement|deadline|budget|"
+            r"allergy|avoid|limitation|limited)\b",
+            re.I,
+        ),
+        0.80,
+    ),
+    (
+        "activity_identity",
+        re.compile(
+            r"\b(?:i'?m\s+(?:an?\s+)?(?:aspiring|training|learning|practicing|working\s+on)|"
+            r"as\s+an?\s+(?:aspiring|training|practicing|working)\b|"
+            r"i\s+(?:practice|train|am\s+learning|am\s+working\s+on)|"
+            r"my\s+(?:routine|practice|training|challenge))\b",
+            re.I,
+        ),
+        0.78,
+    ),
+    (
+        "current_project",
+        re.compile(
+            r"\b(?:currently|recently|this\s+weekend|upcoming|planning|thinking\s+about|"
+            r"working\s+on|in\s+progress|next\s+(?:week|month|time))\b",
+            re.I,
+        ),
+        0.74,
+    ),
+]
+PREFERENCE_SUPPORT_KIND_PRIORITY = {
+    "explicit_preference": 0.28,
+    "prior_success": 0.24,
+    "owned_resource": 0.20,
+    "constraint_problem": 0.18,
+    "activity_identity": 0.16,
+    "current_project": 0.14,
+    "style_theme": 0.12,
+}
+PREFERENCE_SUPPORT_ATOM_TYPES = {
+    "explicit_preference": "user_preference",
+    "prior_success": "user_interest",
+    "owned_resource": "entity_fact",
+    "style_theme": "user_interest",
+    "constraint_problem": "user_constraint",
+    "activity_identity": "user_interest",
+    "current_project": "user_goal",
+}
 
 WORD_RE = re.compile(r"[a-z0-9][a-z0-9'_-]*")
 EPISODE_STOPWORDS = {
@@ -173,6 +293,15 @@ def _compact(text: str, max_chars: int = 700) -> str:
     return text[: max_chars - 1].rstrip() + "…"
 
 
+def normalize_memory_query(query: str) -> str:
+    """Return the user-facing query text from benchmark or product wrappers."""
+    q = str(query).strip()
+    match = QUESTION_FIELD_RE.search(q)
+    if match:
+        return match.group(1).strip()
+    return q
+
+
 def _split_sentences(text: str) -> list[str]:
     text = " ".join(str(text).split())
     if not text:
@@ -187,10 +316,53 @@ def _is_user_turn(turn: dict[str, Any]) -> bool:
     return role in {"user", "human", "client", "customer"}
 
 
+def _source_field(source: Any, *names: str, default: Any = None) -> Any:
+    for name in names:
+        if isinstance(source, dict) and name in source:
+            return source[name]
+        if hasattr(source, name):
+            return getattr(source, name)
+    return default
+
+
+def _source_turns(source: Any) -> list[dict[str, Any]]:
+    turns = _source_field(source, "turns", "messages", default=None)
+    if turns is None and isinstance(source, tuple):
+        if len(source) >= 3 and isinstance(source[2], list):
+            turns = source[2]
+        elif len(source) >= 2:
+            turns = [{"role": "user", "content": str(source[1])}]
+    if turns is None:
+        text = _source_field(source, "text", "content", default="")
+        turns = [{"role": _source_field(source, "role", default="user"), "content": str(text)}]
+    normalized = []
+    for turn in turns:
+        if isinstance(turn, dict):
+            normalized.append(turn)
+        else:
+            normalized.append({"role": "user", "content": str(turn)})
+    return normalized
+
+
+def _source_identity(source: Any, fallback_index: int) -> tuple[str | None, str | None]:
+    source_id = _source_field(source, "source_id", "id", "session_id", default=None)
+    source_date = _source_field(source, "source_date", "date", "timestamp", default=None)
+    if isinstance(source, tuple):
+        if len(source) >= 1 and source_id is None:
+            source_id = str(source[0])
+        if len(source) >= 3 and source_date is None:
+            source_date = str(source[1]) if source[1] else None
+    if source_id is None:
+        source_id = f"source_{fallback_index}"
+    return str(source_id), str(source_date) if source_date else None
+
+
 def query_memory_intents(query: str) -> set[str]:
     """Infer broad memory intents from query wording."""
-    q = str(query)
+    q = normalize_memory_query(query)
     intents: set[str] = set()
+    if QUESTION_INTEREST_RE.search(q):
+        intents.update({"user_preference", "user_interest", "user_goal", "user_constraint", "entity_fact"})
     if re.search(r"\b(watch|read|listen|eat|drink|buy|choose|pick|recommend|suggest|gift)\b", q, re.I):
         intents.update({"user_preference", "user_interest", "entity_fact"})
     if re.search(r"\b(prepare|plan|train|practice|work on|task|project|write|writing|how should i|what should i do|next steps)\b", q, re.I):
@@ -244,7 +416,7 @@ def augment_query_for_memory_atoms(query: str) -> str:
     This does not add topical synonyms. It only tells token retrieval which
     general memory primitive is useful for broad advice/recommendation queries.
     """
-    q = str(query)
+    q = normalize_memory_query(query)
     hints: list[str] = []
     if QUESTION_INTEREST_RE.search(q):
         hints.extend([
@@ -290,6 +462,7 @@ def episode_relevance_features(query: str, turns: Iterable[dict[str, Any]]) -> d
     user episode has the kind of memory signal requested by the query, plus
     token overlap over salient user-authored terms.
     """
+    query = normalize_memory_query(query)
     turns = list(turns)
     user_text = " ".join(str(t.get("content", "")) for t in turns if _is_user_turn(t))
     atoms = extract_memory_atoms(turns)
@@ -364,6 +537,93 @@ def episode_context_text(
     return "\n".join(parts)
 
 
+def _support_score(query_terms: set[str], sentence: str, kind: str, base: float) -> float:
+    s_terms = set(_salient_words(sentence, limit=32))
+    lexical = _overlap_ratio(query_terms, s_terms)
+    priority = PREFERENCE_SUPPORT_KIND_PRIORITY.get(kind, 0.0)
+    specificity = min(len(s_terms) / 18.0, 1.0)
+    return base + priority + 0.50 * lexical + 0.06 * specificity
+
+
+def extract_preference_support(
+    query: str,
+    sources: Iterable[Any],
+    max_items: int = 10,
+    per_source: int = 2,
+) -> list[PreferenceSupport]:
+    """Extract source-ordered support for preference/advice questions.
+
+    This is a bridge between atom retrieval and answer synthesis. It extracts
+    transferable attributes such as explicit preferences, prior successes,
+    owned resources, constraints, activities, and current projects without
+    encoding benchmark topics or answers.
+    """
+    query = normalize_memory_query(query)
+    query_terms = set(_salient_words(query, limit=24))
+    per_source_candidates: list[list[PreferenceSupport]] = []
+    seen: set[tuple[str, str, str | None]] = set()
+    for source_index, source in enumerate(sources, 1):
+        source_id, source_date = _source_identity(source, source_index)
+        source_candidates: list[PreferenceSupport] = []
+        for turn_index, turn in enumerate(_source_turns(source), 1):
+            if not _is_user_turn(turn):
+                continue
+            for sentence in _split_sentences(str(turn.get("content", ""))):
+                matches = [
+                    (kind, base)
+                    for kind, pattern, base in PREFERENCE_SUPPORT_PATTERNS
+                    if pattern.search(sentence)
+                ]
+                if QUESTION_INTEREST_RE.search(sentence):
+                    matches.append(("activity_identity", 0.64))
+                for kind, base in matches:
+                    text = _compact(sentence, max_chars=360)
+                    key = (kind, text.lower(), source_id)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    source_candidates.append(
+                        PreferenceSupport(
+                            kind=kind,
+                            text=text,
+                            source_id=source_id,
+                            source_date=source_date,
+                            turn_index=turn_index,
+                            score=_support_score(query_terms, text, kind, base),
+                        )
+                    )
+        source_candidates.sort(key=lambda item: (-item.score, item.turn_index or 0, item.text))
+        if source_candidates:
+            per_source_candidates.append(source_candidates[:per_source])
+    supports: list[PreferenceSupport] = []
+    for depth in range(max(per_source, 0)):
+        for source_candidates in per_source_candidates:
+            if depth >= len(source_candidates):
+                continue
+            supports.append(source_candidates[depth])
+            if len(supports) >= max_items:
+                return supports
+    return supports
+
+
+def build_preference_support_view(
+    query: str,
+    sources: Iterable[Any],
+    max_items: int = 10,
+    per_source: int = 2,
+) -> str:
+    """Render source-ordered preference support as a compact evidence view."""
+    supports = extract_preference_support(query, sources, max_items=max_items, per_source=per_source)
+    if not supports:
+        return ""
+    lines = [
+        "Preference support candidates:",
+        "Use these source-linked user attributes as transferable context; do not invent unsupported facts.",
+    ]
+    lines.extend(support.to_evidence_text() for support in supports)
+    return "\n".join(lines)
+
+
 def extract_memory_atoms(
     turns: Iterable[dict[str, Any]],
     source_id: str | None = None,
@@ -386,6 +646,10 @@ def extract_memory_atoms(
             for atom_type, pattern, confidence in ATOM_PATTERNS:
                 if pattern.search(sentence):
                     matches.append((atom_type, confidence))
+            for support_kind, pattern, confidence in PREFERENCE_SUPPORT_PATTERNS:
+                if pattern.search(sentence):
+                    atom_type = PREFERENCE_SUPPORT_ATOM_TYPES[support_kind]
+                    matches.append((atom_type, min(confidence, 0.74)))
             # Advice/recommendation questions often reveal an interest even if
             # they do not contain explicit preference verbs.
             if QUESTION_INTEREST_RE.search(sentence):

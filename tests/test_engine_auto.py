@@ -174,6 +174,62 @@ def test_query_auto_preference_rerank_prefers_taste_over_topic(tmp_path):
     assert result["session_ids"][0] == "s_podcast_pref"
 
 
+def test_query_auto_preference_rerank_preserves_token_prefix_for_large_k(tmp_path):
+    engine = RetrievalEngine.create(tmp_path)
+    for i in range(1, 7):
+        engine.ingest_text(
+            f"Session ID: s_token_{i}\nDate: 2026/01/{i:02d}\n\n"
+            f"Turn 1 (user): I am comparing podcast options for my commute, candidate {i}.\n",
+            metadata={"session_id": f"s_token_{i}", "kind": "session"},
+            update_indexes=True,
+        )
+    engine.ingest_text(
+        "Session ID: s_pref\nDate: 2026/01/20\n\n"
+        "Turn 1 (user): I really enjoy long-form interview podcasts about science and psychology.\n",
+        metadata={"session_id": "s_pref", "kind": "session"},
+        update_indexes=True,
+    )
+
+    result = engine.query_auto("Can you recommend a podcast for my commute?", top_k=10, retrieval_k=10)
+
+    assert result["route"].mode == "preference_rerank"
+    assert result["details"]["preference_protected_token_top_k"] == 5
+    assert all(sid.startswith("s_token_") for sid in result["session_ids"][:5])
+    assert "s_pref" in result["session_ids"]
+
+
+def test_query_auto_preference_rerank_uses_ingested_memory_atoms_as_tail(tmp_path):
+    engine = RetrievalEngine.create(tmp_path)
+    for i in range(1, 7):
+        engine.ingest_text(
+            f"Session ID: s_token_{i}\nDate: 2026/01/{i:02d}\n\n"
+            f"Turn 1 (user): I am comparing movie options for tonight, candidate {i}.\n",
+            metadata={"session_id": f"s_token_{i}", "kind": "session"},
+            update_indexes=True,
+        )
+    engine.ingest_text(
+        "Session ID: s_pref\nDate: 2026/01/20\n\n"
+        "Turn 1 (user): I am practicing a stage routine this month.\n",
+        metadata={"session_id": "s_pref", "kind": "session"},
+        update_indexes=True,
+    )
+    engine.ingest_text(
+        "Memory atom type: user_interest\n"
+        "Source session: s_pref\n"
+        "User memory: I enjoy storytelling comedy specials on streaming services.\n"
+        "Retrieval hints: preference recommendations entertainment watch movie show",
+        metadata={"session_id": "s_pref", "source_id": "s_pref", "kind": "memory_atoms"},
+        update_indexes=True,
+    )
+
+    result = engine.query_auto("Can you recommend a movie or show for tonight?", top_k=10, retrieval_k=10)
+
+    assert result["route"].mode == "preference_rerank"
+    assert result["details"]["preference_atom_candidate_sessions"] >= 1
+    assert result["details"]["preference_protected_token_top_k"] == 5
+    assert "s_pref" in result["session_ids"]
+
+
 def test_query_auto_multi_session_rerank_covers_complementary_facets(tmp_path):
     engine = RetrievalEngine.create(tmp_path)
     engine.ingest_text(

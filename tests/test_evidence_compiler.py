@@ -4,14 +4,17 @@ from types import SimpleNamespace
 
 from contextfit.retrieval.evidence_compiler import (
     EvidenceSource,
+    build_count_list_ledger,
     build_targeted_source_highlights,
     build_typed_evidence_answer_prompt,
     build_deterministic_aggregation_assembly,
     build_fusion_evidence_map,
     build_multi_session_evidence_ledger,
+    build_multi_session_evidence_set,
     build_token_evidence_table,
     effective_fusion_evidence_map_mode,
     prepare_evidence_sources,
+    promote_evidence_sources_for_count_list,
     should_use_evidence_packet,
     should_use_fusion_evidence_map,
 )
@@ -119,6 +122,84 @@ def test_prepare_evidence_sources_enforces_total_budget() -> None:
     assert 1 <= len(context.selected) < len(sources)
 
 
+def test_promote_evidence_sources_for_count_list_prefers_source_facts_over_generic_text() -> None:
+    item = {
+        "question": "How many times did I bake something in the past two weeks?",
+        "question_type": "multi_session_reasoning",
+    }
+    sources = [
+        EvidenceSource(source_id="anchor", text="User: I need to plan a weekend meal."),
+        EvidenceSource(
+            source_id="generic",
+            text=(
+                "User: What are some ways to bake bread?\n"
+                "Assistant: Bread, cake, recipe, baking, oven, flour, and sourdough can all matter."
+            ),
+        ),
+        EvidenceSource(
+            source_id="cake",
+            text="User: By the way, I baked a chocolate cake last weekend.",
+        ),
+        EvidenceSource(
+            source_id="sourdough",
+            text="User: I tried a new sourdough bread recipe on Tuesday.",
+        ),
+    ]
+
+    promoted = promote_evidence_sources_for_count_list(
+        item,
+        sources,
+        source_order=["anchor", "generic", "cake", "sourdough"],
+        top_k=3,
+        protected_k=1,
+    )
+
+    assert promoted[0] == "anchor"
+    assert "cake" in promoted
+    assert "sourdough" in promoted
+    assert "generic" not in promoted
+
+
+def test_promote_evidence_sources_for_count_list_recovers_deep_beam_like_security_fact() -> None:
+    item = {
+        "question": "How many different user roles and security features am I trying to implement across my sessions?",
+        "question_type": "multi_session_reasoning",
+    }
+    sources = [
+        EvidenceSource(source_id="anchor-roles", text="user: I need role-based access control for admins."),
+        EvidenceSource(source_id="anchor-hashing", text="user: Password hashing with bcrypt is part of the plan."),
+        EvidenceSource(source_id="anchor-auth", text="user: I am building authentication and authorization."),
+        EvidenceSource(source_id="anchor-ui", text="user: The settings page should show security roles."),
+    ]
+    for idx in range(68):
+        sources.append(
+            EvidenceSource(
+                source_id=f"distractor-{idx}",
+                text="user: I am tuning dashboard sessions, transaction tables, and login forms.",
+            )
+        )
+    sources.append(
+        EvidenceSource(
+            source_id="deep-lockout",
+            text=(
+                "user: I am trying to implement the account lockout feature after "
+                "5 failed login attempts using Redis rate limiting."
+            ),
+        )
+    )
+
+    promoted = promote_evidence_sources_for_count_list(
+        item,
+        sources,
+        source_order=[source.source_id for source in sources],
+        top_k=10,
+        protected_k=4,
+    )
+
+    assert promoted[:4] == ["anchor-roles", "anchor-hashing", "anchor-auth", "anchor-ui"]
+    assert "deep-lockout" in promoted
+
+
 def test_aggregation_assembly_keeps_pickup_return_obligations_separate() -> None:
     item = {
         "question": "How many items of clothing do I need to pick up or return from a store?",
@@ -162,6 +243,477 @@ def test_aggregation_assembly_keeps_pickup_return_obligations_separate() -> None
     assert "pickup obligation: pick up new pair" in text
 
 
+def test_count_list_ledger_computes_count_from_dedupe_groups() -> None:
+    item = {
+        "question": "How many museums did I visit?",
+        "question_type": "multi-session",
+    }
+    selected = ["moma", "met"]
+    date_by_sid = {"moma": "2023/01/01", "met": "2023/01/03"}
+    turns_by_sid = {
+        "moma": [{"role": "user", "content": "I visited the MoMA museum on Monday."}],
+        "met": [{"role": "user", "content": "I also visited the Met museum two days later."}],
+    }
+
+    ledger = build_count_list_ledger(
+        item,
+        selected,
+        date_by_sid,
+        turns_by_sid,
+        max_candidates=10,
+        max_chars=4000,
+    )
+
+    assert ledger["coherent"] is True
+    assert ledger["computed_count"] == 2
+    assert ledger["computed_answer_kind"] == "count"
+    assert "Python computed count from accepted groups: 2" in ledger["text"]
+    assert "G1:" in ledger["text"]
+
+
+def test_count_list_ledger_computes_typed_duration_sum() -> None:
+    item = {
+        "question": "How many hours in total did I spend driving to my road trip destinations combined?",
+        "question_type": "multi-session",
+    }
+    selected = ["dc", "outer-banks", "tennessee"]
+    date_by_sid = {
+        "dc": "2023/05/26",
+        "outer-banks": "2023/05/21",
+        "tennessee": "2023/05/21",
+    }
+    turns_by_sid = {
+        "dc": [{"role": "user", "content": "I drove for six hours to Washington D.C. recently."}],
+        "outer-banks": [{"role": "user", "content": "My recent trip to Outer Banks only took me four hours to drive there."}],
+        "tennessee": [{"role": "user", "content": "On my recent trip to the mountains in Tennessee, I drove for five hours to get there."}],
+    }
+
+    ledger = build_count_list_ledger(
+        item,
+        selected,
+        date_by_sid,
+        turns_by_sid,
+        max_candidates=10,
+        max_chars=4000,
+    )
+
+    assert ledger["coherent"] is True
+    assert ledger["typed_ledger"] == "duration_sum_hours"
+    assert ledger["computed_answer"] == "15 hours"
+    assert "Python computed answer: 15 hours" in ledger["text"]
+
+
+def test_count_list_ledger_computes_typed_age_average() -> None:
+    item = {
+        "question": "What is the average age of me, my parents, and my grandparents?",
+        "question_type": "multi-session",
+    }
+    selected = ["me", "parents", "grandparents"]
+    date_by_sid = {"me": "2023/05/26", "parents": "2023/05/23", "grandparents": "2023/05/22"}
+    turns_by_sid = {
+        "me": [{"role": "user", "content": "I just turned 32 on February 12th."}],
+        "parents": [{"role": "user", "content": "My mom is 55 and my dad is 58."}],
+        "grandparents": [{"role": "user", "content": "My grandma is 75 and my grandpa is 78."}],
+    }
+
+    ledger = build_count_list_ledger(
+        item,
+        selected,
+        date_by_sid,
+        turns_by_sid,
+        max_candidates=10,
+        max_chars=4000,
+    )
+
+    assert ledger["coherent"] is True
+    assert ledger["typed_ledger"] == "age_average"
+    assert ledger["computed_answer"] == "59.6"
+    assert "Python computed answer: 59.6" in ledger["text"]
+
+
+def test_count_list_ledger_typed_only_rejects_generic_count() -> None:
+    item = {
+        "question": "How many museums did I visit?",
+        "question_type": "multi-session",
+    }
+    selected = ["moma", "met"]
+    date_by_sid = {"moma": "2023/01/01", "met": "2023/01/03"}
+    turns_by_sid = {
+        "moma": [{"role": "user", "content": "I visited the MoMA museum on Monday."}],
+        "met": [{"role": "user", "content": "I also visited the Met museum two days later."}],
+    }
+
+    ledger = build_count_list_ledger(
+        item,
+        selected,
+        date_by_sid,
+        turns_by_sid,
+        max_candidates=10,
+        max_chars=4000,
+        typed_only=True,
+    )
+
+    assert ledger["coherent"] is False
+    assert ledger["computed_answer_kind"] == "typed_unsupported"
+
+
+def test_count_list_ledger_counts_pickup_return_clothing_actions() -> None:
+    item = {
+        "question": "How many items of clothing do I need to pick up or return from a store?",
+        "question_type": "multi-session",
+    }
+    selected = ["closet", "zara", "dry-cleaning"]
+    date_by_sid = {"closet": "2023/02/15", "zara": "2023/02/15", "dry-cleaning": "2023/02/15"}
+    turns_by_sid = {
+        "closet": [{"role": "user", "content": "I just exchanged a pair of boots I got from Zara on 2/5, and I still need to pick up the new pair."}],
+        "zara": [{"role": "user", "content": "I need to return some boots to Zara, actually."}],
+        "dry-cleaning": [{"role": "user", "content": "I still need to pick up my dry cleaning for the navy blue blazer."}],
+    }
+
+    ledger = build_count_list_ledger(
+        item,
+        selected,
+        date_by_sid,
+        turns_by_sid,
+        max_candidates=10,
+        max_chars=4000,
+        typed_only=True,
+    )
+
+    assert ledger["coherent"] is True
+    assert ledger["typed_ledger"] == "action_status_clothing_pickup_return"
+    assert ledger["computed_answer"] == "3"
+
+
+def test_count_list_ledger_counts_model_kits_only_when_complete() -> None:
+    item = {
+        "question": "How many model kits have I worked on or bought?",
+        "question_type": "multi-session",
+    }
+    selected = ["kits"]
+    date_by_sid = {"kits": "2023/05/30"}
+    turns_by_sid = {
+        "kits": [
+            {
+                "role": "user",
+                "content": (
+                    "I finished a simple Revell F-15 Eagle kit. "
+                    "I recently finished a Tamiya 1/48 scale Spitfire Mk.V. "
+                    "I started working on a 1/16 scale German Tiger I tank. "
+                    "I just got this 1/72 scale B-29 bomber and a 1/24 scale '69 Camaro."
+                ),
+            }
+        ],
+    }
+
+    ledger = build_count_list_ledger(
+        item,
+        selected,
+        date_by_sid,
+        turns_by_sid,
+        max_candidates=10,
+        max_chars=4000,
+        typed_only=True,
+    )
+
+    assert ledger["coherent"] is True
+    assert ledger["typed_ledger"] == "entity_count_model_kits"
+    assert ledger["computed_answer"] == "5"
+
+
+def test_count_list_ledger_counts_auth_security_features() -> None:
+    item = {
+        "question": "How many different user roles and security features am I trying to implement across my sessions?",
+        "question_type": "multi-session",
+    }
+    selected = ["hashing", "rbac", "lockout", "generic"]
+    turns_by_sid = {
+        "hashing": [
+            {
+                "role": "user",
+                "content": "I need to implement user registration with hashed passwords using Werkzeug.security.",
+            }
+        ],
+        "rbac": [
+            {
+                "role": "user",
+                "content": "I'm trying to implement role-based access control for my application.",
+            }
+        ],
+        "lockout": [
+            {
+                "role": "user",
+                "content": "I'm trying to implement the account lockout feature after 5 failed login attempts using Redis.",
+            }
+        ],
+        "generic": [
+            {
+                "role": "assistant",
+                "content": "You could also consider session management and rate limiting.",
+            }
+        ],
+    }
+
+    ledger = build_count_list_ledger(
+        item,
+        selected,
+        {},
+        turns_by_sid,
+        max_candidates=10,
+        max_chars=4000,
+        typed_only=True,
+    )
+
+    assert ledger["coherent"] is True
+    assert ledger["typed_ledger"] == "entity_count_auth_security_features"
+    assert ledger["computed_answer"] == "3"
+    assert "password hashing" in ledger["text"]
+    assert "role-based access control" in ledger["text"]
+    assert "account lockout after failed login attempts" in ledger["text"]
+    assert "session management" not in ledger["text"]
+
+
+def test_count_list_ledger_counts_household_entities_and_actions() -> None:
+    cases = [
+        (
+            "How many plants did I acquire in the last month?",
+            "entity_count_acquired_plants",
+            "3",
+                {
+                    "nursery": "I got a peace lily from the nursery two weeks ago along with a succulent.",
+                    "sister": "I got my snake plant from my sister last month.",
+                },
+            ),
+        (
+            "How many tanks do I currently have, including the one I set up for my friend's kid?",
+            "entity_count_current_tanks",
+            "3",
+            {
+                "friend": "I set up a small 1-gallon tank for my friend's kid.",
+                "betta": "My betta lives in a 5-gallon tank.",
+                "community": "My 20-gallon community tank Amazonia is stable now.",
+            },
+        ),
+        (
+            "How many pieces of furniture did I buy, assemble, sell, or fix in the past few months?",
+            "entity_count_furniture_actions",
+            "4",
+            {
+                "coffee": "I bought a new coffee table from West Elm about three weeks ago.",
+                "mattress": "Last week I finally ordered a Casper mattress.",
+                "table": "I fixed the wobbly leg on my kitchen table last weekend.",
+                "shelf": "I finally assembled that IKEA bookshelf for my home office.",
+            },
+        ),
+    ]
+
+    for question, ledger_type, answer, turns in cases:
+        item = {"question": question, "question_type": "multi-session"}
+        selected = list(turns)
+        turns_by_sid = {
+            sid: [{"role": "user", "content": content}]
+            for sid, content in turns.items()
+        }
+
+        ledger = build_count_list_ledger(
+            item,
+            selected,
+            {},
+            turns_by_sid,
+            max_candidates=10,
+            max_chars=4000,
+            typed_only=True,
+        )
+
+        assert ledger["coherent"] is True
+        assert ledger["typed_ledger"] == ledger_type
+        assert ledger["computed_answer"] == answer
+
+
+def test_count_list_ledger_counts_attended_weddings_not_planning() -> None:
+    item = {
+        "question": "How many weddings have I attended in this year?",
+        "question_type": "multi-session",
+    }
+    selected = ["rachel", "emily", "planning", "jen"]
+    turns_by_sid = {
+        "rachel": [{"role": "user", "content": "My cousin Rachel's wedding at the vineyard was perfect."}],
+        "emily": [{"role": "user", "content": "Emily and Sarah got married at a rooftop garden."}],
+        "planning": [{"role": "user", "content": "I'm planning my own wedding ceremony and reception."}],
+        "jen": [{"role": "user", "content": "I just got back from Jen and Tom's wedding last weekend."}],
+    }
+
+    ledger = build_count_list_ledger(
+        item,
+        selected,
+        {},
+        turns_by_sid,
+        max_candidates=10,
+        max_chars=4000,
+        typed_only=True,
+    )
+
+    assert ledger["coherent"] is True
+    assert ledger["typed_ledger"] == "entity_count_attended_weddings"
+    assert ledger["computed_answer"] == "3"
+    assert "planning my own wedding" not in ledger["text"]
+
+
+def test_count_list_ledger_sums_confirmed_exercise_minutes_only() -> None:
+    item = {
+        "question": "How many hours of jogging and yoga did I do last week?",
+        "question_type": "multi-session",
+    }
+    selected = ["jog", "planned-yoga"]
+    turns_by_sid = {
+        "jog": [{"role": "user", "content": "I went for a 30-minute jog around the neighborhood last Saturday."}],
+        "planned-yoga": [{"role": "user", "content": "I am planning yoga for Monday, Wednesday, and Friday mornings next week."}],
+    }
+
+    ledger = build_count_list_ledger(
+        item,
+        selected,
+        {},
+        turns_by_sid,
+        max_candidates=10,
+        max_chars=4000,
+        typed_only=True,
+    )
+
+    assert ledger["coherent"] is True
+    assert ledger["typed_ledger"] == "duration_sum_hours"
+    assert ledger["computed_answer"] == "0.5 hours"
+    assert "planned-yoga" not in ledger["text"]
+
+
+def test_count_list_ledger_counts_user_requested_schema_fields() -> None:
+    item = {
+        "question": "How many new fields did I want to add to the invoice table across my requests?",
+        "question_type": "multi-session",
+    }
+    selected = ["due", "status", "assistant-example"]
+    turns_by_sid = {
+        "due": [
+            {
+                "role": "user",
+                "content": "Can you help me add a due_date DATE column to the invoice table?",
+            }
+        ],
+        "status": [
+            {
+                "role": "user",
+                "content": "I also want a status field so invoices can be marked paid or overdue.",
+            }
+        ],
+        "assistant-example": [
+            {
+                "role": "assistant",
+                "content": "A model might also include description and notes fields in sample code.",
+            }
+        ],
+    }
+
+    ledger = build_count_list_ledger(
+        item,
+        selected,
+        {},
+        turns_by_sid,
+        max_candidates=10,
+        max_chars=4000,
+        typed_only=True,
+    )
+
+    assert ledger["coherent"] is True
+    assert ledger["typed_ledger"] == "schema_field_count"
+    assert ledger["computed_answer"] == "2"
+    assert "due_date" in ledger["text"]
+    assert "status" in ledger["text"]
+    assert "description" not in ledger["text"]
+
+
+def test_count_list_ledger_sums_semantic_money_without_object_specific_rules() -> None:
+    item = {
+        "question": "What is the total amount of money I raised from charity events?",
+        "question_type": "multi-session",
+    }
+    selected = ["auction", "run", "future"]
+    turns_by_sid = {
+        "auction": [{"role": "user", "content": "The charity auction raised $2,400 for the shelter."}],
+        "run": [{"role": "user", "content": "The charity run raised $1,350 last weekend."}],
+        "future": [{"role": "user", "content": "I might plan another charity event that could raise $500."}],
+    }
+
+    ledger = build_count_list_ledger(
+        item,
+        selected,
+        {},
+        turns_by_sid,
+        max_candidates=10,
+        max_chars=4000,
+        typed_only=True,
+        semantic_counting=True,
+    )
+
+    assert ledger["coherent"] is True
+    assert ledger["typed_ledger"] == "semantic_numeric_sum_dollars"
+    assert ledger["computed_answer"] == "$3750"
+    assert "might plan" not in ledger["text"]
+
+
+def test_count_list_ledger_sums_semantic_page_counts_without_book_specific_rules() -> None:
+    item = {
+        "question": "What was the page count of the two novels I finished?",
+        "question_type": "multi-session",
+    }
+    selected = ["novel-a", "novel-b"]
+    turns_by_sid = {
+        "novel-a": [{"role": "user", "content": "I finished the first novel, which was 416 pages."}],
+        "novel-b": [{"role": "user", "content": "The second novel I finished was 440 pages."}],
+    }
+
+    ledger = build_count_list_ledger(
+        item,
+        selected,
+        {},
+        turns_by_sid,
+        max_candidates=10,
+        max_chars=4000,
+        typed_only=True,
+        semantic_counting=True,
+    )
+
+    assert ledger["coherent"] is True
+    assert ledger["typed_ledger"] == "semantic_numeric_sum_pages"
+    assert ledger["computed_answer"] == "856 pages"
+
+
+def test_count_list_ledger_counts_quantified_entities_without_object_specific_rules() -> None:
+    item = {
+        "question": "How many parts are in both repair boxes?",
+        "question_type": "multi-session",
+    }
+    selected = ["box-a", "box-b"]
+    turns_by_sid = {
+        "box-a": [{"role": "user", "content": "The first repair box has 2 hinges and 3 brackets."}],
+        "box-b": [{"role": "user", "content": "The second repair box has one latch."}],
+    }
+
+    ledger = build_count_list_ledger(
+        item,
+        selected,
+        {},
+        turns_by_sid,
+        max_candidates=10,
+        max_chars=4000,
+        typed_only=True,
+        semantic_counting=True,
+    )
+
+    assert ledger["coherent"] is True
+    assert ledger["typed_ledger"] == "semantic_quantified_entity_count"
+    assert ledger["computed_answer"] == "6"
+
+
 def test_aggregation_assembly_supports_store_obligation_synonyms() -> None:
     item = {
         "question": "How many clothing errands do I need to collect, retrieve, or drop off?",
@@ -193,6 +745,75 @@ def test_aggregation_assembly_supports_store_obligation_synonyms() -> None:
     text = assembly["text"]
     assert "pickup obligation: pick up altered jacket" in text
     assert "return obligation: return my jeans to Zara" in text
+
+
+def test_multi_session_evidence_set_scans_broader_pool_than_prompt_context() -> None:
+    item = {
+        "question": "How many model kits did I assemble?",
+        "question_type": "multi-session",
+    }
+    selected = [f"s{i}" for i in range(1, 8)]
+    date_by_sid = {sid: f"2023/01/0{i}" for i, sid in enumerate(selected, start=1)}
+    turns_by_sid = {
+        "s1": [{"role": "user", "content": "I assembled the Saturn V model kit."}],
+        "s2": [{"role": "user", "content": "I bought groceries and cleaned the garage."}],
+        "s3": [{"role": "user", "content": "I assembled the Spitfire model kit."}],
+        "s4": [{"role": "user", "content": "We discussed dinner plans."}],
+        "s5": [{"role": "user", "content": "I assembled the Gundam model kit."}],
+        "s6": [{"role": "user", "content": "I assembled the locomotive model kit."}],
+        "s7": [{"role": "user", "content": "I assembled the lunar rover model kit."}],
+    }
+
+    evidence_set = build_multi_session_evidence_set(
+        item,
+        selected,
+        date_by_sid,
+        turns_by_sid,
+        base_top_k=2,
+        max_candidates=8,
+        max_chars=4000,
+    )
+
+    assert evidence_set["coherent"] is True
+    assert evidence_set["confidence"] >= 0.72
+    assert "three_plus_dedupe_groups" in evidence_set["confidence_reasons"]
+    assert evidence_set["selected_source_ranks"]["s7"] == 7
+    assert evidence_set["novel_decisive_group_count"] >= 1
+    assert evidence_set["marginal_utility"] > 0
+    assert "Marginal utility:" in evidence_set["text"]
+    assert "Saturn V model kit" in evidence_set["text"]
+    assert "Selector confidence:" in evidence_set["text"]
+    assert "lunar rover model kit" in evidence_set["text"]
+    assert "s7" in evidence_set["selected_source_ids"]
+
+
+def test_multi_session_evidence_set_reports_no_marginal_utility_when_base_covers_selected_groups() -> None:
+    item = {
+        "question": "How many model kits did I assemble?",
+        "question_type": "multi-session",
+    }
+    selected = ["s1", "s2", "s3"]
+    date_by_sid = {sid: f"2023/01/0{i}" for i, sid in enumerate(selected, start=1)}
+    turns_by_sid = {
+        "s1": [{"role": "user", "content": "I assembled the Saturn V model kit."}],
+        "s2": [{"role": "user", "content": "I assembled the Spitfire model kit."}],
+        "s3": [{"role": "user", "content": "I cleaned the garage."}],
+    }
+
+    evidence_set = build_multi_session_evidence_set(
+        item,
+        selected,
+        date_by_sid,
+        turns_by_sid,
+        base_top_k=3,
+        max_candidates=8,
+        max_chars=4000,
+    )
+
+    assert evidence_set["coherent"] is True
+    assert evidence_set["pool_added_group_count"] == 0
+    assert evidence_set["novel_decisive_group_count"] == 0
+    assert evidence_set["marginal_utility"] == 0
 
 
 def test_prepare_evidence_sources_budgets_by_rank_before_chronological_output() -> None:

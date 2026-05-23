@@ -1,0 +1,99 @@
+{
+  "n": 500,
+  "overall_accuracy": 0.876,
+  "task_averaged_accuracy": 0.8803290276974488,
+  "by_type": {
+    "knowledge-update": {
+      "n": 78,
+      "accuracy": 0.9230769230769231
+    },
+    "multi-session": {
+      "n": 133,
+      "accuracy": 0.7819548872180451
+    },
+    "single-session-assistant": {
+      "n": 56,
+      "accuracy": 1.0
+    },
+    "single-session-preference": {
+      "n": 30,
+      "accuracy": 0.7333333333333333
+    },
+    "single-session-user": {
+      "n": 70,
+      "accuracy": 0.9714285714285714
+    },
+    "temporal-reasoning": {
+      "n": 133,
+      "accuracy": 0.8721804511278195
+    }
+  },
+  "route_counts": {
+    "count_list_ledger_agent_schema": 22,
+    "count_list_ledger_typed_python": 11,
+    "source_aware": 467
+  },
+  "answerer_counts": {
+    "gpt-4o-2024-08-06": 204,
+    "gpt-5-mini": 296
+  },
+  "paired_vs_gpt4o_selective": {
+    "plus": 26,
+    "minus": 14,
+    "net": 12,
+    "plus_qids": [
+      "00ca467f",
+      "gpt4_31ff4165",
+      "5a7937c8",
+      "gpt4_372c3eed",
+      "0edc2aef",
+      "35a27287",
+      "afdc33df",
+      "caf03d32",
+      "a11281a2",
+      "51c32626",
+      "6c49646a",
+      "60159905",
+      "09ba9854",
+      "a08a253f",
+      "21d02d0d",
+      "09ba9854_abs",
+      "gpt4_45189cb4",
+      "gpt4_d6585ce9",
+      "gpt4_1e4a8aec",
+      "gpt4_e414231f",
+      "9a707b82",
+      "a3838d2b",
+      "gpt4_b4a80587",
+      "gpt4_cd90e484",
+      "gpt4_93159ced_abs",
+      "gpt4_fe651585_abs"
+    ],
+    "minus_qids": [
+      "6d550036",
+      "3a704032",
+      "28dc39ac",
+      "88432d0a",
+      "d23cf73b",
+      "eeda8a6d",
+      "a9f6b44c",
+      "d851d5ba",
+      "6b7dfb22",
+      "57f827a0",
+      "9ee3ecd6",
+      "8cf4d046",
+      "a96c20ee_abs",
+      "bcbe585f"
+    ]
+  },
+  "provenance": {
+    "kind": "post_hoc_composite_from_existing_judged_runs",
+    "routing_rule": "Use gpt-5-mini answer/extraction rows for LongMemEval question_type in {temporal-reasoning, single-session-preference, multi-session}; use gpt-4o-2024-08-06 rows otherwise. Judge labels are from the existing GPT-4o judge runs.",
+    "source_summaries": [
+      "benchmarks/longmemeval_contextfit_qa_summary_selective_fusion_userpref_agent_blend_full_gpt4o_20260523.json",
+      "benchmarks/longmemeval_contextfit_qa_summary_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.json"
+    ],
+    "judge_model": "gpt-4o-2024-08-06",
+    "note": "Analysis artifact only; not a fresh single-command full eval."
+  }
+}

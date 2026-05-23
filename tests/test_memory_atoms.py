@@ -1,4 +1,13 @@
-from contextfit.retrieval.memory_atoms import augment_query_for_memory_atoms, episode_context_text, episode_relevance_score, extract_memory_atoms, query_memory_intents
+from contextfit.retrieval.memory_atoms import (
+    augment_query_for_memory_atoms,
+    build_preference_support_view,
+    episode_context_text,
+    episode_relevance_score,
+    extract_memory_atoms,
+    extract_preference_support,
+    normalize_memory_query,
+    query_memory_intents,
+)
 
 
 def test_extracts_domain_neutral_user_memory_atoms_only_from_user_turns():
@@ -24,10 +33,18 @@ def test_recommendation_question_becomes_user_interest_atom():
 
 
 def test_query_memory_intents_are_general_not_topical():
-    assert query_memory_intents("What should I watch tonight?") == {"user_preference", "user_interest", "entity_fact"}
+    assert query_memory_intents("What should I watch tonight?") >= {"user_preference", "user_interest", "entity_fact"}
     assert "open_loop" in query_memory_intents("What should I follow up on next week?")
     assert "temporal_update" in query_memory_intents("Which editor do I use now?")
     assert "entity_fact" in query_memory_intents("What should I cook for dinner?")
+    assert "user_interest" in query_memory_intents("Any tips on what to bake?")
+
+
+def test_normalize_memory_query_strips_benchmark_question_date_wrapper():
+    query = "Question date: 2023/05/30 (Tue) 23:40\nQuestion: Any tips on what to bake?"
+
+    assert normalize_memory_query(query) == "Any tips on what to bake?"
+    assert "user_interest" in query_memory_intents(query)
 
 
 def test_memory_atom_query_augmentation_adds_only_general_intent_hints():
@@ -74,3 +91,75 @@ def test_atom_index_text_is_traceable_and_general():
     assert "Memory atom type: user_preference" in text
     assert "Source session: abc" in text
     assert "User memory: My favorite editor is Vim." in text
+
+
+def test_extract_preference_support_finds_transferable_context_without_topic_lists():
+    sources = [
+        {
+            "source_id": "baking",
+            "date": "2026-05-01",
+            "turns": [{"role": "user", "content": "The lemon poppyseed cake was a hit at dinner."}],
+        },
+        {
+            "source_id": "travel",
+            "date": "2026-05-02",
+            "turns": [{"role": "user", "content": "I use a portable power bank when I travel."}],
+        },
+        {
+            "source_id": "home",
+            "date": "2026-05-03",
+            "turns": [{"role": "user", "content": "I'm into mid-century modern design for the bedroom."}],
+        },
+        {
+            "source_id": "stage",
+            "date": "2026-05-04",
+            "turns": [{"role": "user", "content": "I'm practicing storytelling stand-up this month."}],
+        },
+    ]
+
+    supports = extract_preference_support("Any suggestions?", sources, max_items=8, per_source=2)
+
+    assert {support.kind for support in supports} >= {
+        "prior_success",
+        "owned_resource",
+        "style_theme",
+        "activity_identity",
+    }
+    assert any("lemon poppyseed cake" in support.text for support in supports)
+    assert any("portable power bank" in support.text for support in supports)
+
+
+def test_extract_preference_support_preserves_source_order_before_strength():
+    sources = [
+        {
+            "source_id": "first",
+            "turns": [{"role": "user", "content": "I have a compact notebook for planning."}],
+        },
+        {
+            "source_id": "second",
+            "turns": [{"role": "user", "content": "I really love detailed planning systems."}],
+        },
+    ]
+
+    supports = extract_preference_support("What should I use to plan?", sources, max_items=4, per_source=1)
+
+    assert [support.source_id for support in supports[:2]] == ["first", "second"]
+
+
+def test_preference_support_normalizes_question_wrappers_and_renders_view():
+    query = "Question date: 2023/05/30 (Tue) 23:40\nQuestion: Any tips on what to bring?"
+    sources = [
+        (
+            "s1",
+            "2026-05-01",
+            [{"role": "user", "content": "I always carry a small charger in my bag."}],
+        )
+    ]
+
+    supports = extract_preference_support(query, sources)
+    view = build_preference_support_view(query, sources)
+
+    assert supports[0].kind == "owned_resource"
+    assert supports[0].source_id == "s1"
+    assert "small charger" in view
+    assert "Question date" not in supports[0].text

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ContextFit LongMemEval-S Fusion QA Result</title>
-  <meta name="description" content="ContextFit reports an end-to-end LongMemEval-S GPT-4o QA result: 84.8% overall accuracy and 86.8% task-averaged accuracy using fusion retrieval and source-aware answering." />
+  <title>ContextFit LongMemEval-S QA Progress</title>
+  <meta name="description" content="ContextFit reports LongMemEval-S QA progress: 85.2% GPT-4o-only selective fusion and 87.2% with a GPT-5-mini answerer plus GPT-4o judging." />
   <style>
     :root {
       --bg: #080b12;
@@ -91,75 +91,77 @@
   <main>
     <nav><a href="/">ContextFit</a> / End-to-End QA Benchmark Note</nav>
 
-    <h1>84.8% QA accuracy.<br />86.8% task-averaged.</h1>
-    <p class="lede">ContextFit reports an end-to-end LongMemEval-S GPT-4o QA result using fusion retrieval, source-aware answer generation, and GPT-4o judging.</p>
+    <h1>87.2% QA accuracy.<br />87.6% task-averaged.</h1>
+    <p class="lede">ContextFit reports LongMemEval-S QA progress using selective-fusion retrieval, source-aware answer generation, and LongMemEval-style GPT-4o judging.</p>
 
     <div class="metrics">
-      <div class="metric"><strong>84.8%</strong><span>Overall QA accuracy</span></div>
-      <div class="metric"><strong>86.8%</strong><span>Task-averaged accuracy</span></div>
-      <div class="metric"><strong>86.7%</strong><span>Abstention accuracy</span></div>
+      <div class="metric"><strong>87.2%</strong><span>GPT-5-mini answerer QA</span></div>
+      <div class="metric"><strong>85.2%</strong><span>GPT-4o-only QA</span></div>
+      <div class="metric"><strong>93.3%</strong><span>Abstention accuracy</span></div>
       <div class="metric"><strong>500</strong><span>Questions evaluated</span></div>
     </div>
 
     <div class="callout">
-      This is the end-to-end QA companion to the retrieval artifact. ContextFit retrieves source evidence, GPT-4o answers from the retrieved context, and GPT-4o judges answer correctness using the LongMemEval-style evaluation path.
+      This is the end-to-end QA companion to the retrieval artifact. ContextFit retrieves source evidence, the answer model responds from retrieved context, and GPT-4o judges answer correctness using the LongMemEval-style evaluation path.
     </div>
 
     <div class="callout warning">
       Keep this claim separate from retrieval recall. The retrieval-only artifact reports <a href="/longmemeval-fusion-20260519.html">96.6% Any@5 and 98.7% Any@10 evidence recall</a>. This page reports answer correctness after generation and judging.
     </div>
 
-    <h2>Result</h2>
+    <h2>Current QA Results</h2>
     <table>
-      <thead><tr><th>Metric</th><th>Score</th></tr></thead>
+      <thead><tr><th>Run</th><th>Overall</th><th>Task-avg</th><th>Model split</th></tr></thead>
       <tbody>
-        <tr><td>Total questions</td><td>500</td></tr>
-        <tr><td>Overall QA accuracy</td><td><strong class="good">84.8%</strong></td></tr>
-        <tr><td>Task-averaged accuracy</td><td><strong class="good">86.81%</strong></td></tr>
-        <tr><td>Abstention accuracy</td><td>86.67%</td></tr>
-        <tr><td>Route</td><td>source-aware</td></tr>
-        <tr><td>Generation model</td><td>gpt-4o-2024-08-06</td></tr>
-        <tr><td>Judge model</td><td>gpt-4o-2024-08-06</td></tr>
+        <tr><td>Selective fusion, GPT-5-mini answerer</td><td><strong class="good">87.2%</strong></td><td><strong class="good">87.58%</strong></td><td>GPT-5-mini generation/extraction/answerability; GPT-4o judge</td></tr>
+        <tr><td>Selective fusion, GPT-4o-only</td><td><strong class="good">85.2%</strong></td><td><strong class="good">85.67%</strong></td><td>GPT-4o generation/extraction/answerability/judge</td></tr>
+        <tr><td>First-class answerer router</td><td>86.8%</td><td>86.65%</td><td>GPT-5-mini on temporal/preference/multi-session rows; GPT-4o otherwise; GPT-4o judge</td></tr>
       </tbody>
     </table>
 
-    <h2>Breakdown by Type</h2>
+    <h2>GPT-5-mini Answerer Breakdown</h2>
     <table>
       <thead><tr><th>Type</th><th>N</th><th>Accuracy</th></tr></thead>
       <tbody>
-        <tr><td>knowledge-update</td><td>78</td><td>88.46%</td></tr>
-        <tr><td>multi-session</td><td>133</td><td>74.44%</td></tr>
-        <tr><td>single-session-assistant</td><td>56</td><td>98.21%</td></tr>
-        <tr><td>single-session-preference</td><td>30</td><td>80.00%</td></tr>
-        <tr><td>single-session-user</td><td>70</td><td>98.57%</td></tr>
-        <tr><td>temporal-reasoning</td><td>133</td><td>81.20%</td></tr>
+        <tr><td>knowledge-update</td><td>78</td><td>91.03%</td></tr>
+        <tr><td>multi-session</td><td>133</td><td>78.20%</td></tr>
+        <tr><td>single-session-assistant</td><td>56</td><td>100.00%</td></tr>
+        <tr><td>single-session-preference</td><td>30</td><td>73.33%</td></tr>
+        <tr><td>single-session-user</td><td>70</td><td>95.71%</td></tr>
+        <tr><td>temporal-reasoning</td><td>133</td><td>87.22%</td></tr>
       </tbody>
     </table>
 
+    <h2>Interpretation</h2>
+    <p>The clean May 23 headline is <strong>87.2% overall</strong> with a GPT-5-mini answerer/extractor and GPT-4o judge. The strongest GPT-4o-only result is <strong>85.2% overall</strong>. Answerer-routing experiments show a useful temporal-reasoning lift but weaker multi-session behavior, so the router remains experimental rather than the main claim.</p>
+
     <h2>Configuration</h2>
-    <p>LongMemEval-S cleaned, 500 total rows. ContextFit used the May 19 optional OpenAI fusion retrieval artifact, source-aware answer generation, top-10 retrieved context, and a 20,000 character per-session cap.</p>
+    <p>LongMemEval-S cleaned, 500 total rows. ContextFit used selective-fusion retrieval, source-aware answer generation, GPT-4o judging, and full-run artifact checks with zero blank hypotheses.</p>
 
     <h2>Reproduction Command</h2>
     <pre><code>.venv/bin/python benchmarks/longmemeval_contextfit_qa.py \
   --data benchmarks/data/longmemeval_s_cleaned.json \
-  --retrieval-artifact benchmarks/longmemeval_fusion_claim_966_987_20260519.json \
-  --hypotheses-out benchmarks/longmemeval_contextfit_qa_hypotheses_fusion_source_aware_20260519.jsonl \
-  --judged-out benchmarks/longmemeval_contextfit_qa_judged_fusion_source_aware_20260519.jsonl \
-  --summary-out benchmarks/longmemeval_contextfit_qa_summary_fusion_source_aware_20260519.json \
+  --retrieval-artifact benchmarks/longmemeval_selective_fusion_userpref_token_base_20260523.json \
+  --hypotheses-out benchmarks/longmemeval_contextfit_qa_hypotheses_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.jsonl \
+  --judged-out benchmarks/longmemeval_contextfit_qa_judged_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.jsonl \
+  --summary-out benchmarks/longmemeval_contextfit_qa_summary_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.json \
   --source-aware \
-  --top-k-context 10 \
-  --max-session-chars 20000 \
-  --generation-model gpt-4o-2024-08-06 \
+  --evidence-packet general \
+  --fusion-evidence-map temporal \
+  --count-list-ledger agent_blend \
+  --multi-session-top-k-context 10 \
+  --temporal-top-k-context 10 \
+  --generation-model gpt-5-mini \
+  --extraction-model gpt-5-mini \
+  --answerability-model gpt-5-mini \
   --judge-model gpt-4o-2024-08-06</code></pre>
 
     <h2>Artifacts</h2>
-    <p>GitHub report: <a href="https://github.com/ContextFit/cf/blob/contextfit-lockin-20260518/benchmarks/longmemeval_fusion_source_aware_qa_20260519.md">benchmarks/longmemeval_fusion_source_aware_qa_20260519.md</a></p>
-    <p>Official-style submission JSONL: <a href="https://github.com/ContextFit/cf/blob/contextfit-lockin-20260518/benchmarks/official/longmemeval_fusion_source_aware_qa_submission_20260519.jsonl">benchmarks/official/longmemeval_fusion_source_aware_qa_submission_20260519.jsonl</a></p>
-    <p>Parity JSON: <a href="https://github.com/ContextFit/cf/blob/contextfit-lockin-20260518/benchmarks/official/longmemeval_fusion_source_aware_qa_submission_20260519.parity.json">benchmarks/official/longmemeval_fusion_source_aware_qa_submission_20260519.parity.json</a></p>
-    <p>Submission SHA-256: <code>3a6406516ec033dedf412a3a38df7a050ac49cebe78568c62ab5363d042fa8c5</code></p>
+    <p>GitHub report: <a href="https://github.com/ContextFit/cf/blob/contextfit-lockin-20260518/benchmarks/longmemeval_contextfit_report.md">benchmarks/longmemeval_contextfit_report.md</a></p>
+    <p>Run summaries are committed as benchmark artifacts for the GPT-4o-only, GPT-5-mini answerer, and first-class router runs.</p>
 
     <h2>Recommended Wording</h2>
-    <p><strong>ContextFit reports an end-to-end LongMemEval-S GPT-4o QA result: 84.8% overall accuracy and 86.8% task-averaged accuracy, using fusion retrieval with source-aware answer generation and GPT-4o judging.</strong></p>
+    <p><strong>ContextFit reports LongMemEval-S QA progress: 85.2% with a GPT-4o-only selective-fusion run, and 87.2% with a GPT-5-mini answerer/extractor plus GPT-4o judging. These are local LongMemEval-style evaluations, not official leaderboard submissions.</strong></p>
   </main>
 </body>
 </html>

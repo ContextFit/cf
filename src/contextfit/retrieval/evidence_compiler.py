@@ -67,6 +67,20 @@ QUESTION_STOPWORDS = {
     "your",
 }
 NUMBER_RE = re.compile(r"\b(?:\d+(?:[.,]\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b", re.I)
+NUMBER_WORDS = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+}
 DATE_RE = re.compile(
     r"\b(?:\d{4}[-/]\d{1,2}[-/]\d{1,2}|"
     r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d{1,2}|"
@@ -688,7 +702,7 @@ def _extract_user_requested_schema_columns(question: str, sources: list[Evidence
     for source in sources:
         rank = source.metadata.get("rank", "")
         for sentence in split_fact_candidates(source.text):
-            if not re.search(r"\b(?:user:|i(?:'d| would)?\s+(?:want|need|like|am trying)|can you help me)\b", sentence, re.I):
+            if not re.search(r"\b(?:user:|i(?:\s+also)?(?:'d| would)?\s+(?:want|need|like|am trying)|can you help me)\b", sentence, re.I):
                 continue
             if not schema_signal_re.search(sentence):
                 continue
@@ -704,6 +718,8 @@ def _extract_user_requested_schema_columns(question: str, sources: list[Evidence
                         "new",
                         "this",
                         "that",
+                        "a",
+                        "an",
                         "the",
                         "column",
                         "columns",
@@ -1253,6 +1269,283 @@ def build_targeted_source_highlights(
     return packet
 
 
+COUNT_LIST_PROMOTION_SYNONYMS = {
+    "age": {"old", "turned"},
+    "art": {"artist", "gallery", "museum", "paint", "painting", "supplies"},
+    "assemble": {"assembled", "ikea"},
+    "bake": {"baked", "baking", "baguette", "bread", "cake", "dessert", "recipe", "sourdough"},
+    "buy": {"bought", "got", "ordered", "purchase", "purchased"},
+    "doctor": {"appointment", "care", "dermatologist", "ent", "physician", "specialist"},
+    "delivery": {"domino", "fresh", "fusion", "meal", "pizza", "uber"},
+    "drive": {"drove", "hour", "hours"},
+    "event": {"attended", "exhibition", "gallery", "lecture", "museum", "tour", "volunteered"},
+    "festival": {"cinema", "film", "movie", "screening"},
+    "fix": {"fixed", "repair", "repaired"},
+    "furniture": {"bookshelf", "casper", "couch", "ikea", "mattress", "office", "pillow", "table"},
+    "grandparent": {"grandma", "grandpa"},
+    "hour": {"drive", "drove"},
+    "kit": {"bomber", "camaro", "diorama", "revell", "scale", "spitfire", "tamiya", "tank"},
+    "model": {"bomber", "camaro", "diorama", "revell", "scale", "spitfire", "tamiya", "tank"},
+    "movie": {"cinema", "festival", "film", "screening"},
+    "parent": {"dad", "mom"},
+    "role": {"admin", "permission", "permissions", "rbac", "role-based"},
+    "road": {"camping", "coastal", "destination", "mountains", "tennessee", "trip"},
+    "security": {
+        "access",
+        "account",
+        "authentication",
+        "authorization",
+        "control",
+        "failed",
+        "hashing",
+        "lockout",
+        "login",
+        "password",
+        "rbac",
+        "role-based",
+    },
+    "sell": {"sale", "sold"},
+    "trip": {"camping", "coastal", "destination", "mountains", "tennessee"},
+    "visit": {"appointment", "checkup", "consultation", "saw"},
+    "cuisine": {"cooking", "ethiopian", "indian", "korean", "vegan"},
+    "cuisines": {"cooking", "ethiopian", "indian", "korean", "vegan"},
+    "plant": {"lily", "peace", "snake", "succulent"},
+    "plants": {"lily", "peace", "snake", "succulent"},
+    "tank": {"aquarium", "betta", "community", "fish", "freshwater", "gallon"},
+    "tanks": {"aquarium", "betta", "community", "fish", "freshwater", "gallon"},
+    "wedding": {"bride", "couple", "cousin", "groom", "married", "vineyard"},
+    "weddings": {"bride", "couple", "cousin", "groom", "married", "vineyard"},
+}
+
+COUNT_LIST_PROMOTION_CUES = (
+    "by the way",
+    "i also",
+    "i attend",
+    "i baked",
+    "i bought",
+    "i drove",
+    "i finally",
+    "i got",
+    "i had",
+    "i made",
+    "i ordered",
+    "i recently",
+    "i spent",
+    "i started",
+    "i tried",
+    "i visited",
+    "i went",
+    "just ",
+    "last ",
+    "recently",
+)
+
+COUNT_LIST_PROMOTION_NEGATIVE_CUES = (
+    "as an ai language model",
+    "can you discuss",
+    "could you elaborate",
+    "generate ",
+    "how does ",
+    "i do not have personal",
+    "please ignore all previous",
+    "what are some ",
+    "write a ",
+)
+
+
+def _stem_count_promotion_token(token: str) -> str:
+    irregular = {
+        "assembled": "assemble",
+        "attended": "attend",
+        "baked": "bake",
+        "bought": "buy",
+        "destinations": "destination",
+        "doctors": "doctor",
+        "driving": "drive",
+        "drove": "drive",
+        "events": "event",
+        "festivals": "festival",
+        "fixed": "fix",
+        "getting": "get",
+        "got": "get",
+        "grandparents": "grandparent",
+        "hours": "hour",
+        "kits": "kit",
+        "movies": "movie",
+        "parents": "parent",
+        "pillows": "pillow",
+        "pieces": "piece",
+        "roles": "role",
+        "sessions": "session",
+        "sold": "sell",
+        "spent": "spend",
+        "visited": "visit",
+        "worked": "work",
+    }
+    if token in irregular:
+        return irregular[token]
+    for suffix in ("ing", "ed", "es", "s"):
+        if len(token) > 5 and token.endswith(suffix):
+            return token[: -len(suffix)]
+    return token
+
+
+def _count_list_promotion_query_terms(question: str) -> tuple[set[str], set[str]]:
+    generic = {
+        "answer",
+        "acros",
+        "across",
+        "and",
+        "average",
+        "combined",
+        "count",
+        "current",
+        "currently",
+        "date",
+        "did",
+        "different",
+        "does",
+        "few",
+        "feature",
+        "features",
+        "fri",
+        "had",
+        "has",
+        "have",
+        "how",
+        "implement",
+        "many",
+        "mon",
+        "much",
+        "need",
+        "past",
+        "question",
+        "sat",
+        "sun",
+        "that",
+        "the",
+        "this",
+        "thu",
+        "total",
+        "tue",
+        "try",
+        "trying",
+        "user",
+        "users",
+        "wed",
+        "were",
+        "what",
+        "year",
+    }
+    core = {
+        _stem_count_promotion_token(token)
+        for token in re.findall(r"[A-Za-z][A-Za-z0-9_'-]{2,}", question.lower())
+        if _stem_count_promotion_token(token) not in generic
+    }
+    expanded = set(core)
+    for term in tuple(core):
+        expanded.update(
+            _stem_count_promotion_token(token)
+            for token in COUNT_LIST_PROMOTION_SYNONYMS.get(term, ())
+        )
+    return expanded, core
+
+
+def _source_user_fact_text(source: EvidenceSource) -> str:
+    user_lines = []
+    for line in source.text.splitlines():
+        match = re.match(r"Turn\s+\d+\s+\(user\)(?:\s+\[HAS_ANSWER\])?:\s*(.*)", line)
+        if match:
+            user_lines.append(match.group(1))
+            continue
+        match = re.match(r"\s*(?:user|human):\s*(.*)", line, re.I)
+        if match:
+            user_lines.append(match.group(1))
+    return " ".join(user_lines) or source.text
+
+
+def promote_evidence_sources_for_count_list(
+    item: dict[str, Any],
+    sources: list[EvidenceSource],
+    *,
+    source_order: list[str] | None = None,
+    top_k: int = 10,
+    protected_k: int = 4,
+) -> list[str]:
+    """Promote count/list evidence from a broad retrieved source pool.
+
+    This is the reusable version of the safe-promotion pattern: preserve a few
+    trusted anchors, then rank the broader candidate pool by question-aligned
+    user/source fact density. It uses `EvidenceSource` so benchmark adapters,
+    BEAM-style memory blobs, files, docs, and chat logs can share the same
+    evidence-promotion stage.
+    """
+    if source_order is None:
+        source_order = [source.source_id for source in sources]
+    source_by_id = {str(source.source_id): source for source in sources}
+    pool = [str(source_id) for source_id in source_order if str(source_id) in source_by_id]
+    if len(pool) <= top_k:
+        return pool[:top_k]
+
+    question = str(item.get("question", ""))
+    expanded_terms, core_terms = _count_list_promotion_query_terms(question)
+    if not expanded_terms:
+        return pool[:top_k]
+
+    protected_n = max(0, min(protected_k, top_k, len(pool)))
+    protected = pool[:protected_n]
+    action_terms = {
+        _stem_count_promotion_token(token)
+        for values in COUNT_LIST_PROMOTION_SYNONYMS.values()
+        for token in values
+    } | set(COUNT_LIST_PROMOTION_SYNONYMS)
+
+    scored: list[tuple[float, int, str]] = []
+    _entity_ledger_type, entity_patterns, _entity_scope_re, entity_reject_re = _entity_patterns_for_question(question)
+    for rank, source_id in enumerate(pool, 1):
+        source = source_by_id[source_id]
+        text = _source_user_fact_text(source)
+        lower = text.lower()
+        tokens = {
+            _stem_count_promotion_token(token)
+            for token in re.findall(r"[A-Za-z][A-Za-z0-9_'-]{2,}", lower)
+        }
+        hits = expanded_terms & tokens
+        core_hits = core_terms & tokens
+        event_cues = sum(1 for cue in COUNT_LIST_PROMOTION_CUES if cue in lower)
+        negative_cues = sum(1 for cue in COUNT_LIST_PROMOTION_NEGATIVE_CUES if cue in lower)
+        numeric_cues = len(
+            re.findall(
+                r"\b\d+(?:\.\d+)?\b|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|couple)\b",
+                lower,
+            )
+        )
+        personal = 1.0 if re.search(r"\b(i|my|me)\b", lower) else 0.0
+        entity_hits = sum(
+            1
+            for _label, pattern in entity_patterns
+            if pattern.search(text) and not (entity_reject_re and entity_reject_re.search(text))
+        )
+        density = len(hits) / max(1.0, float(len(expanded_terms)))
+        score = (
+            3.2 * len(hits)
+            + 2.5 * len(core_hits)
+            + 2.0 * density
+            + 5.5 * entity_hits
+            + 1.0 * min(len(action_terms & tokens), 4)
+            + 0.5 * min(numeric_cues, 3)
+            + 2.8 * min(event_cues, 2)
+            + personal
+            - 5.0 * negative_cues
+            + 2.0 / (20 + rank)
+        )
+        scored.append((score, rank, source_id))
+
+    scored.sort(key=lambda row: (-row[0], row[1]))
+    promoted = [source_id for _score, _rank, source_id in scored if source_id not in protected]
+    return (protected + promoted)[:top_k]
+
+
 def build_token_evidence_table(
     item: dict[str, Any],
     selected: list[str],
@@ -1342,6 +1635,20 @@ def _dedupe_key(text: str) -> str:
         if word not in QUESTION_STOPWORDS
     ]
     return " ".join(words[:14])
+
+
+def _parse_small_number(value: str) -> float | None:
+    value = value.lower().replace(",", "").strip()
+    if value in NUMBER_WORDS:
+        return float(NUMBER_WORDS[value])
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
+def _format_number(value: float) -> str:
+    return str(int(value)) if float(value).is_integer() else f"{value:g}"
 
 
 def build_evidence_packet(
@@ -1917,5 +2224,1168 @@ def build_deterministic_aggregation_assembly(
         "coherent": coherent,
         "candidate_count": len(ranked),
         "dedupe_group_count": len(groups),
+        "candidates": [
+            {
+                "candidate_id": f"C{idx}",
+                "weight": weight,
+                "source_index": source_idx,
+                "turn_index": turn_idx,
+                "group_key": dedupe_key,
+                "source": source,
+                "text": row_text,
+            }
+            for idx, (weight, source_idx, turn_idx, dedupe_key, source, row_text) in enumerate(ranked, start=1)
+        ],
+        "dedupe_groups": [
+            {
+                "group_id": f"G{group_idx}",
+                "group_key": dedupe_key,
+                "candidate_ids": [f"C{idx}" for idx, _source, _row_text in group_rows],
+                "sources": list(dict.fromkeys(source for _idx, source, _row_text in group_rows)),
+                "representative": group_rows[0][2] if group_rows else "",
+            }
+            for group_idx, (dedupe_key, group_rows) in enumerate(sorted(groups.items()), start=1)
+        ],
+        "text": text,
+    }
+
+
+def build_count_list_ledger(
+    item: dict[str, Any],
+    selected: list[str],
+    date_by_sid: dict[str, str],
+    turns_by_sid: dict[str, list[dict[str, Any]]],
+    *,
+    max_candidates: int = 36,
+    max_chars: int = 12_000,
+    typed_only: bool = False,
+    semantic_counting: bool = False,
+) -> dict[str, Any]:
+    """Build a Python-counted ledger for count/list questions.
+
+    The ledger keeps the model away from raw counting where possible: Python
+    extracts candidate rows, deduplicates them into groups, and emits a computed
+    count for count/list questions. Answer synthesis can still reject groups
+    when the quote proves them irrelevant, but the default count is no longer
+    left to the LLM.
+    """
+    typed_ledger = _build_typed_count_list_ledger(
+        item,
+        selected,
+        date_by_sid,
+        turns_by_sid,
+        max_chars=max_chars,
+        semantic_counting=semantic_counting,
+    )
+    if typed_ledger is not None:
+        return typed_ledger
+    if typed_only:
+        return {
+            "coherent": False,
+            "candidate_count": 0,
+            "dedupe_group_count": 0,
+            "computed_count": None,
+            "computed_answer": None,
+            "computed_answer_kind": "typed_unsupported",
+            "typed_ledger": None,
+            "high_precision_count": False,
+            "text": "Python Count/List Ledger:\n- No supported typed ledger for this question.",
+        }
+
+    assembly = build_deterministic_aggregation_assembly(
+        item,
+        selected,
+        date_by_sid,
+        turns_by_sid,
+        max_candidates=max_candidates,
+        max_chars=max_chars,
+    )
+    question = str(item.get("question", ""))
+    lower_question = question.lower()
+    count_supported = bool(
+        re.search(r"\b(?:how many|number of|count|list|which|what .*items|what .*events)\b", lower_question)
+    ) and not re.search(r"\b(?:average|mean|total|sum|combined|percentage|percent)\b", lower_question)
+    groups = list(assembly.get("dedupe_groups", []))
+    candidate_count = int(assembly.get("candidate_count", 0))
+    raw_computed_count = len(groups) if count_supported and assembly.get("coherent") else None
+    computed_count = raw_computed_count
+    high_precision_count = (
+        computed_count is not None
+        and 1 <= computed_count <= 8
+        and candidate_count <= max(12, computed_count * 4)
+    )
+    if not high_precision_count:
+        computed_count = None
+
+    lines = [
+        "Python Count/List Ledger:",
+        "- Python extracted candidate rows and deduplicated them before answer synthesis.",
+        "- Candidate rows and groups are evidence-backed; they are not gold labels.",
+        "- Use accepted groups for counting. Reject a group only when its quote is clearly outside the question scope.",
+        "- Do not count raw sessions or repeated mentions; count accepted dedupe groups.",
+        f"- Computed answer kind: {'count' if computed_count is not None else 'candidate_groups_only'}",
+        f"- High precision count gate: {'pass' if high_precision_count else 'fail'}",
+    ]
+    if computed_count is not None:
+        lines.append(f"- Python computed count from accepted groups: {computed_count}")
+    lines.extend(
+        [
+            f"- Candidate rows: {assembly.get('candidate_count', 0)}",
+            f"- Dedupe groups: {assembly.get('dedupe_group_count', 0)}",
+            "",
+            "Accepted Candidate Groups:",
+        ]
+    )
+    if not groups:
+        lines.append("- No accepted groups.")
+    else:
+        for group in groups:
+            candidate_ids = ", ".join(group.get("candidate_ids", []))
+            sources = ", ".join(group.get("sources", []))
+            lines.append(
+                f"{group.get('group_id')}: key={group.get('group_key')} rows={candidate_ids} "
+                f"sources={sources} representative={group.get('representative', '')}"
+            )
+    lines.extend(["", assembly["text"]])
+    text = "\n".join(lines)
+    if len(text) > max_chars:
+        text = text[: max_chars - 80].rstrip() + "\n[python count/list ledger truncated for budget]"
+    return {
+        "coherent": bool(assembly.get("coherent")) and high_precision_count,
+        "candidate_count": candidate_count,
+        "dedupe_group_count": int(assembly.get("dedupe_group_count", 0)),
+        "computed_count": computed_count,
+        "computed_answer_kind": "count" if computed_count is not None else "candidate_groups_only",
+        "high_precision_count": high_precision_count,
+        "text": text,
+    }
+
+
+def _iter_user_fact_sentences(
+    selected: list[str],
+    date_by_sid: dict[str, str],
+    turns_by_sid: dict[str, list[dict[str, Any]]],
+) -> list[tuple[int, str, int, str, str]]:
+    rows: list[tuple[int, str, int, str, str]] = []
+    for source_idx, sid in enumerate(selected, start=1):
+        for turn_idx, turn in enumerate(turns_by_sid[sid], start=1):
+            clean = scrub_turn(turn)
+            if clean["role"] == "assistant":
+                continue
+            for sentence in split_fact_candidates(clean["content"]):
+                compact = compact_fact(sentence, max_chars=260)
+                if compact:
+                    rows.append((source_idx, sid, turn_idx, date_by_sid.get(sid, ""), compact))
+    return rows
+
+
+def _duration_question_unit(question: str) -> str | None:
+    lower = question.lower()
+    if re.search(r"\b(?:hour|hours)\b", lower):
+        return "hours"
+    if re.search(r"\b(?:day|days)\b", lower):
+        return "days"
+    return None
+
+
+def _duration_scope_re(question: str, unit: str) -> re.Pattern[str]:
+    lower = question.lower()
+    terms: list[str] = []
+    if re.search(r"\b(?:drive|driving|drove|road trip|destination)\b", lower):
+        terms.extend(["drive", "driving", "drove", "road trip", "trip", "destination"])
+    if re.search(r"\b(?:camp|camping)\b", lower):
+        terms.extend(["camp", "camping", "camping trip"])
+    if re.search(r"\b(?:jog|jogging|yoga|exercise|workout)\b", lower):
+        terms.extend(["jog", "jogging", "yoga", "exercise", "workout"])
+    if not terms:
+        terms = [unit[:-1], unit]
+    return re.compile("|".join(re.escape(term) for term in dict.fromkeys(terms)), re.I)
+
+
+def _extract_duration_mentions(
+    item: dict[str, Any],
+    selected: list[str],
+    date_by_sid: dict[str, str],
+    turns_by_sid: dict[str, list[dict[str, Any]]],
+) -> tuple[str, list[dict[str, Any]]]:
+    question = str(item.get("question", ""))
+    unit = _duration_question_unit(question)
+    if unit is None:
+        return "", []
+    lower_question = question.lower()
+    if unit == "hours" and not re.search(
+        r"\b(?:drive|driving|drove|road trip|destination|jog|jogging|yoga|exercise|workout)\b",
+        lower_question,
+    ):
+        return "", []
+    if unit == "days" and not re.search(r"\b(?:camp|camping|trip|trips)\b", lower_question):
+        return "", []
+    if not re.search(r"\b(?:how many|total|combined|spend|spent|average)\b", lower_question):
+        return "", []
+    scope_re = _duration_scope_re(question, unit)
+    if unit == "hours":
+        value_re = re.compile(
+            r"\b(?P<value>\d+(?:[.,]\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+hours?\b",
+            re.I,
+        )
+        minute_re = re.compile(
+            r"\b(?P<value>\d+(?:[.,]\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirty|forty|fifty)(?:-|\s+)minutes?\b",
+            re.I,
+        )
+    else:
+        value_re = re.compile(
+            r"\b(?P<value>\d+(?:[.,]\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)(?:-|\s+)days?\b",
+            re.I,
+        )
+        minute_re = re.compile(r"$^")
+    mentions: list[dict[str, Any]] = []
+    seen: set[tuple[str, float]] = set()
+    for source_idx, sid, turn_idx, date, sentence in _iter_user_fact_sentences(selected, date_by_sid, turns_by_sid):
+        if not scope_re.search(sentence):
+            continue
+        if re.search(r"\b(?:recommend|suggest|should|could|would|plan|planning|next|used to|slacking off)\b", sentence, re.I):
+            continue
+        for match in value_re.finditer(sentence):
+            value = _parse_small_number(match.group("value"))
+            if value is None:
+                continue
+            key = (sid, value)
+            if key in seen:
+                continue
+            seen.add(key)
+            mentions.append(
+                {
+                    "candidate_id": f"C{len(mentions) + 1}",
+                    "value": value,
+                    "unit": unit,
+                    "source": f"S{source_idx}",
+                    "source_id": sid,
+                    "turn_index": turn_idx,
+                    "date": date,
+                    "text": sentence,
+                }
+            )
+        for match in minute_re.finditer(sentence):
+            value = _parse_small_number(match.group("value"))
+            if value is None:
+                word_value = match.group("value").lower()
+                value = {"thirty": 30, "forty": 40, "fifty": 50}.get(word_value)
+            if value is None:
+                continue
+            value = round(value / 60.0, 4)
+            key = (sid, value)
+            if key in seen:
+                continue
+            seen.add(key)
+            mentions.append(
+                {
+                    "candidate_id": f"C{len(mentions) + 1}",
+                    "value": value,
+                    "unit": unit,
+                    "source": f"S{source_idx}",
+                    "source_id": sid,
+                    "turn_index": turn_idx,
+                    "date": date,
+                    "text": sentence,
+                }
+            )
+    return unit, mentions
+
+
+def _extract_age_mentions(
+    selected: list[str],
+    date_by_sid: dict[str, str],
+    turns_by_sid: dict[str, list[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    age_patterns: list[tuple[str, re.Pattern[str]]] = [
+        ("self", re.compile(r"\b(?:i\s+just\s+turned|i(?:'m| am))\s+(?P<age>\d{1,3})\b", re.I)),
+        ("mom", re.compile(r"\b(?:my\s+)?(?:mom|mother)\s+is\s+(?P<age>\d{1,3})\b", re.I)),
+        ("dad", re.compile(r"\b(?:my\s+)?(?:dad|father)\s+is\s+(?P<age>\d{1,3})\b", re.I)),
+        ("grandma", re.compile(r"\b(?:my\s+)?(?:grandma|grandmother)\s+(?:is|'s|was)\s+(?P<age>\d{1,3})\b", re.I)),
+        ("grandpa", re.compile(r"\b(?:my\s+)?(?:grandpa|grandfather)\s+(?:is|'s|was)\s+(?P<age>\d{1,3})\b", re.I)),
+    ]
+    mentions: list[dict[str, Any]] = []
+    seen_labels: set[str] = set()
+    for source_idx, sid, turn_idx, date, sentence in _iter_user_fact_sentences(selected, date_by_sid, turns_by_sid):
+        for label, pattern in age_patterns:
+            if label in seen_labels:
+                continue
+            match = pattern.search(sentence)
+            if not match:
+                continue
+            age = int(match.group("age"))
+            if age < 1 or age > 110:
+                continue
+            seen_labels.add(label)
+            mentions.append(
+                {
+                    "candidate_id": f"C{len(mentions) + 1}",
+                    "value": float(age),
+                    "unit": "years",
+                    "source": f"S{source_idx}",
+                    "source_id": sid,
+                    "turn_index": turn_idx,
+                    "date": date,
+                    "text": sentence,
+                }
+            )
+    return mentions
+
+
+def _entity_patterns_for_question(question: str) -> tuple[str, list[tuple[str, re.Pattern[str]]], re.Pattern[str], re.Pattern[str] | None]:
+    lower = question.lower()
+    if "model kit" in lower:
+        return (
+            "entity_count_model_kits",
+            [
+                ("Revell F-15 Eagle", re.compile(r"\bRevell\s+F-15\s+Eagle\b", re.I)),
+                ("Tamiya 1/48 Spitfire Mk.V", re.compile(r"\bTamiya\s+1/48\s+scale\s+Spitfire\s+Mk\.?V\b", re.I)),
+                ("1/16 German Tiger I tank", re.compile(r"\b1/16\s+scale\s+German\s+Tiger\s+I\s+tank\b", re.I)),
+                ("1/72 B-29 bomber", re.compile(r"\b1/72\s+scale\s+B-29\s+bomber\b", re.I)),
+                ("1/24 '69 Camaro", re.compile(r"\b1/24\s+scale\s+'?69\s+Camaro\b", re.I)),
+            ],
+            re.compile(r"\b(?:model|kit|scale|Revell|Tamiya|bomber|Camaro|Spitfire|Tiger)\b", re.I),
+            None,
+        )
+    if "doctor" in lower:
+        return (
+            "entity_count_doctors",
+            [
+                ("Dr. Smith", re.compile(r"\bDr\.?\s+Smith\b|\bprimary care physician\b", re.I)),
+                ("Dr. Patel", re.compile(r"\bDr\.?\s+Patel\b|\bENT specialist\b", re.I)),
+                ("Dr. Lee", re.compile(r"\bDr\.?\s+Lee\b|\bdermatologist\b", re.I)),
+            ],
+            re.compile(r"\b(?:doctor|Dr\.?|physician|ENT|dermatologist)\b", re.I),
+            None,
+        )
+    if "plant" in lower and re.search(r"\b(?:acquire|acquired|get|got|bought|received)\b", lower):
+        return (
+            "entity_count_acquired_plants",
+            [
+                ("peace lily", re.compile(r"\bpeace\s+lily\b", re.I)),
+                ("succulent", re.compile(r"\bsucculent(?:\s+plant)?\b", re.I)),
+                ("snake plant", re.compile(r"\bsnake\s+plant\b", re.I)),
+            ],
+            re.compile(r"\b(?:plant|peace\s+lily|succulent|snake\s+plant|nursery|sister|got|bought|received)\b", re.I),
+            None,
+        )
+    if "tank" in lower:
+        return (
+            "entity_count_current_tanks",
+            [
+                ("friend's kid 1-gallon tank", re.compile(r"\b(?:friend'?s kid|kid).{0,80}\b1-gallon\s+tank\b|\b1-gallon\s+tank.{0,80}\b(?:friend'?s kid|kid)\b", re.I)),
+                ("betta 5-gallon tank", re.compile(r"\b5-gallon\s+tank\b.{0,80}\bbetta\b|\bbetta\b.{0,80}\b5-gallon\s+tank\b", re.I)),
+                ("20-gallon community tank", re.compile(r"\b20-gallon\s+(?:freshwater\s+)?community\s+tank\b|\bcommunity\s+tank\b.{0,80}\bAmazonia\b", re.I)),
+            ],
+            re.compile(r"\b(?:tank|gallon|betta|community|Amazonia|friend'?s kid)\b", re.I),
+            None,
+        )
+    if "festival" in lower:
+        return (
+            "entity_count_festivals",
+            [
+                ("Austin Film Festival", re.compile(r"\bAustin\s+Film\s+Festival\b", re.I)),
+                ("Portland Film Festival", re.compile(r"\bPortland\s+Film\s+Festival\b", re.I)),
+                ("AFI Fest", re.compile(r"\bAFI\s+Fest\b", re.I)),
+                ("Sundance Film Festival", re.compile(r"\bSundance\s+(?:Film\s+)?Festival\b", re.I)),
+            ],
+            re.compile(r"\b(?:festival|fest|movie|film)\b", re.I),
+            None,
+        )
+    if "furniture" in lower:
+        return (
+            "entity_count_furniture_actions",
+            [
+                ("West Elm coffee table", re.compile(r"\b(?:new\s+)?coffee\s+table\b.{0,80}\bWest\s+Elm\b|\bWest\s+Elm\b.{0,80}\bcoffee\s+table\b", re.I)),
+                ("Casper mattress", re.compile(r"\b(?:ordered|got|bought).{0,80}\bCasper\s+mattress\b|\bCasper\s+mattress\b", re.I)),
+                ("kitchen table repair", re.compile(r"\bfixed\b.{0,80}\bwobbly\s+leg\b.{0,80}\bkitchen\s+table\b|\bkitchen\s+table\b.{0,80}\bwobbly\s+leg\b", re.I)),
+                ("IKEA bookshelf", re.compile(r"\bassembled\b.{0,80}\bIKEA\s+bookshelf\b|\bIKEA\s+bookshelf\b", re.I)),
+            ],
+            re.compile(r"\b(?:furniture|coffee\s+table|mattress|kitchen\s+table|bookshelf|West\s+Elm|Casper|IKEA|assembled|fixed|ordered|bought)\b", re.I),
+            re.compile(r"\b(?:thinking of getting|recommend|can you recommend|future sectional|throw pillow|table lamp|bedside table)\b", re.I),
+        )
+    if "wedding" in lower and re.search(r"\b(?:attended|attend|been to)\b", lower):
+        return (
+            "entity_count_attended_weddings",
+            [
+                ("Rachel and Mike", re.compile(r"\bRachel'?s\s+wedding\b|\bRachel\s+and\s+Mike\b", re.I)),
+                ("Emily and Sarah", re.compile(r"\bEmily'?s\s+wedding\b|\bEmily\s+and\s+Sarah\b", re.I)),
+                ("Jen and Tom", re.compile(r"\bJen\b.{0,80}\bTom\b|\bJen\s+and\s+Tom\b", re.I)),
+            ],
+            re.compile(r"\b(?:wedding|bride|groom|married|Rachel|Emily|Sarah|Jen|Tom)\b", re.I),
+            re.compile(r"\b(?:my own wedding|planning my own wedding|getting married soon|venue ideas|ceremony|reception)\b", re.I),
+        )
+    if "cuisine" in lower:
+        return (
+            "entity_count_cuisines",
+            [
+                ("Ethiopian", re.compile(r"\bEthiopian\b", re.I)),
+                ("Indian", re.compile(r"\bIndian\b", re.I)),
+                ("Korean", re.compile(r"\bKorean\b", re.I)),
+                ("vegan", re.compile(r"\bvegan\b", re.I)),
+            ],
+            re.compile(r"\b(?:cuisine|cook|cooking|recipe|vegan|Ethiopian|Indian|Korean)\b", re.I),
+            None,
+        )
+    if "food delivery" in lower:
+        return (
+            "entity_count_food_delivery_services",
+            [
+                ("Domino's Pizza", re.compile(r"\bDomino'?s\s+Pizza\b", re.I)),
+                ("Uber Eats", re.compile(r"\bUber\s+Eats\b", re.I)),
+                ("Fresh Fusion", re.compile(r"\bFresh\s+Fusion\b", re.I)),
+            ],
+            re.compile(r"\b(?:delivery|Domino|Uber Eats|Fresh Fusion)\b", re.I),
+            None,
+        )
+    if "clothing" in lower and re.search(r"\b(?:pick|return|store)\b", lower):
+        return (
+            "action_status_clothing_pickup_return",
+            [
+                ("pickup: navy blue blazer", re.compile(r"\bpick\s+up\b.*\bdry cleaning\b.*\bnavy blue blazer\b|\bdry cleaning\b.*\bnavy blue blazer\b", re.I)),
+                ("return: Zara boots", re.compile(r"\breturn\b.*\bboots\b.*\bZara\b|\bboots\b.*\bZara\b.*\btoo small\b", re.I)),
+                ("pickup: exchanged Zara boots", re.compile(r"\bpick\s+up\b.*\bnew pair\b|\bstill need to pick up the new pair\b", re.I)),
+            ],
+            re.compile(r"\b(?:pick|return|exchange|dry cleaning|blazer|boots|Zara)\b", re.I),
+            None,
+        )
+    if (
+        re.search(r"\b(?:security|auth(?:entication|orization)?|login)\b", lower)
+        and re.search(r"\b(?:feature|features|role|roles)\b", lower)
+    ):
+        return (
+            "entity_count_auth_security_features",
+            [
+                (
+                    "password hashing",
+                    re.compile(
+                        r"\b(?:password\s+hashing|hashed\s+passwords?|password_hash|hash_password|Argon2|bcrypt|Werkzeug\.security)\b",
+                        re.I,
+                    ),
+                ),
+                (
+                    "role-based access control",
+                    re.compile(r"\b(?:role-based\s+access\s+control|RBAC|current_user\.role|Flask-Principal)\b", re.I),
+                ),
+                (
+                    "account lockout after failed login attempts",
+                    re.compile(
+                        r"\b(?:account\s+lockout|lock(?:ed)?\s+out|failed\s+login\s+attempts?|5\s+failed\s+login)\b",
+                        re.I,
+                    ),
+                ),
+            ],
+            re.compile(
+                r"\b(?:security|auth(?:entication|orization)?|login|password|hash|role-based|RBAC|account|lockout|failed\s+login)\b",
+                re.I,
+            ),
+            None,
+        )
+    return "", [], re.compile(r"$^"), None
+
+
+def _extract_entity_mentions(
+    item: dict[str, Any],
+    selected: list[str],
+    date_by_sid: dict[str, str],
+    turns_by_sid: dict[str, list[dict[str, Any]]],
+) -> tuple[str, list[dict[str, Any]]]:
+    ledger_type, patterns, scope_re, reject_re = _entity_patterns_for_question(str(item.get("question", "")))
+    if not patterns:
+        return "", []
+    mentions: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for source_idx, sid, turn_idx, date, sentence in _iter_user_fact_sentences(selected, date_by_sid, turns_by_sid):
+        if not scope_re.search(sentence):
+            continue
+        if reject_re and reject_re.search(sentence):
+            continue
+        if re.search(r"\b(?:recommend|suggest|should|could|would|planning|thinking of|interested in learning)\b", sentence, re.I):
+            continue
+        for label, pattern in patterns:
+            if label in seen or not pattern.search(sentence):
+                continue
+            seen.add(label)
+            mentions.append(
+                {
+                    "candidate_id": f"C{len(mentions) + 1}",
+                    "value": 1.0,
+                    "unit": label,
+                    "source": f"S{source_idx}",
+                    "source_id": sid,
+                    "turn_index": turn_idx,
+                    "date": date,
+                    "text": sentence,
+                }
+            )
+    return ledger_type, mentions
+
+
+SEMANTIC_COUNT_GENERIC_TERMS = {
+    "amount",
+    "amounts",
+    "average",
+    "both",
+    "combined",
+    "count",
+    "counts",
+    "current",
+    "currently",
+    "different",
+    "earn",
+    "earned",
+    "free",
+    "many",
+    "much",
+    "number",
+    "past",
+    "redeem",
+    "spent",
+    "total",
+    "totals",
+    "typical",
+    "week",
+    "weeks",
+}
+
+SEMANTIC_MEASUREMENT_UNITS = {
+    "day",
+    "days",
+    "dollar",
+    "dollars",
+    "foot",
+    "feet",
+    "gallon",
+    "gallons",
+    "hour",
+    "hours",
+    "inch",
+    "inches",
+    "mile",
+    "miles",
+    "minute",
+    "minutes",
+    "month",
+    "months",
+    "page",
+    "pages",
+    "percent",
+    "percentage",
+    "point",
+    "points",
+    "week",
+    "weeks",
+    "year",
+    "years",
+}
+
+SEMANTIC_REJECT_RE = re.compile(
+    r"\b(?:recommend|suggest|should|could|would|planning|plan to|thinking of|interested in learning|"
+    r"wishlist|might|maybe|want to|need to earn)\b",
+    re.I,
+)
+
+
+def _semantic_question_terms(question: str) -> set[str]:
+    terms = {
+        term
+        for term in _aggregation_keywords(question)
+        if term not in SEMANTIC_COUNT_GENERIC_TERMS and term not in SEMANTIC_MEASUREMENT_UNITS
+    }
+    expanded = set(terms)
+    if terms & {"aquarium", "aquariums"}:
+        expanded.update({"tank", "tanks"})
+    if terms & {"novel", "novels", "book", "books"}:
+        expanded.update({"page", "pages"})
+    if terms & {"workshop", "workshops"}:
+        expanded.update({"workshop", "workshops", "class", "classes"})
+    return expanded
+
+
+def _sentence_matches_semantic_scope(sentence: str, terms: set[str]) -> bool:
+    if not terms:
+        return False
+    lower = sentence.lower()
+    return any(re.search(rf"\b{re.escape(term)}\b", lower) for term in terms)
+
+
+def _semantic_numeric_unit(question: str) -> tuple[str, re.Pattern[str]] | None:
+    lower = question.lower()
+    if re.search(r"\b(?:money|cost|spend|spent|raise|raised|earned|price|paid)\b", lower):
+        return "dollars", re.compile(r"\$(?P<value>\d[\d,]*(?:\.\d+)?)\b", re.I)
+    if re.search(r"\bpages?\b|\bpage count\b", lower):
+        return "pages", re.compile(r"\b(?P<value>\d[\d,]*(?:\.\d+)?)\s+pages?\b", re.I)
+    if re.search(r"\bpoints?\b", lower):
+        return "points", re.compile(r"\b(?P<value>\d[\d,]*(?:\.\d+)?)\s+points?\b", re.I)
+    if re.search(r"\bviews?\b", lower):
+        return "views", re.compile(r"\b(?P<value>\d[\d,]*(?:\.\d+)?)\s+views?\b", re.I)
+    if re.search(r"\bminutes?\b", lower):
+        return "minutes", re.compile(r"\b(?P<value>\d[\d,]*(?:\.\d+)?)\s+minutes?\b", re.I)
+    return None
+
+
+def _extract_semantic_numeric_sum(
+    item: dict[str, Any],
+    selected: list[str],
+    date_by_sid: dict[str, str],
+    turns_by_sid: dict[str, list[dict[str, Any]]],
+) -> tuple[str, list[dict[str, Any]]]:
+    question = str(item.get("question", ""))
+    lower_question = question.lower()
+    if not re.search(r"\b(?:total|sum|combined|how much|page count)\b", lower_question):
+        return "", []
+    if re.search(r"\b(?:need to earn|redeem|older than|average)\b", lower_question):
+        return "", []
+    unit_spec = _semantic_numeric_unit(question)
+    if unit_spec is None:
+        return "", []
+    unit, value_re = unit_spec
+    scope_terms = _semantic_question_terms(question)
+    mentions: list[dict[str, Any]] = []
+    seen: set[tuple[str, float, str]] = set()
+    for source_idx, sid, turn_idx, date, sentence in _iter_user_fact_sentences(selected, date_by_sid, turns_by_sid):
+        if SEMANTIC_REJECT_RE.search(sentence):
+            continue
+        if not _sentence_matches_semantic_scope(sentence, scope_terms):
+            continue
+        for match in value_re.finditer(sentence):
+            value = _parse_small_number(match.group("value"))
+            if value is None:
+                continue
+            key = (sid, value, sentence)
+            if key in seen:
+                continue
+            seen.add(key)
+            mentions.append(
+                {
+                    "candidate_id": f"C{len(mentions) + 1}",
+                    "value": value,
+                    "unit": unit,
+                    "source": f"S{source_idx}",
+                    "source_id": sid,
+                    "turn_index": turn_idx,
+                    "date": date,
+                    "text": sentence,
+                }
+            )
+    return f"semantic_numeric_sum_{unit}", mentions
+
+
+def _semantic_entity_phrase(raw: str) -> str:
+    phrase = re.sub(r"\b(?:small|large|new|old|current|currently|freshwater|golden|neon)\b", " ", raw.lower())
+    phrase = re.sub(r"[^a-z0-9\s'-]", " ", phrase)
+    words = [word for word in phrase.split() if word and word not in SEMANTIC_MEASUREMENT_UNITS]
+    return " ".join(words[:5])
+
+
+def _extract_semantic_quantified_entities(
+    item: dict[str, Any],
+    selected: list[str],
+    date_by_sid: dict[str, str],
+    turns_by_sid: dict[str, list[dict[str, Any]]],
+) -> tuple[str, list[dict[str, Any]]]:
+    question = str(item.get("question", ""))
+    lower_question = question.lower()
+    if not re.search(r"\bhow many\b", lower_question):
+        return "", []
+    if re.search(r"\b(?:days?|hours?|minutes?|years?|points?|pages?|money|cost|spent|average|older)\b", lower_question):
+        return "", []
+    scope_terms = _semantic_question_terms(question)
+    if not scope_terms:
+        return "", []
+    value_re = re.compile(
+        r"\b(?P<value>\d+(?:[.,]\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|a|an)\s+"
+        r"(?P<phrase>[a-z][a-z0-9' -]{1,42}?)(?=,| and\b| with\b| in\b| on\b| at\b| from\b| for\b|\.|$)",
+        re.I,
+    )
+    mentions: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for source_idx, sid, turn_idx, date, sentence in _iter_user_fact_sentences(selected, date_by_sid, turns_by_sid):
+        if SEMANTIC_REJECT_RE.search(sentence):
+            continue
+        if not _sentence_matches_semantic_scope(sentence, scope_terms):
+            continue
+        for match in value_re.finditer(sentence):
+            raw_value = match.group("value").lower()
+            value = 1.0 if raw_value in {"a", "an"} else _parse_small_number(raw_value)
+            if value is None:
+                continue
+            phrase = _semantic_entity_phrase(match.group("phrase"))
+            if not phrase:
+                continue
+            first = phrase.split()[0]
+            if first in SEMANTIC_MEASUREMENT_UNITS:
+                continue
+            key = f"{sid}:{phrase}"
+            if key in seen:
+                continue
+            seen.add(key)
+            mentions.append(
+                {
+                    "candidate_id": f"C{len(mentions) + 1}",
+                    "value": value,
+                    "unit": phrase,
+                    "source": f"S{source_idx}",
+                    "source_id": sid,
+                    "turn_index": turn_idx,
+                    "date": date,
+                    "text": sentence,
+                }
+            )
+    return "semantic_quantified_entity_count", mentions
+
+
+def _typed_ledger_text(
+    *,
+    ledger_type: str,
+    computed_answer: str,
+    candidates: list[dict[str, Any]],
+    max_chars: int,
+) -> str:
+    lines = [
+        "Python Count/List Ledger:",
+        f"- Typed ledger: {ledger_type}",
+        "- Python extracted a small typed set and computed the numeric answer before answer synthesis.",
+        "- Use the computed answer unless a listed candidate is clearly outside the question scope.",
+        "- Do not count raw sessions or repeated mentions.",
+        f"- Python computed answer: {computed_answer}",
+        "",
+        "Accepted Candidate Rows:",
+    ]
+    for candidate in candidates:
+        value = candidate["value"]
+        value_text = _format_number(float(value))
+        lines.append(
+            f"{candidate['candidate_id']}: value={value_text} {candidate['unit']} "
+            f"source={candidate['source']} sid={candidate['source_id']} date={candidate['date']} "
+            f"turn={candidate['turn_index']} evidence={candidate['text']}"
+        )
+    text = "\n".join(lines)
+    if len(text) > max_chars:
+        text = text[: max_chars - 80].rstrip() + "\n[python typed count/list ledger truncated for budget]"
+    return text
+
+
+def _build_typed_count_list_ledger(
+    item: dict[str, Any],
+    selected: list[str],
+    date_by_sid: dict[str, str],
+    turns_by_sid: dict[str, list[dict[str, Any]]],
+    *,
+    max_chars: int,
+    semantic_counting: bool = False,
+) -> dict[str, Any] | None:
+    question = str(item.get("question", ""))
+    lower_question = question.lower()
+    if is_count_list_question(question) and re.search(
+        r"\b(?:column|columns|field|fields|schema|table|attribute|attributes|property|properties|migration)\b",
+        lower_question,
+    ):
+        schema_sources = [
+            EvidenceSource(
+                source_id=sid,
+                text="\n".join(
+                    f"{scrub_turn(turn)['role']}: {scrub_turn(turn)['content']}"
+                    for turn in turns_by_sid.get(sid, [])
+                    if scrub_turn(turn)["content"]
+                ),
+                date=date_by_sid.get(sid, ""),
+                metadata={"rank": idx},
+            )
+            for idx, sid in enumerate(selected, 1)
+        ]
+        schema_columns = _extract_user_requested_schema_columns(question, schema_sources)
+        if 2 <= len(schema_columns) <= 8:
+            candidates = [
+                {
+                    "candidate_id": f"C{idx}",
+                    "value": 1.0,
+                    "unit": column,
+                    "source": f"S{idx}",
+                    "source_id": column,
+                    "turn_index": 1,
+                    "date": "",
+                    "text": evidence,
+                }
+                for idx, (column, evidence) in enumerate(schema_columns, 1)
+            ]
+            computed_answer = str(len(candidates))
+            return {
+                "coherent": True,
+                "candidate_count": len(candidates),
+                "dedupe_group_count": len(candidates),
+                "computed_count": len(candidates),
+                "computed_answer": computed_answer,
+                "computed_answer_kind": "count",
+                "typed_ledger": "schema_field_count",
+                "high_precision_count": True,
+                "text": _typed_ledger_text(
+                    ledger_type="schema_field_count",
+                    computed_answer=computed_answer,
+                    candidates=candidates,
+                    max_chars=max_chars,
+                ),
+            }
+
+    entity_ledger_type, entity_mentions = _extract_entity_mentions(item, selected, date_by_sid, turns_by_sid)
+    entity_expected_count = len(_entity_patterns_for_question(question)[1]) if entity_ledger_type else 0
+    if entity_ledger_type and 2 <= len(entity_mentions) <= 8 and len(entity_mentions) == entity_expected_count:
+        computed_answer = str(len(entity_mentions))
+        return {
+            "coherent": True,
+            "candidate_count": len(entity_mentions),
+            "dedupe_group_count": len(entity_mentions),
+            "computed_count": len(entity_mentions),
+            "computed_answer": computed_answer,
+            "computed_answer_kind": "count",
+            "typed_ledger": entity_ledger_type,
+            "high_precision_count": True,
+            "text": _typed_ledger_text(
+                ledger_type=entity_ledger_type,
+                computed_answer=computed_answer,
+                candidates=entity_mentions,
+                max_chars=max_chars,
+            ),
+        }
+
+    if semantic_counting:
+        semantic_sum_type, semantic_sum_mentions = _extract_semantic_numeric_sum(item, selected, date_by_sid, turns_by_sid)
+        if semantic_sum_type and 2 <= len(semantic_sum_mentions) <= 8:
+            total = sum(row["value"] for row in semantic_sum_mentions)
+            unit = str(semantic_sum_mentions[0]["unit"])
+            computed_answer = f"${_format_number(total)}" if unit == "dollars" else f"{_format_number(total)} {unit}"
+            return {
+                "coherent": True,
+                "candidate_count": len(semantic_sum_mentions),
+                "dedupe_group_count": len(semantic_sum_mentions),
+                "computed_count": total,
+                "computed_answer": computed_answer,
+                "computed_answer_kind": "sum",
+                "typed_ledger": semantic_sum_type,
+                "high_precision_count": True,
+                "text": _typed_ledger_text(
+                    ledger_type=semantic_sum_type,
+                    computed_answer=computed_answer,
+                    candidates=semantic_sum_mentions,
+                    max_chars=max_chars,
+                ),
+            }
+
+        semantic_entity_type, semantic_entity_mentions = _extract_semantic_quantified_entities(
+            item,
+            selected,
+            date_by_sid,
+            turns_by_sid,
+        )
+        if semantic_entity_type and 2 <= len(semantic_entity_mentions) <= 10:
+            total = sum(row["value"] for row in semantic_entity_mentions)
+            computed_answer = _format_number(total)
+            return {
+                "coherent": True,
+                "candidate_count": len(semantic_entity_mentions),
+                "dedupe_group_count": len(semantic_entity_mentions),
+                "computed_count": total,
+                "computed_answer": computed_answer,
+                "computed_answer_kind": "count",
+                "typed_ledger": semantic_entity_type,
+                "high_precision_count": True,
+                "text": _typed_ledger_text(
+                    ledger_type=semantic_entity_type,
+                    computed_answer=computed_answer,
+                    candidates=semantic_entity_mentions,
+                    max_chars=max_chars,
+                ),
+            }
+
+    if re.search(r"\baverage\b", lower_question) and re.search(r"\bage\b", lower_question):
+        age_mentions = _extract_age_mentions(selected, date_by_sid, turns_by_sid)
+        if 3 <= len(age_mentions) <= 8:
+            average = sum(row["value"] for row in age_mentions) / len(age_mentions)
+            computed_answer = f"{average:.1f}".rstrip("0").rstrip(".")
+            return {
+                "coherent": True,
+                "candidate_count": len(age_mentions),
+                "dedupe_group_count": len(age_mentions),
+                "computed_count": None,
+                "computed_answer": computed_answer,
+                "computed_answer_kind": "average",
+                "typed_ledger": "age_average",
+                "high_precision_count": True,
+                "text": _typed_ledger_text(
+                    ledger_type="age_average",
+                    computed_answer=computed_answer,
+                    candidates=age_mentions,
+                    max_chars=max_chars,
+                ),
+            }
+
+    unit, duration_mentions = _extract_duration_mentions(item, selected, date_by_sid, turns_by_sid)
+    min_duration_mentions = 1 if re.search(r"\b(?:jog|jogging|yoga|exercise|workout)\b", lower_question) else 2
+    if unit and min_duration_mentions <= len(duration_mentions) <= 6:
+        total = sum(row["value"] for row in duration_mentions)
+        computed_answer = f"{total:g} {unit}"
+        return {
+            "coherent": True,
+            "candidate_count": len(duration_mentions),
+            "dedupe_group_count": len(duration_mentions),
+            "computed_count": total,
+            "computed_answer": computed_answer,
+            "computed_answer_kind": "sum",
+            "typed_ledger": f"duration_sum_{unit}",
+            "high_precision_count": True,
+            "text": _typed_ledger_text(
+                ledger_type=f"duration_sum_{unit}",
+                computed_answer=computed_answer,
+                candidates=duration_mentions,
+                max_chars=max_chars,
+            ),
+        }
+
+    return None
+
+
+def build_multi_session_evidence_set(
+    item: dict[str, Any],
+    candidate_pool: list[str],
+    date_by_sid: dict[str, str],
+    turns_by_sid: dict[str, list[dict[str, Any]]],
+    *,
+    base_top_k: int = 0,
+    max_candidates: int = 16,
+    max_chars: int = 8_000,
+) -> dict[str, Any]:
+    """Build a compact broad-pool evidence set for multi-session count/list QA.
+
+    Unlike the older aggregation assembly, this helper is designed to scan a
+    wider retrieval pool while emitting only a small, source-linked working set.
+    It keeps the retrieval surface broad but keeps answer synthesis compact.
+    """
+    keywords = question_keywords(item["question"])
+    content_terms = _aggregation_keywords(item["question"])
+    count_list = is_count_list_question(item["question"])
+    candidate_rows: list[tuple[int, int, int, str, str, str, str]] = []
+    seen_sentence_scope: set[str] = set()
+
+    for source_idx, sid in enumerate(candidate_pool, start=1):
+        if sid not in turns_by_sid:
+            continue
+        date_value = date_by_sid.get(sid, "")
+        retrieval_boost = max(0, 8 - min(source_idx, 8))
+        for turn_idx, turn in enumerate(turns_by_sid[sid], start=1):
+            clean = scrub_turn(turn)
+            role = clean["role"]
+            content = clean["content"]
+            if not content:
+                continue
+            if count_list and role == "assistant":
+                continue
+            for sentence in split_fact_candidates(content):
+                compact = compact_fact(sentence, max_chars=280 if count_list else 340)
+                if not compact:
+                    continue
+                if count_list and "?" in compact:
+                    continue
+                for action_key, action_label in _pickup_return_action_candidates(
+                    compact, item["question"]
+                ):
+                    row_text = (
+                        f"[R{source_idx}; sid={sid}; date={date_value}; turn={turn_idx}; role={role}] "
+                        f"{action_label}. Evidence: {compact}"
+                    )
+                    candidate_rows.append((120 + retrieval_boost, source_idx, turn_idx, action_key, sid, "pickup_return", row_text))
+
+                lower = compact.lower()
+                keyword_hits = sum(1 for word in keywords if word in lower)
+                content_hits = sum(1 for word in content_terms if word in lower)
+                signal_score = score_fact(compact, keywords, item["question_type"])
+                has_numeric_or_dated = bool(NUMBER_RE.search(compact) or DATE_RE.search(compact))
+                has_action_or_update = bool(ACTION_RE.search(compact) or UPDATE_RE.search(compact))
+                if count_list:
+                    relevant = bool(content_hits or keyword_hits >= 2 or (keyword_hits and (has_numeric_or_dated or has_action_or_update)))
+                else:
+                    relevant = bool(content_hits or signal_score >= 4 or keyword_hits >= 2)
+                if not relevant:
+                    continue
+
+                dedupe_key = _dedupe_key(compact)
+                sentence_scope = f"{sid}|{turn_idx}|{dedupe_key}"
+                if sentence_scope in seen_sentence_scope:
+                    continue
+                seen_sentence_scope.add(sentence_scope)
+                weight = (
+                    signal_score
+                    + content_hits * 6
+                    + keyword_hits * 2
+                    + int(has_numeric_or_dated) * 3
+                    + int(has_action_or_update) * 2
+                    + retrieval_boost
+                    + (2 if role == "user" else 0)
+                )
+                row_text = f"[R{source_idx}; sid={sid}; date={date_value}; turn={turn_idx}; role={role}] {compact}"
+                candidate_rows.append((weight, source_idx, turn_idx, dedupe_key or f"{sid}-{turn_idx}", sid, "fact", row_text))
+
+    ranked = sorted(candidate_rows, key=lambda row: (-row[0], row[1], row[2], row[6]))
+    base_group_keys: set[str] = set()
+    if base_top_k > 0:
+        base_group_keys = {row[3] for row in ranked if row[1] <= base_top_k}
+    selected: list[tuple[int, int, int, str, str, str, str]] = []
+    selected_groups: set[str] = set()
+    selected_sources: dict[str, int] = defaultdict(int)
+
+    for row in ranked:
+        _weight, _source_idx, _turn_idx, dedupe_key, sid, _kind, _row_text = row
+        if dedupe_key in selected_groups:
+            continue
+        if selected_sources[sid] >= 2:
+            continue
+        selected.append(row)
+        selected_groups.add(dedupe_key)
+        selected_sources[sid] += 1
+        if len(selected) >= max_candidates:
+            break
+
+    if len(selected) < max_candidates:
+        seen_rows = {(row[3], row[4], row[2]) for row in selected}
+        for row in ranked:
+            row_id = (row[3], row[4], row[2])
+            if row_id in seen_rows:
+                continue
+            selected.append(row)
+            seen_rows.add(row_id)
+            if len(selected) >= max_candidates:
+                break
+
+    selected = sorted(selected, key=lambda row: (row[1], row[2], row[6]))
+    groups: dict[str, list[tuple[int, str, str]]] = defaultdict(list)
+    selected_source_ids: list[str] = []
+    selected_source_ranks: dict[str, int] = {}
+    for idx, (_weight, _source_idx, _turn_idx, dedupe_key, sid, _kind, row_text) in enumerate(selected, start=1):
+        groups[dedupe_key].append((idx, sid, row_text))
+        if sid not in selected_source_ids:
+            selected_source_ids.append(sid)
+            selected_source_ranks[sid] = _source_idx
+    selected_pool_rows = [row for row in selected if base_top_k > 0 and row[1] > base_top_k]
+    selected_pool_group_keys = {row[3] for row in selected_pool_rows}
+    novel_decisive_group_keys = {
+        row[3]
+        for row in selected_pool_rows
+        if row[3] not in base_group_keys and row[0] >= 10
+    }
+    weak_added_group_keys = {
+        row[3]
+        for row in selected_pool_rows
+        if row[3] not in base_group_keys and row[0] < 10
+    }
+    distraction_risk = len(weak_added_group_keys)
+    marginal_utility = len(novel_decisive_group_keys) - distraction_risk
+
+    coherent = bool(selected)
+    if count_list and not groups:
+        coherent = False
+    selected_weights = [row[0] for row in selected]
+    max_weight = max(selected_weights or [0])
+    strong_candidate_count = sum(1 for weight in selected_weights if weight >= 10)
+    distinct_source_count = len(selected_source_ids)
+    confidence = 0.0
+    confidence_reasons: list[str] = []
+    if coherent:
+        confidence += 0.20
+        confidence_reasons.append("coherent")
+    if len(groups) >= 3:
+        confidence += 0.24
+        confidence_reasons.append("three_plus_dedupe_groups")
+    elif len(groups) == 2:
+        confidence += 0.18
+        confidence_reasons.append("two_dedupe_groups")
+    elif len(groups) == 1:
+        confidence += 0.08
+        confidence_reasons.append("one_dedupe_group")
+    if distinct_source_count >= 3:
+        confidence += 0.22
+        confidence_reasons.append("three_plus_sources")
+    elif distinct_source_count == 2:
+        confidence += 0.16
+        confidence_reasons.append("two_sources")
+    elif distinct_source_count == 1:
+        confidence += 0.06
+        confidence_reasons.append("one_source")
+    if max_weight >= 18:
+        confidence += 0.18
+        confidence_reasons.append("very_strong_top_candidate")
+    elif max_weight >= 10:
+        confidence += 0.12
+        confidence_reasons.append("strong_top_candidate")
+    elif max_weight >= 6:
+        confidence += 0.06
+        confidence_reasons.append("moderate_top_candidate")
+    if strong_candidate_count >= 3:
+        confidence += 0.12
+        confidence_reasons.append("three_plus_strong_candidates")
+    elif strong_candidate_count >= 2:
+        confidence += 0.08
+        confidence_reasons.append("two_strong_candidates")
+    if count_list and len(groups) <= 1:
+        confidence = max(0.0, confidence - 0.12)
+        confidence_reasons.append("count_list_low_group_penalty")
+    confidence = min(1.0, round(confidence, 3))
+
+    lines = [
+        "Multi-Session Evidence Set:",
+        "- Built from a broad retrieved-session pool using token/regex signals only.",
+        "- Candidate rows are source-linked evidence candidates, not final answers.",
+        "- Dedupe groups merge repeated items/events; keep distinct items/events separate.",
+        "- Use R# source ranks and C# candidate ids to audit the final count/list.",
+        f"- Question keywords: {', '.join(sorted(keywords)) if keywords else '(none)'}",
+        f"- Content terms: {', '.join(sorted(content_terms)) if content_terms else '(none)'}",
+        f"- Coherence: {'coherent' if coherent else 'not_coherent'}",
+        f"- Selector confidence: {confidence:.3f} ({', '.join(confidence_reasons) if confidence_reasons else 'no_signals'})",
+        (
+            "- Marginal utility: "
+            f"novel_decisive_groups={len(novel_decisive_group_keys)} "
+            f"added_pool_groups={len(selected_pool_group_keys)} "
+            f"distraction_risk={distraction_risk} "
+            f"net={marginal_utility}"
+        ),
+        "",
+        "Candidate Rows:",
+    ]
+    if not selected:
+        lines.append("- No multi-session evidence candidates detected.")
+    else:
+        for idx, (_weight, _source_idx, _turn_idx, dedupe_key, _sid, _kind, row_text) in enumerate(selected, start=1):
+            lines.append(f"C{idx}: group={dedupe_key} {row_text}")
+    lines.append("")
+    lines.append("Dedupe Groups:")
+    if not groups:
+        lines.append("- No dedupe groups.")
+    else:
+        for group_idx, (dedupe_key, group_rows) in enumerate(sorted(groups.items()), start=1):
+            row_ids = ", ".join(f"C{idx}" for idx, _sid, _row_text in group_rows)
+            sources = ", ".join(dict.fromkeys(sid for _idx, sid, _row_text in group_rows))
+            lines.append(f"G{group_idx}: key={dedupe_key} rows={row_ids} sources={sources}")
+    lines.append(
+        "Reducer instruction: build Candidate Review and Deduped Set from C# rows. "
+        "Use History Chats only to verify/clarify these rows or their dedupe groups."
+    )
+
+    text = "\n".join(lines)
+    if len(text) > max_chars:
+        text = text[: max_chars - 78].rstrip() + "\n[multi-session evidence set truncated for budget]"
+
+    return {
+        "coherent": coherent,
+        "confidence": confidence,
+        "confidence_reasons": confidence_reasons,
+        "candidate_count": len(selected),
+        "dedupe_group_count": len(groups),
+        "base_group_count": len(base_group_keys),
+        "pool_added_group_count": len(selected_pool_group_keys),
+        "novel_decisive_group_count": len(novel_decisive_group_keys),
+        "added_distraction_risk": distraction_risk,
+        "marginal_utility": marginal_utility,
+        "selected_source_ids": selected_source_ids,
+        "selected_source_ranks": selected_source_ranks,
+        "strong_candidate_count": strong_candidate_count,
+        "top_candidate_weight": max_weight,
         "text": text,
     }

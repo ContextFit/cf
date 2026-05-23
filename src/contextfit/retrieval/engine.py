@@ -23,7 +23,14 @@ from contextfit.index.bm25 import BM25Scorer
 from contextfit.index.inverted import InvertedIndex, SegmentWriter, SegmentMerger
 from contextfit.metadata.index import MetadataIndex
 from contextfit.retrieval.evidence_atoms import rerank_sessions_by_evidence_atoms
-from contextfit.retrieval.memory_atoms import augment_query_for_memory_atoms, atom_type_priors, episode_relevance_score, extract_memory_atoms, query_memory_intents
+from contextfit.retrieval.memory_atoms import (
+    augment_query_for_memory_atoms,
+    atom_type_priors,
+    episode_relevance_score,
+    extract_memory_atoms,
+    normalize_memory_query,
+    query_memory_intents,
+)
 from contextfit.retrieval.query_spec import MetadataPredicate, QuerySpec
 from contextfit.retrieval.query_router import QueryRoute, describe_route, route_query
 from contextfit.retrieval.relationships import RelationshipIndex
@@ -443,7 +450,8 @@ class RetrievalEngine:
                     max_hits = hits
             return max_hits / window_size
 
-        q_words = _words(query)
+        normalized_query = normalize_memory_query(query)
+        q_words = _words(normalized_query)
         q_entities = _proper_nouns(query)
         bm25_rank_map = {sid: i for i, sid in enumerate(bm25_session_order, 1)}
 
@@ -638,14 +646,15 @@ class RetrievalEngine:
                     window_words.extend(ws[max(0, i - 4) : min(len(ws), i + 18)])
             return " ".join(window_words) if window_words else text
 
-        q_words = _words(query)
+        normalized_query = normalize_memory_query(query)
+        q_words = _words(normalized_query)
         bm25_rank = {sid: i for i, sid in enumerate(bm25_session_order, 1)}
         all_sids = list(bm25_session_order) + [sid for sid in session_texts if sid not in bm25_rank]
 
         ep_scores: dict[str, float] = {}
         max_ep = 0.0001
         for sid in all_sids:
-            ep = _ep_score(query, _text_to_turns(session_texts.get(sid, "")))
+            ep = _ep_score(normalized_query, _text_to_turns(session_texts.get(sid, "")))
             ep_scores[sid] = ep
             max_ep = max(max_ep, ep)
 
@@ -1040,25 +1049,41 @@ class RetrievalEngine:
                 )
 
         elif route.mode == "preference_rerank":
-            pref_result = self.query(
-                query, top_k=retrieval_k, method=method, max_tokens=max_tokens,
-                filter_field=("kind", "session"),
+            preference_query = normalize_memory_query(query)
+            pref_groups = self.query_groups(
+                preference_query,
+                group_by=session_field,
+                top_k_groups=max(top_k, min(retrieval_k, 50)),
+                retrieval_k=retrieval_k,
+                method=method,
+                max_tokens=max_tokens,
             )
-            p_seen: set[str] = set()
-            p_order: list[str] = []
+            p_order = [str(group["value"]) for group in pref_groups if group.get("value")]
+            p_seen: set[str] = set(p_order)
             p_texts: dict[str, list[str]] = {}
-            for chunk in pref_result.chunks:
-                sid = str(chunk.metadata.get(session_field) or self.metadata.get(chunk.chunk_id).get(session_field) or "")
+            atom_result = self.query(
+                augment_query_for_memory_atoms(preference_query),
+                top_k=retrieval_k,
+                method=method,
+                max_tokens=max_tokens,
+                filter_field=("kind", "memory_atoms"),
+            )
+            atom_order: list[str] = []
+            for chunk in atom_result.chunks:
+                sid = str(
+                    chunk.metadata.get(session_field)
+                    or chunk.metadata.get("source_id")
+                    or self.metadata.get(chunk.chunk_id).get(session_field)
+                    or self.metadata.get(chunk.chunk_id).get("source_id")
+                    or ""
+                )
                 if not sid:
                     continue
                 if sid not in p_seen:
                     p_seen.add(sid)
                     p_order.append(sid)
-                try:
-                    txt = self.tokenizer.decode(chunk.tokens.tolist())
-                except Exception:
-                    txt = ""
-                p_texts.setdefault(sid, []).append(txt)
+                if sid not in atom_order:
+                    atom_order.append(sid)
             # Preference recommendation often needs a prior taste session that
             # shares few query tokens (e.g. "language" -> "French").  If BM25
             # missed such a session entirely, include all indexed session chunks
@@ -1076,9 +1101,22 @@ class RetrievalEngine:
                     txt = ""
                 p_texts.setdefault(sid, []).append(txt)
             flat_p_texts = {sid: "\n".join(parts) for sid, parts in p_texts.items()}
-            session_ids = self.rerank_sessions_by_preference_facets(
-                query, p_order, flat_p_texts, top_k=top_k
+            pref_ranked = self.rerank_sessions_by_preference_facets(
+                preference_query, p_order, flat_p_texts, top_k=top_k
             )
+            if top_k >= 10 and p_order:
+                session_ids = p_order[:top_k]
+                protected = session_ids[: min(5, len(session_ids))]
+                if len(session_ids) < top_k:
+                    session_ids.extend(
+                        sid for sid in atom_order + pref_ranked if sid not in session_ids
+                    )
+                session_ids = session_ids[:top_k]
+                details["preference_protected_token_top_k"] = len(protected)
+            else:
+                session_ids = pref_ranked
+            if atom_order:
+                details["preference_atom_candidate_sessions"] = len(atom_order)
 
 
         elif route.mode == "multi_session_rerank":

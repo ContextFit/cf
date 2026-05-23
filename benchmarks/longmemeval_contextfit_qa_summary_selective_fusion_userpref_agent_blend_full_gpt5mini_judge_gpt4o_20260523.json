@@ -1,0 +1,222 @@
+{
+  "n": 500,
+  "overall_accuracy": 0.872,
+  "task_averaged_accuracy": 0.8758113231797443,
+  "abstention_accuracy": 0.9333333333333333,
+  "abstention_n": 30,
+  "by_type": {
+    "knowledge-update": {
+      "n": 78,
+      "accuracy": 0.9102564102564102
+    },
+    "multi-session": {
+      "n": 133,
+      "accuracy": 0.7819548872180451
+    },
+    "single-session-assistant": {
+      "n": 56,
+      "accuracy": 1.0
+    },
+    "single-session-preference": {
+      "n": 30,
+      "accuracy": 0.7333333333333333
+    },
+    "single-session-user": {
+      "n": 70,
+      "accuracy": 0.9571428571428572
+    },
+    "temporal-reasoning": {
+      "n": 133,
+      "accuracy": 0.8721804511278195
+    }
+  },
+  "route_counts": {
+    "count_list_ledger_agent_schema": 22,
+    "count_list_ledger_typed_python": 11,
+    "source_aware": 467
+  },
+  "provenance": {
+    "run_hash": "d2160a17ea0b05987a2364df90951d837f0d60918db3067eb4ff8f8a23bef5cd",
+    "args": {
+      "abstention_only": false,
+      "aggregation_assembly": "off",
+      "aggregation_max_candidates": 36,
+      "aggregation_max_chars": 12000,
+      "answerability_check": false,
+      "answerability_max_tokens": 10,
+      "answerability_model": "gpt-5-mini",
+      "answerability_out": "benchmarks/longmemeval_contextfit_qa_answerability_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.jsonl",
+      "answerability_seed": null,
+      "answerability_trigger_missing": false,
+      "auto_correct": "off",
+      "completion_cache_dir": "benchmarks/.completion_cache/longmemeval_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523",
+      "cot": false,
+      "count_list_ledger": "agent_blend",
+      "count_list_ledger_max_candidates": 36,
+      "count_list_ledger_max_chars": 12000,
+      "count_list_mode": false,
+      "count_list_only": false,
+      "data": "benchmarks/data/longmemeval_s_cleaned.json",
+      "evidence_contract": false,
+      "evidence_contract_primary_top_k": 10,
+      "evidence_contract_supporting_top_k": 5,
+      "evidence_packet": "general",
+      "evidence_packet_max_chars": 10000,
+      "evidence_packet_max_items": 16,
+      "expert_ensemble": "off",
+      "extract_out": "benchmarks/longmemeval_contextfit_qa_extract_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.jsonl",
+      "extraction_max_tokens": 8000,
+      "extraction_model": "gpt-5-mini",
+      "fusion_evidence_map": "temporal",
+      "fusion_evidence_map_max_chars": 5000,
+      "fusion_evidence_map_max_items": 12,
+      "generation_max_tokens": 8000,
+      "generation_model": "gpt-5-mini",
+      "generation_seed": 20260523,
+      "hypotheses_out": "benchmarks/longmemeval_contextfit_qa_hypotheses_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.jsonl",
+      "include_question_type_in_prompts": false,
+      "judge_max_tokens": 10,
+      "judge_model": "gpt-4o-2024-08-06",
+      "judge_seed": 20260522,
+      "judged_out": "benchmarks/longmemeval_contextfit_qa_judged_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.jsonl",
+      "limit": 0,
+      "max_session_chars": 16000,
+      "multi_session_evidence_compiler": "off",
+      "multi_session_evidence_set": "off",
+      "multi_session_evidence_set_max_candidates": 16,
+      "multi_session_evidence_set_max_chars": 8000,
+      "multi_session_evidence_set_min_confidence": 0.72,
+      "multi_session_evidence_set_pool_k": 30,
+      "multi_session_ledger_max_chars": 12000,
+      "multi_session_ledger_max_rows": 40,
+      "multi_session_top_k_context": 10,
+      "non_abstention_only": false,
+      "preference_support_max_items": 10,
+      "preference_support_packet": "off",
+      "preference_support_per_source": 2,
+      "primary_retrieval_artifact": null,
+      "question_id_file": "benchmarks/longmemeval_gpt5mini_fix_gpt4_7abb270c_qid_20260523.txt",
+      "question_type": null,
+      "retrieval_artifact": "benchmarks/longmemeval_selective_fusion_userpref_token_base_20260523.json",
+      "skip_generate": false,
+      "skip_judge": false,
+      "source_aware": true,
+      "source_set_aware": false,
+      "source_set_companion_top_k": 5,
+      "source_sufficiency": false,
+      "strict_missing_final_answer": false,
+      "structured_extract": false,
+      "summary_out": "benchmarks/longmemeval_contextfit_qa_summary_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.json",
+      "supporting_retrieval_artifact": null,
+      "temporal_evidence_packet": "inherit",
+      "temporal_hybrid": false,
+      "temporal_hybrid_router": "question_type",
+      "temporal_top_k_context": 10,
+      "token_evidence": false,
+      "token_evidence_max_lines": 5,
+      "token_evidence_signals": false,
+      "top_k_context": 5
+    },
+    "route_settings": {
+      "top_k_context": 5,
+      "multi_session_top_k_context": 10,
+      "temporal_top_k_context": 10,
+      "preference_support_packet": "off",
+      "preference_support_max_items": 10,
+      "preference_support_per_source": 2,
+      "multi_session_evidence_set": "off",
+      "multi_session_evidence_set_min_confidence": 0.72,
+      "evidence_packet": "general",
+      "temporal_evidence_packet": "inherit",
+      "fusion_evidence_map": "temporal",
+      "aggregation_assembly": "off",
+      "count_list_ledger": "agent_blend",
+      "source_aware": true,
+      "source_sufficiency": false
+    },
+    "inputs": {
+      "data": "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442",
+      "retrieval_artifact": "a4aab490d380e421ac309fa3050f3b3ea91729f411bd0ae99c1cefa649052df6",
+      "question_id_file": "8782ece0f12195c6b5dfbc170e3956ff3d2d28d8e975d95bf218555d9bcf7dac",
+      "supporting_retrieval_artifact": null,
+      "primary_retrieval_artifact": null
+    },
+    "code": {
+      "benchmark_script": "290d433f80db055eacbfdc35a32d6da33c9039239a79d78532723c2233267825",
+      "evidence_compiler": "0157cad05674f0365d70798e6e1967a8f10748cd0fe30eca329bf28b7aff3ace"
+    },
+    "git": {
+      "head": "32dca9dbac5325931d3bad2ff7760c81fa66df88",
+      "status_short": "M benchmarks/longmemeval_contextfit.py\n M benchmarks/longmemeval_contextfit_qa.py\n M src/contextfit/retrieval/__init__.py\n M src/contextfit/retrieval/engine.py\n M src/contextfit/retrieval/evidence_compiler.py\n M src/contextfit/retrieval/memory_atoms.py\n M tests/test_engine_auto.py\n M tests/test_evidence_compiler.py\n M tests/test_longmemeval_qa_routing.py\n M tests/test_longmemeval_retrieval_routing.py\n M tests/test_memory_atoms.py\n?? benchmarks/longmemeval_contextfit_qa_hypotheses_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.jsonl.before_gpt4_7abb270c_fix\n?? benchmarks/longmemeval_contextfit_qa_judged_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.jsonl.before_gpt4_7abb270c_fix\n?? benchmarks/longmemeval_gpt5mini_fix_gpt4_7abb270c_qid_20260523.txt\n?? benchmarks/longmemeval_multisession_miss_ledger_20260522.md\n?? benchmarks/official/longmemeval_hybrid_temporal_structured_fallback_submission_20260516.jsonl\n?? benchmarks/official/longmemeval_temporal_hybrid_full_submission_20260516.jsonl\n?? benchmarks/tmp_gpt5mini_smoke2_hypotheses.jsonl\n?? benchmarks/tmp_gpt5mini_smoke2_judged.jsonl\n?? benchmarks/tmp_gpt5mini_smoke_hypotheses.jsonl\n?? benchmarks/tmp_gpt5mini_smoke_judged.jsonl",
+      "status_short_sha256": "8fd0d9b853ab7f57f466152d56416f4421346929aac0e0636f3410fbed041081",
+      "diff_sha256": "3587a009c3d5d8ce29734ab3d62c2883c3e9feb6327ba44263a0c06543b269bc"
+    },
+    "outputs": {
+      "hypotheses_out": "benchmarks/longmemeval_contextfit_qa_hypotheses_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.jsonl",
+      "judged_out": "benchmarks/longmemeval_contextfit_qa_judged_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.jsonl",
+      "summary_out": "benchmarks/longmemeval_contextfit_qa_summary_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.json",
+      "answerability_out": "benchmarks/longmemeval_contextfit_qa_answerability_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.jsonl",
+      "extract_out": "benchmarks/longmemeval_contextfit_qa_extract_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.jsonl"
+    },
+    "models": {
+      "generation_model": "gpt-5-mini",
+      "judge_model": "gpt-4o-2024-08-06",
+      "answerability_model": "gpt-5-mini",
+      "extraction_model": "gpt-5-mini",
+      "generation_seed": 20260523,
+      "judge_seed": 20260522,
+      "answerability_seed": null
+    },
+    "cache": {
+      "cache_dir": "benchmarks/.completion_cache/longmemeval_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523",
+      "present": true,
+      "matched_files": 1063,
+      "by_purpose": {
+        "count_list_extraction": {
+          "count": 85,
+          "models": [
+            "gpt-5-mini"
+          ],
+          "seeds": [
+            "20260523"
+          ],
+          "system_fingerprints": []
+        },
+        "generation": {
+          "count": 478,
+          "models": [
+            "gpt-5-mini"
+          ],
+          "seeds": [
+            "20260523"
+          ],
+          "system_fingerprints": []
+        },
+        "judge": {
+          "count": 500,
+          "models": [
+            "gpt-4o-2024-08-06"
+          ],
+          "seeds": [
+            "20260522"
+          ],
+          "system_fingerprints": [
+            "fp_171aeaf731",
+            "fp_1e3b68831e",
+            "fp_2a095c15ad",
+            "fp_2c2fc4f892",
+            "fp_310038b1e7",
+            "fp_395c203642",
+            "fp_5dcbd0db7f",
+            "fp_a6111f9e9b",
+            "fp_b1e4007433",
+            "fp_b7e14c395d",
+            "fp_ba157e313e",
+            "fp_c209a78201",
+            "fp_d9a8f17212"
+          ]
+        }
+      }
+    }
+  }
+}

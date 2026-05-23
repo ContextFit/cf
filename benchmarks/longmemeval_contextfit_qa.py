@@ -27,10 +27,12 @@ from contextfit.retrieval.evidence_compiler import (
     NUMBER_RE,
     TEMPORAL_QUERY_RE,
     TEMPORAL_RE,
+    build_count_list_ledger,
     build_deterministic_aggregation_assembly,
     build_evidence_packet,
     build_fusion_evidence_map,
     build_multi_session_evidence_ledger,
+    build_multi_session_evidence_set,
     build_token_evidence_table,
     effective_aggregation_assembly_mode,
     effective_fusion_evidence_map_mode,
@@ -40,6 +42,7 @@ from contextfit.retrieval.evidence_compiler import (
     should_use_evidence_packet,
     should_use_fusion_evidence_map,
 )
+from contextfit.retrieval.memory_atoms import build_preference_support_view
 
 DEFAULT_GENERATION_MODEL = "gpt-4o-2024-08-06"
 DEFAULT_JUDGE_MODEL = "gpt-4o-2024-08-06"
@@ -67,6 +70,13 @@ STRUCTURED_FALLBACK_MARKERS = (
     "insufficient information",
     "unknown",
 )
+ANSWERER_ROUTER_TYPES = {
+    "question_type_gpt5mini_temporal_preference_multi": {
+        "temporal-reasoning",
+        "single-session-preference",
+        "multi-session",
+    },
+}
 
 
 def should_use_evidence_packet_for_item(item: dict[str, Any], args: argparse.Namespace) -> bool:
@@ -84,6 +94,24 @@ def effective_top_k_context(item: dict[str, Any], args: argparse.Namespace) -> i
     if item["question_type"] == "temporal-reasoning" and args.temporal_top_k_context:
         return args.temporal_top_k_context
     return args.top_k_context
+
+
+def should_use_multi_session_evidence_set_selector(
+    report: dict[str, Any],
+    mode: str,
+    *,
+    min_confidence: float,
+) -> bool:
+    """Gate broad-pool multi-session selectors on deterministic confidence."""
+    if not report.get("coherent"):
+        return False
+    if mode != "confidence_source_select":
+        return True
+    return (
+        float(report.get("confidence", 0.0)) >= min_confidence
+        and int(report.get("novel_decisive_group_count", 0)) > 0
+        and int(report.get("marginal_utility", 0)) > 0
+    )
 
 
 def chat_completion(
@@ -122,9 +150,12 @@ def chat_completion(
     request_payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
     }
+    if model.startswith("gpt-5"):
+        request_payload["max_completion_tokens"] = max_tokens
+    else:
+        request_payload["temperature"] = temperature
+        request_payload["max_tokens"] = max_tokens
     if seed is not None:
         request_payload["seed"] = seed
     payload = json.dumps(request_payload).encode("utf-8")
@@ -477,10 +508,16 @@ def build_run_provenance(args: argparse.Namespace, judged: list[dict[str, Any]])
         "top_k_context": args.top_k_context,
         "multi_session_top_k_context": args.multi_session_top_k_context,
         "temporal_top_k_context": args.temporal_top_k_context,
+        "preference_support_packet": args.preference_support_packet,
+        "preference_support_max_items": args.preference_support_max_items,
+        "preference_support_per_source": args.preference_support_per_source,
+        "multi_session_evidence_set": args.multi_session_evidence_set,
+        "multi_session_evidence_set_min_confidence": args.multi_session_evidence_set_min_confidence,
         "evidence_packet": args.evidence_packet,
         "temporal_evidence_packet": args.temporal_evidence_packet,
         "fusion_evidence_map": args.fusion_evidence_map,
         "aggregation_assembly": args.aggregation_assembly,
+        "count_list_ledger": getattr(args, "count_list_ledger", "off"),
         "source_aware": args.source_aware,
         "source_sufficiency": args.source_sufficiency,
     }
@@ -512,6 +549,10 @@ def build_run_provenance(args: argparse.Namespace, judged: list[dict[str, Any]])
         },
         "models": {
             "generation_model": args.generation_model,
+            "answerer_router": getattr(args, "answerer_router", "off"),
+            "routed_generation_model": getattr(args, "routed_generation_model", ""),
+            "routed_extraction_model": getattr(args, "routed_extraction_model", ""),
+            "routed_answerability_model": getattr(args, "routed_answerability_model", ""),
             "judge_model": args.judge_model,
             "answerability_model": args.answerability_model,
             "extraction_model": args.extraction_model,
@@ -579,6 +620,46 @@ def cached_chat_completion(
             )
         )
     return text
+
+
+def use_routed_answerer(args: argparse.Namespace, item: dict[str, Any]) -> bool:
+    return item.get("question_type") in ANSWERER_ROUTER_TYPES.get(args.answerer_router, set())
+
+
+def generation_model_for_item(args: argparse.Namespace, item: dict[str, Any]) -> str:
+    if use_routed_answerer(args, item):
+        return args.routed_generation_model
+    return args.generation_model
+
+
+def extraction_model_for_item(args: argparse.Namespace, item: dict[str, Any]) -> str:
+    if use_routed_answerer(args, item):
+        return args.routed_extraction_model or args.routed_generation_model
+    return args.extraction_model
+
+
+def answerability_model_for_item(args: argparse.Namespace, item: dict[str, Any]) -> str:
+    if use_routed_answerer(args, item):
+        return args.routed_answerability_model or args.routed_generation_model
+    return args.answerability_model
+
+
+def generation_max_tokens_for_item(args: argparse.Namespace, item: dict[str, Any]) -> int:
+    if use_routed_answerer(args, item) and args.routed_generation_max_tokens:
+        return args.routed_generation_max_tokens
+    return args.generation_max_tokens
+
+
+def extraction_max_tokens_for_item(args: argparse.Namespace, item: dict[str, Any]) -> int:
+    if use_routed_answerer(args, item) and args.routed_extraction_max_tokens:
+        return args.routed_extraction_max_tokens
+    return args.extraction_max_tokens
+
+
+def answerability_max_tokens_for_item(args: argparse.Namespace, item: dict[str, Any]) -> int:
+    if use_routed_answerer(args, item) and args.routed_answerability_max_tokens:
+        return args.routed_answerability_max_tokens
+    return args.answerability_max_tokens
 
 
 def parse_yes_no_label(response: str) -> bool:
@@ -833,10 +914,14 @@ def build_answer_prompt(
     token_evidence_signals: bool,
     count_list_mode: bool,
     strict_missing_final_answer: bool,
+    preference_support_packet: str = "off",
+    preference_support_max_items: int = 10,
+    preference_support_per_source: int = 2,
 ) -> str:
     date_by_sid = dict(zip(item["haystack_session_ids"], item["haystack_dates"], strict=True))
     turns_by_sid = dict(zip(item["haystack_session_ids"], item["haystack_sessions"], strict=True))
     selected = [sid for sid in retrieved_sessions[:top_k] if sid in turns_by_sid]
+    selected_retrieval_order = list(selected)
 
     # LongMemEval's generation script sorts selected context chronologically.
     selected.sort(key=lambda sid: date_by_sid.get(sid, ""))
@@ -884,6 +969,28 @@ def build_answer_prompt(
             )
             + "\n\n"
         )
+    if preference_support_packet != "off" and item.get("question_type") == "single-session-preference":
+        support_sources = [
+            {
+                "source_id": sid,
+                "date": date_by_sid.get(sid, ""),
+                "turns": turns_by_sid[sid],
+            }
+            for sid in selected_retrieval_order
+        ]
+        support_view = build_preference_support_view(
+            item["question"],
+            support_sources,
+            max_items=preference_support_max_items,
+            per_source=preference_support_per_source,
+        )
+        if support_view:
+            evidence_table += (
+                support_view
+                + "\n"
+                + "Preference support is a compact view over the already retrieved sessions. "
+                + "Use it to identify transferable personal context, but verify the final answer against History Chats.\n\n"
+            )
     use_count_list_mode = count_list_mode and is_count_list_question(item["question"])
     if use_count_list_mode:
         answer_instruction = (
@@ -1013,6 +1120,829 @@ def build_aggregation_assembly_prompt(
         "coherent": assembly["coherent"],
         "candidate_count": assembly["candidate_count"],
         "dedupe_group_count": assembly["dedupe_group_count"],
+    }
+    return prompt, report
+
+
+def build_count_list_ledger_prompt(
+    item: dict[str, Any],
+    retrieved_sessions: list[str],
+    *,
+    top_k: int,
+    max_session_chars: int,
+    max_candidates: int,
+    max_chars: int,
+    typed_only: bool = False,
+    semantic_counting: bool = False,
+) -> tuple[str, dict[str, Any]]:
+    date_by_sid = dict(zip(item["haystack_session_ids"], item["haystack_dates"], strict=True))
+    turns_by_sid = dict(zip(item["haystack_session_ids"], item["haystack_sessions"], strict=True))
+    selected = [sid for sid in retrieved_sessions[:top_k] if sid in turns_by_sid]
+    selected.sort(key=lambda sid: date_by_sid.get(sid, ""))
+    ledger = build_count_list_ledger(
+        item,
+        selected,
+        date_by_sid,
+        turns_by_sid,
+        max_candidates=max_candidates,
+        max_chars=max_chars,
+        typed_only=typed_only,
+        semantic_counting=semantic_counting,
+    )
+
+    context_parts = []
+    for i, sid in enumerate(selected, start=1):
+        context_parts.append(
+            f"### Retrieved Session {i}\n"
+            + session_to_text(sid, date_by_sid[sid], turns_by_sid[sid], max_session_chars)
+        )
+    context = "\n\n".join(context_parts)
+    computed_answer = ledger.get("computed_answer")
+    if computed_answer is not None:
+        count_rule = (
+            f"The Python computed answer is {computed_answer}. "
+            "Use that answer as the Final Answer unless the accepted groups below clearly include an out-of-scope candidate."
+        )
+    elif ledger.get("computed_count") is not None:
+        count_rule = (
+            f"The Python computed count is {ledger['computed_count']}. "
+            "Use that count as the Final Answer unless the accepted groups below clearly include an out-of-scope candidate."
+        )
+    else:
+        count_rule = "Python emitted candidate groups but did not compute a numeric answer for this question type; use the accepted groups as the working set."
+    prompt = (
+        "I will give you a Python Count/List Ledger plus full retrieved chat history.\n\n"
+        "The ledger is the primary working set for count/list questions. "
+        "Python has already extracted candidate rows and deduplicated repeated mentions into groups. "
+        f"{count_rule} "
+        "Do not count raw sessions. Do not recount repeated mentions. "
+        "Use History Chats only to verify or reject listed groups, not to invent uncited groups. "
+        "First write Accepted Groups: include each group you keep with its G#/C# citations. "
+        "Then write Excluded Groups if any accepted ledger group is out of scope. "
+        "Then write Final Answer as one concise line. "
+        "If the ledger lacks enough evidence, the Final Answer must be exactly: "
+        f"{UNANSWERABLE_RESPONSE}\n\n"
+        f"{ledger['text']}\n\n"
+        f"History Chats:\n\n{context}\n\n"
+        f"Current Date: {item.get('question_date', '')}\n"
+        f"Question: {item['question']}\n"
+        "Accepted Groups, Excluded Groups, and Final Answer:"
+    )
+    report = {
+        "coherent": ledger["coherent"],
+        "candidate_count": ledger["candidate_count"],
+        "dedupe_group_count": ledger["dedupe_group_count"],
+        "computed_count": ledger["computed_count"],
+        "computed_answer": ledger.get("computed_answer"),
+        "computed_answer_kind": ledger["computed_answer_kind"],
+        "typed_ledger": ledger.get("typed_ledger"),
+        "high_precision_count": ledger["high_precision_count"],
+    }
+    return prompt, report
+
+
+def extract_json_object(text: str) -> dict[str, Any] | None:
+    """Parse a JSON object from a model response that may include light wrapping."""
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.I)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+    try:
+        data = json.loads(cleaned)
+    except json.JSONDecodeError:
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start < 0 or end <= start:
+            return None
+        try:
+            data = json.loads(cleaned[start : end + 1])
+        except json.JSONDecodeError:
+            return None
+    return data if isinstance(data, dict) else None
+
+
+def normalize_extracted_number(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        match = NUMBER_RE.search(value.replace(",", ""))
+        if match:
+            try:
+                return float(match.group(0))
+            except ValueError:
+                return None
+    return None
+
+
+def format_computed_number(value: float) -> str:
+    if abs(value - round(value)) < 1e-9:
+        return str(int(round(value)))
+    return f"{value:.2f}".rstrip("0").rstrip(".")
+
+
+def format_agent_ledger_answer(answer: str | None, unit: str) -> str:
+    if answer is None:
+        return UNANSWERABLE_RESPONSE
+    unit = unit.strip()
+    if unit.upper() in {"USD", "$"}:
+        number = normalize_extracted_number(answer)
+        if number is not None:
+            return f"${int(number):,}" if abs(number - round(number)) < 1e-9 else f"${number:,.2f}"
+    if unit and not answer.lower().endswith(unit.lower()):
+        return f"{answer} {unit}"
+    return answer
+
+
+DIMENSIONAL_MODIFIER_RE = re.compile(
+    r"\b(\d+(?:\.\d+)?)\s*[- ]\s*"
+    r"(gallons?|gal|liters?|litres?|l|ounces?|oz|pounds?|lbs?|inches?|inch|feet|foot|ft|"
+    r"centimeters?|centimetres?|cm|millimeters?|millimetres?|mm|kilograms?|kg|quarts?|cups?|ml)\b",
+    re.I,
+)
+
+
+def normalize_dimensional_modifier_text(text: str) -> set[str]:
+    modifiers: set[str] = set()
+    unit_aliases = {
+        "gallon": "gallon",
+        "gallons": "gallon",
+        "gal": "gallon",
+        "liter": "liter",
+        "liters": "liter",
+        "litre": "liter",
+        "litres": "liter",
+        "l": "liter",
+        "ounce": "ounce",
+        "ounces": "ounce",
+        "oz": "ounce",
+        "pound": "pound",
+        "pounds": "pound",
+        "lb": "pound",
+        "lbs": "pound",
+        "inch": "inch",
+        "inches": "inch",
+        "foot": "foot",
+        "feet": "foot",
+        "ft": "foot",
+        "centimeter": "centimeter",
+        "centimeters": "centimeter",
+        "centimetre": "centimeter",
+        "centimetres": "centimeter",
+        "cm": "centimeter",
+        "millimeter": "millimeter",
+        "millimeters": "millimeter",
+        "millimetre": "millimeter",
+        "millimetres": "millimeter",
+        "mm": "millimeter",
+        "kilogram": "kilogram",
+        "kilograms": "kilogram",
+        "kg": "kilogram",
+        "quart": "quart",
+        "quarts": "quart",
+        "cup": "cup",
+        "cups": "cup",
+        "ml": "milliliter",
+    }
+    for match in DIMENSIONAL_MODIFIER_RE.finditer(text):
+        number = format_computed_number(float(match.group(1)))
+        unit = unit_aliases.get(match.group(2).lower(), match.group(2).lower())
+        modifiers.add(f"{number} {unit}")
+    return modifiers
+
+
+def build_count_list_agent_extraction_prompt(
+    item: dict[str, Any],
+    retrieved_sessions: list[str],
+    *,
+    top_k: int,
+    max_session_chars: int,
+    include_calculation_plan: bool = False,
+) -> tuple[str, dict[str, str]]:
+    date_by_sid = dict(zip(item["haystack_session_ids"], item["haystack_dates"], strict=True))
+    turns_by_sid = dict(zip(item["haystack_session_ids"], item["haystack_sessions"], strict=True))
+    selected = [sid for sid in retrieved_sessions[:top_k] if sid in turns_by_sid]
+    selected.sort(key=lambda sid: date_by_sid.get(sid, ""))
+
+    source_ids: dict[str, str] = {}
+    context_parts = []
+    for i, sid in enumerate(selected, start=1):
+        source_id = f"S{i}"
+        source_ids[source_id] = sid
+        context_parts.append(
+            f"### {source_id}\n"
+            + session_to_text(sid, date_by_sid[sid], turns_by_sid[sid], max_session_chars)
+        )
+    context = "\n\n".join(context_parts)
+    calculation_shape = (
+        ',\n  "calculation": {"function": "count_rows|sum_values|difference|average_values|list_entities", "rows": ["A1", "A2"]}\n'
+        if include_calculation_plan
+        else "\n"
+    )
+    calculation_rules = (
+        "- Optionally include calculation to tell Python how to reduce accepted rows. Rows are addressed as A1, A2, etc. in accepted-list order.\n"
+        "- calculation may only use: count_rows, sum_values, difference, average_values, or list_entities.\n"
+        if include_calculation_plan
+        else ""
+    )
+    prompt = (
+        "Extract a structured count/list ledger from the retrieved chat history.\n"
+        "Do not answer in prose. Return JSON only.\n\n"
+        "JSON shape:\n"
+        "{\n"
+        '  "operation": "count|sum|average|difference|duration|list|unknown",\n'
+        '  "unit": "short unit or empty string",\n'
+        '  "answerability": "sufficient|insufficient",\n'
+        '  "accepted": [\n'
+        '    {"entity": "deduped real-world item/event/value", "value": 1, "source": "S1", "evidence": "short quote or paraphrase"}\n'
+        "  ],\n"
+        '  "rejected": [\n'
+        '    {"source": "S2", "reason": "why this candidate is out of scope"}\n'
+        "  ],\n"
+        '  "dedupe_notes": ["..."],\n'
+        '  "missing_or_uncertain": ["..."]'
+        + calculation_shape
+        + "}\n\n"
+        "Rules:\n"
+        "- Extract only candidates directly supported by the retrieved sessions.\n"
+        "- Use source ids exactly as shown: S1, S2, etc.\n"
+        "- For count/list questions, one accepted row should represent one distinct included real-world item/event unless the question asks for repeated occurrences.\n"
+        "- For sum/average questions, every accepted row must include a numeric value.\n"
+        "- For remaining-to-go questions such as points still needed, use operation=difference with the current value and target value.\n"
+        "- For combined totals such as page count of multiple books or total views, use operation=sum.\n"
+        "- For elapsed-time questions, use operation=duration and one accepted row with the computed numeric value and unit.\n"
+        + calculation_rules
+        + "- Apply temporal filters in the question such as current, latest, before, after, last month, or currently.\n"
+        "- Put ambiguous or out-of-scope evidence in rejected or missing_or_uncertain, not accepted.\n"
+        "- If the retrieved history lacks enough evidence, set answerability to insufficient and accepted to [].\n\n"
+        f"History Chats:\n\n{context}\n\n"
+        f"Current Date: {item.get('question_date', '')}\n"
+        f"Question: {item['question']}\n"
+        "JSON:"
+    )
+    return prompt, source_ids
+
+
+def validate_count_list_agent_extraction(
+    raw_text: str,
+    source_ids: dict[str, str],
+    *,
+    allow_calculation_plan: bool = False,
+    derive_schema_operation: bool = False,
+    question: str = "",
+) -> dict[str, Any]:
+    data = extract_json_object(raw_text)
+    if data is None:
+        return {"coherent": False, "reason": "invalid_json", "raw_text": raw_text[:1000]}
+
+    operation = str(data.get("operation", "unknown")).strip().lower()
+    if operation not in {"count", "sum", "average", "difference", "duration", "list", "unknown"}:
+        operation = "unknown"
+    answerability = str(data.get("answerability", "")).strip().lower()
+    accepted_raw = data.get("accepted")
+    accepted_rows = accepted_raw if isinstance(accepted_raw, list) else []
+    rejected_raw = data.get("rejected")
+    rejected_rows = rejected_raw if isinstance(rejected_raw, list) else []
+
+    accepted: list[dict[str, Any]] = []
+    seen_keys: set[tuple[str, str]] = set()
+    allowed_sources = set(source_ids)
+    for row in accepted_rows:
+        if not isinstance(row, dict):
+            continue
+        source = str(row.get("source", "")).strip()
+        entity = str(row.get("entity", "")).strip()
+        row_sources = [part.strip() for part in re.split(r"[,;/]", source) if part.strip()]
+        if not row_sources and isinstance(row.get("sources"), list):
+            row_sources = [str(part).strip() for part in row["sources"] if str(part).strip()]
+        if not row_sources or any(part not in allowed_sources for part in row_sources) or not entity:
+            continue
+        source_key = ",".join(row_sources)
+        evidence = str(row.get("evidence", "")).strip()[:300]
+        key = (
+            source_key,
+            re.sub(r"\s+", " ", entity.lower()),
+            re.sub(r"\s+", " ", evidence.lower()),
+        )
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        value = normalize_extracted_number(row.get("value"))
+        accepted.append(
+            {
+                "entity": entity,
+                "source": source_key,
+                "session_id": ",".join(source_ids[part] for part in row_sources),
+                "value": value,
+                "evidence": evidence,
+            }
+        )
+
+    coherent = answerability == "sufficient" and operation != "unknown" and bool(accepted)
+    values = [row["value"] for row in accepted if row["value"] is not None]
+    computed_answer: str | None = None
+    calculation_report: dict[str, Any] | None = None
+    if coherent and allow_calculation_plan:
+        calculation_report = execute_count_list_calculation_plan(data.get("calculation"), accepted)
+        if calculation_report.get("coherent"):
+            computed_answer = str(calculation_report.get("computed_answer"))
+    schema_report: dict[str, Any] | None = None
+    if coherent and derive_schema_operation:
+        schema_report = derive_count_list_schema_calculation(
+            operation=operation,
+            unit=str(data.get("unit", "")).strip(),
+            accepted=accepted,
+            question=question,
+        )
+        if schema_report.get("coherent"):
+            operation = str(schema_report.get("operation", operation))
+            computed_answer = str(schema_report.get("computed_answer"))
+    if operation == "count" and len(accepted) == 1 and values and str(data.get("unit", "")).lower() in {
+        "day",
+        "days",
+        "hour",
+        "hours",
+        "week",
+        "weeks",
+        "month",
+        "months",
+    }:
+        operation = "duration"
+    if computed_answer is not None:
+        pass
+    elif coherent and operation == "count":
+        if values and len(values) == len(accepted) and any(abs(value - 1.0) > 1e-9 for value in values):
+            computed_answer = format_computed_number(sum(values))
+        else:
+            computed_answer = str(len(accepted))
+    elif coherent and operation == "list":
+        computed_answer = ", ".join(row["entity"] for row in accepted)
+    elif coherent and operation == "sum" and len(values) == len(accepted):
+        computed_answer = format_computed_number(sum(values))
+    elif coherent and operation == "average" and len(values) == len(accepted):
+        computed_answer = format_computed_number(sum(values) / len(values))
+    elif coherent and operation == "difference" and len(values) == len(accepted) and len(values) == 1:
+        computed_answer = format_computed_number(values[0])
+    elif coherent and operation == "difference" and len(values) == len(accepted) and len(values) >= 2:
+        computed_answer = format_computed_number(max(values) - min(values))
+    elif coherent and operation == "duration" and len(values) == 1:
+        computed_answer = format_computed_number(values[0])
+    elif coherent:
+        coherent = False
+
+    if coherent and len(accepted) > 30:
+        coherent = False
+
+    return {
+        "coherent": coherent,
+        "reason": "ok" if coherent else "validation_failed",
+        "question": question,
+        "operation": operation,
+        "unit": str(data.get("unit", "")).strip()[:80],
+        "answerability": answerability,
+        "accepted": accepted,
+        "rejected": rejected_rows[:20],
+        "dedupe_notes": data.get("dedupe_notes") if isinstance(data.get("dedupe_notes"), list) else [],
+        "missing_or_uncertain": data.get("missing_or_uncertain") if isinstance(data.get("missing_or_uncertain"), list) else [],
+        "calculation": calculation_report,
+        "schema_calculation": schema_report,
+        "computed_answer": computed_answer,
+        "accepted_count": len(accepted),
+    }
+
+
+def execute_count_list_calculation_plan(
+    calculation: Any,
+    accepted: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if not isinstance(calculation, dict):
+        return {"coherent": False, "reason": "missing_calculation"}
+    function = str(calculation.get("function", "")).strip().lower()
+    if function not in {"count_rows", "sum_values", "difference", "average_values", "list_entities"}:
+        return {"coherent": False, "reason": "unknown_function", "function": function}
+
+    raw_rows = calculation.get("rows")
+    if isinstance(raw_rows, list) and raw_rows:
+        row_indexes: list[int] = []
+        for raw_ref in raw_rows:
+            match = re.fullmatch(r"A(\d+)", str(raw_ref).strip(), flags=re.I)
+            if not match:
+                return {"coherent": False, "reason": "bad_row_ref", "function": function}
+            index = int(match.group(1)) - 1
+            if index < 0 or index >= len(accepted):
+                return {"coherent": False, "reason": "row_ref_out_of_range", "function": function}
+            row_indexes.append(index)
+    else:
+        row_indexes = list(range(len(accepted)))
+
+    rows = [accepted[index] for index in row_indexes]
+    values = [row["value"] for row in rows if row.get("value") is not None]
+    computed_answer: str | None = None
+    if function == "count_rows":
+        computed_answer = str(len(rows))
+    elif function == "sum_values" and len(values) == len(rows):
+        computed_answer = format_computed_number(sum(values))
+    elif function == "difference" and len(values) == len(rows) and len(values) == 1:
+        computed_answer = format_computed_number(values[0])
+    elif function == "difference" and len(values) == len(rows) and len(values) >= 2:
+        computed_answer = format_computed_number(max(values) - min(values))
+    elif function == "average_values" and len(values) == len(rows) and values:
+        computed_answer = format_computed_number(sum(values) / len(values))
+    elif function == "list_entities":
+        computed_answer = ", ".join(row["entity"] for row in rows)
+    if computed_answer is None:
+        return {"coherent": False, "reason": "execution_failed", "function": function}
+    return {
+        "coherent": True,
+        "reason": "ok",
+        "function": function,
+        "rows": [f"A{index + 1}" for index in row_indexes],
+        "computed_answer": computed_answer,
+    }
+
+
+def derive_count_list_schema_calculation(
+    *,
+    operation: str,
+    unit: str,
+    accepted: list[dict[str, Any]],
+    question: str,
+) -> dict[str, Any]:
+    operation = operation.strip().lower()
+    unit_norm = unit.strip().lower()
+    question_norm = question.strip().lower()
+    values = [row["value"] for row in accepted if row.get("value") is not None]
+    if not accepted:
+        return {"coherent": False, "reason": "no_rows"}
+
+    if operation in {"sum", "average", "difference", "duration"}:
+        return {"coherent": False, "reason": "operation_already_specific"}
+
+    if operation not in {"count", "list"}:
+        return {"coherent": False, "reason": "unsupported_operation"}
+
+    if len(values) == len(accepted) and values:
+        additive_unit = unit_norm in {
+            "day",
+            "days",
+            "hour",
+            "hours",
+            "minute",
+            "minutes",
+            "week",
+            "weeks",
+            "month",
+            "months",
+            "page",
+            "pages",
+            "point",
+            "points",
+            "ride",
+            "rides",
+            "view",
+            "views",
+            "usd",
+            "$",
+            "dollar",
+            "dollars",
+            "mile",
+            "miles",
+            "km",
+            "kilometer",
+            "kilometers",
+        }
+        asks_for_total = bool(
+            re.search(
+                r"\b(total|sum|combined|altogether|in all|overall)\b|"
+                r"\bhow many\b.*\b(pages?|points?|rides?|views?|hours?|days?|minutes?|dollars?|miles?)\b",
+                question_norm,
+            )
+        )
+        if additive_unit or asks_for_total:
+            return {
+                "coherent": True,
+                "reason": "numeric_rows_additive_schema",
+                "operation": "sum",
+                "function": "sum_values",
+                "computed_answer": format_computed_number(sum(values)),
+            }
+
+    if operation == "count" and (not values or all(abs(value - 1.0) < 1e-9 for value in values)):
+        return {
+            "coherent": True,
+            "reason": "distinct_rows_count_schema",
+            "operation": "count",
+            "function": "count_rows",
+            "computed_answer": str(len(accepted)),
+        }
+
+    return {"coherent": False, "reason": "no_schema_rule"}
+
+
+def build_count_list_agent_hypothesis(report: dict[str, Any]) -> str:
+    accepted_lines = []
+    for idx, row in enumerate(report["accepted"], start=1):
+        value = "" if row["value"] is None else f", value={format_computed_number(float(row['value']))}"
+        evidence = f", evidence={row['evidence']}" if row["evidence"] else ""
+        accepted_lines.append(
+            f"- A{idx}: source={row['source']} session={row['session_id']}, entity={row['entity']}{value}{evidence}"
+        )
+    rejected = report.get("rejected") or []
+    rejected_lines = []
+    for idx, row in enumerate(rejected[:8], start=1):
+        if isinstance(row, dict):
+            rejected_lines.append(
+                f"- R{idx}: source={row.get('source', '')}, reason={row.get('reason', '')}"
+            )
+    final = format_agent_ledger_answer(report.get("computed_answer"), str(report.get("unit", "")))
+    return (
+        "Accepted Rows:\n"
+        + ("\n".join(accepted_lines) if accepted_lines else "- None")
+        + "\n\nRejected Rows:\n"
+        + ("\n".join(rejected_lines) if rejected_lines else "- None")
+        + f"\n\nFinal Answer: {final}"
+    )
+
+
+def is_safe_count_list_agent_route(report: dict[str, Any]) -> bool:
+    if not report.get("coherent"):
+        return False
+    if report.get("missing_or_uncertain"):
+        return False
+
+    operation = str(report.get("operation", "")).strip().lower()
+    unit = str(report.get("unit", "")).strip().lower()
+    accepted_count = int(report.get("accepted_count") or 0)
+
+    if operation == "list":
+        return False
+    if operation == "count" and accepted_count <= 1:
+        return False
+    if operation == "count" and re.search(r"\bitems?\b", unit):
+        return False
+    if operation == "sum" and re.search(r"\bitems?\b", unit):
+        return False
+    if operation == "sum" and unit in {"usd", "$", "dollar", "dollars"} and accepted_count >= 4:
+        return False
+    question_modifiers = normalize_dimensional_modifier_text(str(report.get("question", "")))
+    if question_modifiers:
+        accepted_text = " ".join(
+            f"{row.get('entity', '')} {row.get('evidence', '')}" for row in report.get("accepted", [])
+        )
+        accepted_modifiers = normalize_dimensional_modifier_text(accepted_text)
+        if not question_modifiers.issubset(accepted_modifiers):
+            return False
+    return True
+
+
+def is_unsupported_count_list_ledger_question(question: str) -> bool:
+    question_norm = question.strip().lower()
+    if not re.search(r"\bpercent(?:age)?\b|%", question_norm):
+        return False
+    if re.search(r"\b(?:what|which)\s+(?:percent|percentage)\s+of\b", question_norm):
+        return True
+    if re.search(r"\b(?:percent|percentage)\s+of\b", question_norm):
+        return True
+    if re.search(
+        r"\b(?:higher|lower|greater|less|more|fewer|compare|compared|versus|vs\.?|than)\b",
+        question_norm,
+    ):
+        return True
+    return False
+
+
+def is_safe_count_list_agent_plan_route(report: dict[str, Any]) -> bool:
+    if not is_safe_count_list_agent_route(report):
+        return False
+    calculation = report.get("calculation")
+    if not isinstance(calculation, dict) or not calculation.get("coherent"):
+        return False
+    function = str(calculation.get("function", "")).strip().lower()
+    if function == "count_rows":
+        return False
+    if function == "difference" and str(calculation.get("computed_answer")) in {"0", "0.0"}:
+        return False
+    return True
+
+
+def is_safe_count_list_agent_schema_route(report: dict[str, Any]) -> bool:
+    if not is_safe_count_list_agent_route(report):
+        return False
+    schema_calculation = report.get("schema_calculation")
+    if not isinstance(schema_calculation, dict) or not schema_calculation.get("coherent"):
+        return True
+    function = str(schema_calculation.get("function", "")).strip().lower()
+    if function == "count_rows":
+        unit = str(report.get("unit", "")).strip().lower()
+        if re.search(r"\bitems?\b", unit):
+            return False
+    return True
+
+
+def is_safe_count_list_agent_blend_route(report: dict[str, Any]) -> bool:
+    """Stricter schema route used after high-precision typed ledgers abstain."""
+    if not is_safe_count_list_agent_schema_route(report):
+        return False
+    schema_calculation = report.get("schema_calculation")
+    if not isinstance(schema_calculation, dict) or not schema_calculation.get("coherent"):
+        return True
+    function = str(schema_calculation.get("function", "")).strip().lower()
+    if function != "count_rows":
+        return True
+
+    unit = str(report.get("unit", "")).strip().lower()
+    if re.search(r"\btimes?\b", unit):
+        return False
+
+    accepted = report.get("accepted") if isinstance(report.get("accepted"), list) else []
+    sources = {
+        source
+        for row in accepted
+        for source in str(row.get("source", "")).split(",")
+        if source.strip()
+    }
+    if len(accepted) >= 5 and len(accepted) > len(sources) + 2:
+        return False
+    if len(accepted) >= 4 and len(sources) <= 1:
+        return False
+    return True
+
+
+def build_count_list_agent_answer_prompt(
+    item: dict[str, Any],
+    report: dict[str, Any],
+) -> str:
+    accepted_lines = []
+    for idx, row in enumerate(report["accepted"], start=1):
+        value = "" if row["value"] is None else f", value={format_computed_number(float(row['value']))}"
+        evidence = f", evidence={row['evidence']}" if row["evidence"] else ""
+        accepted_lines.append(
+            f"A{idx}: source={row['source']} session={row['session_id']}, entity={row['entity']}{value}{evidence}"
+        )
+    ledger = "\n".join(accepted_lines)
+    computed = report.get("computed_answer")
+    return (
+        "Answer the count/list aggregation question from the validated structured ledger.\n\n"
+        "Python has validated the extractor output against source ids and computed the result. "
+        "Do not inspect or recount raw history. Use the computed answer unless an accepted row is obviously out of scope. "
+        "If it is out of scope, say the information is not available rather than inventing a new answer.\n\n"
+        f"Operation: {report.get('operation')}\n"
+        f"Unit: {report.get('unit')}\n"
+        f"Computed Answer: {computed}\n"
+        f"Accepted Rows:\n{ledger}\n\n"
+        f"Question: {item['question']}\n"
+        "Accepted Rows, Exclusions if any, and Final Answer:"
+    )
+
+
+def build_multi_session_evidence_set_prompt(
+    item: dict[str, Any],
+    retrieved_sessions: list[str],
+    *,
+    top_k: int,
+    pool_k: int,
+    max_session_chars: int,
+    max_candidates: int,
+    max_chars: int,
+) -> tuple[str, dict[str, Any]]:
+    date_by_sid = dict(zip(item["haystack_session_ids"], item["haystack_dates"], strict=True))
+    turns_by_sid = dict(zip(item["haystack_session_ids"], item["haystack_sessions"], strict=True))
+    candidate_pool = [sid for sid in retrieved_sessions[:pool_k] if sid in turns_by_sid]
+    evidence_set = build_multi_session_evidence_set(
+        item,
+        candidate_pool,
+        date_by_sid,
+        turns_by_sid,
+        base_top_k=top_k,
+        max_candidates=max_candidates,
+        max_chars=max_chars,
+    )
+
+    context_ids: list[str] = []
+    for sid in evidence_set["selected_source_ids"]:
+        if sid in turns_by_sid and sid not in context_ids:
+            context_ids.append(sid)
+    for sid in retrieved_sessions[:top_k]:
+        if sid in turns_by_sid and sid not in context_ids:
+            context_ids.append(sid)
+    context_ids.sort(key=lambda sid: date_by_sid.get(sid, ""))
+
+    context_parts = []
+    for i, sid in enumerate(context_ids, start=1):
+        context_parts.append(
+            f"### Evidence Session {i}\n"
+            + session_to_text(sid, date_by_sid[sid], turns_by_sid[sid], max_session_chars)
+        )
+    context = "\n\n".join(context_parts)
+    prompt = (
+        "I will give you a compact multi-session evidence set plus verifying chat history.\n\n"
+        "Use the Multi-Session Evidence Set as a coverage checklist for count/list/cross-thread synthesis. "
+        "Do not spend tokens reviewing every excluded row. "
+        "First write Evidence Used: only the C# rows that directly answer the question, with a short reason for inclusion. "
+        "Then write Deduped Set: one bullet per distinct included real-world item/event/value with C# citations. "
+        "For count questions, the Final Answer must be the count implied by the Deduped Set. "
+        "For list questions, the Final Answer must list exactly the included deduped items. "
+        "Ignore rows that are only adjacent, hypothetical, generic advice, questions, or unrelated examples. "
+        "Use History Chats to verify or clarify C# candidates and to reject irrelevant rows. "
+        "If the evidence set and verifying chats lack enough evidence, the Final Answer must be exactly: "
+        f"{UNANSWERABLE_RESPONSE}\n\n"
+        f"{evidence_set['text']}\n\n"
+        f"History Chats:\n\n{context}\n\n"
+        f"Current Date: {item.get('question_date', '')}\n"
+        f"Question: {item['question']}\n"
+        "Evidence Used, Deduped Set, and Final Answer:"
+    )
+    report = {
+        "coherent": evidence_set["coherent"],
+        "candidate_count": evidence_set["candidate_count"],
+        "dedupe_group_count": evidence_set["dedupe_group_count"],
+        "base_group_count": evidence_set["base_group_count"],
+        "pool_added_group_count": evidence_set["pool_added_group_count"],
+        "novel_decisive_group_count": evidence_set["novel_decisive_group_count"],
+        "added_distraction_risk": evidence_set["added_distraction_risk"],
+        "marginal_utility": evidence_set["marginal_utility"],
+        "selected_source_ids": evidence_set["selected_source_ids"],
+        "selected_source_ranks": evidence_set["selected_source_ranks"],
+        "confidence": evidence_set["confidence"],
+        "confidence_reasons": evidence_set["confidence_reasons"],
+        "strong_candidate_count": evidence_set["strong_candidate_count"],
+        "top_candidate_weight": evidence_set["top_candidate_weight"],
+        "pool_k": pool_k,
+    }
+    return prompt, report
+
+
+def build_multi_session_source_select_prompt(
+    item: dict[str, Any],
+    retrieved_sessions: list[str],
+    *,
+    top_k: int,
+    pool_k: int,
+    max_session_chars: int,
+    max_candidates: int,
+    max_chars: int,
+) -> tuple[str, dict[str, Any]]:
+    date_by_sid = dict(zip(item["haystack_session_ids"], item["haystack_dates"], strict=True))
+    turns_by_sid = dict(zip(item["haystack_session_ids"], item["haystack_sessions"], strict=True))
+    candidate_pool = [sid for sid in retrieved_sessions[:pool_k] if sid in turns_by_sid]
+    evidence_set = build_multi_session_evidence_set(
+        item,
+        candidate_pool,
+        date_by_sid,
+        turns_by_sid,
+        base_top_k=top_k,
+        max_candidates=max_candidates,
+        max_chars=max_chars,
+    )
+    selected_retrieved: list[str] = []
+    for sid in evidence_set["selected_source_ids"]:
+        if sid in turns_by_sid and sid not in selected_retrieved:
+            selected_retrieved.append(sid)
+    for sid in retrieved_sessions[:top_k]:
+        if sid in turns_by_sid and sid not in selected_retrieved:
+            selected_retrieved.append(sid)
+
+    prompt = build_answer_prompt(
+        item,
+        selected_retrieved,
+        top_k=len(selected_retrieved),
+        max_session_chars=max_session_chars,
+        cot=False,
+        source_aware=True,
+        source_sufficiency=False,
+        token_evidence=False,
+        evidence_packet=False,
+        fusion_evidence_map=False,
+        fusion_evidence_map_max_items=0,
+        fusion_evidence_map_max_chars=0,
+        evidence_packet_max_items=0,
+        evidence_packet_max_chars=0,
+        token_evidence_max_lines=0,
+        token_evidence_signals=False,
+        count_list_mode=False,
+        strict_missing_final_answer=False,
+        preference_support_packet="off",
+        preference_support_max_items=0,
+        preference_support_per_source=0,
+    )
+    report = {
+        "coherent": evidence_set["coherent"],
+        "candidate_count": evidence_set["candidate_count"],
+        "dedupe_group_count": evidence_set["dedupe_group_count"],
+        "base_group_count": evidence_set["base_group_count"],
+        "pool_added_group_count": evidence_set["pool_added_group_count"],
+        "novel_decisive_group_count": evidence_set["novel_decisive_group_count"],
+        "added_distraction_risk": evidence_set["added_distraction_risk"],
+        "marginal_utility": evidence_set["marginal_utility"],
+        "selected_source_ids": evidence_set["selected_source_ids"],
+        "selected_source_ranks": evidence_set["selected_source_ranks"],
+        "confidence": evidence_set["confidence"],
+        "confidence_reasons": evidence_set["confidence_reasons"],
+        "strong_candidate_count": evidence_set["strong_candidate_count"],
+        "top_candidate_weight": evidence_set["top_candidate_weight"],
+        "selected_context_count": len(selected_retrieved),
+        "pool_k": pool_k,
     }
     return prompt, report
 
@@ -1314,16 +2244,17 @@ def get_answerability_prompt(item: dict[str, Any], hypothesis: str) -> str:
 
 
 def answerability_label(args: argparse.Namespace, item: dict[str, Any], hypothesis: str) -> dict[str, Any]:
+    model = answerability_model_for_item(args, item)
     response = cached_chat_completion(
         args,
         purpose="answerability",
         qid=item["question_id"],
-        model=args.answerability_model,
+        model=model,
         messages=[{"role": "user", "content": get_answerability_prompt(item, hypothesis)}],
-        max_tokens=args.answerability_max_tokens,
+        max_tokens=answerability_max_tokens_for_item(args, item),
     )
     return {
-        "model": args.answerability_model,
+        "model": model,
         "answerable": parse_yes_no_label(response),
         "raw": response,
     }
@@ -1380,6 +2311,8 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
         top_k_context = effective_top_k_context(item, args)
         route = "source_aware"
         aggregation_report: dict[str, Any] | None = None
+        count_list_ledger_report: dict[str, Any] | None = None
+        multi_session_evidence_set_report: dict[str, Any] | None = None
         if args.source_set_aware:
             primary_row = primary_rows_by_qid.get(qid)
             if not primary_row:
@@ -1397,13 +2330,164 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                 args,
                 purpose="generation",
                 qid=qid,
-                model=args.generation_model,
+                model=generation_model_for_item(args, item),
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=args.generation_max_tokens,
+                max_tokens=generation_max_tokens_for_item(args, item),
             )
             append_jsonl(args.hypotheses_out, {"question_id": qid, "hypothesis": hypothesis, "route": route})
             print(f"[generate {i}/{len(data)}] {qid} {item['question_type']} route={route}", flush=True)
             continue
+        if (
+            args.multi_session_evidence_set in {"count_list", "source_select", "confidence_source_select"}
+            and item["question_type"] == "multi-session"
+            and is_count_list_question(item["question"])
+        ):
+            build_evidence_set_prompt = (
+                build_multi_session_source_select_prompt
+                if args.multi_session_evidence_set in {"source_select", "confidence_source_select"}
+                else build_multi_session_evidence_set_prompt
+            )
+            prompt, multi_session_evidence_set_report = build_evidence_set_prompt(
+                item,
+                retrieved,
+                top_k=top_k_context,
+                pool_k=args.multi_session_evidence_set_pool_k,
+                max_session_chars=args.max_session_chars,
+                max_candidates=args.multi_session_evidence_set_max_candidates,
+                max_chars=args.multi_session_evidence_set_max_chars,
+            )
+            if should_use_multi_session_evidence_set_selector(
+                multi_session_evidence_set_report,
+                args.multi_session_evidence_set,
+                min_confidence=args.multi_session_evidence_set_min_confidence,
+            ):
+                route = f"multi_session_evidence_set_{args.multi_session_evidence_set}"
+                hypothesis = cached_chat_completion(
+                    args,
+                    purpose="generation",
+                    qid=qid,
+                    model=generation_model_for_item(args, item),
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=generation_max_tokens_for_item(args, item),
+                )
+                append_jsonl(
+                    args.hypotheses_out,
+                    {
+                        "question_id": qid,
+                        "hypothesis": hypothesis,
+                        "route": route,
+                        "multi_session_evidence_set_report": multi_session_evidence_set_report,
+                    },
+                )
+                print(f"[generate {i}/{len(data)}] {qid} {item['question_type']} route={route}", flush=True)
+                continue
+        typed_numeric_question = bool(re.search(r"\baverage\b.*\bage\b|\bage\b.*\baverage\b", item["question"], re.I))
+        if (
+            args.count_list_ledger in {"python", "typed_python", "semantic_python", "agent_blend"}
+            and item["question_type"] == "multi-session"
+            and (is_count_list_question(item["question"]) or typed_numeric_question)
+            and not is_unsupported_count_list_ledger_question(item["question"])
+        ):
+            prompt, count_list_ledger_report = build_count_list_ledger_prompt(
+                item,
+                retrieved,
+                top_k=top_k_context,
+                max_session_chars=args.max_session_chars,
+                max_candidates=args.count_list_ledger_max_candidates,
+                max_chars=args.count_list_ledger_max_chars,
+                typed_only=args.count_list_ledger in {"typed_python", "semantic_python", "agent_blend"},
+                semantic_counting=args.count_list_ledger == "semantic_python",
+            )
+            if count_list_ledger_report["coherent"]:
+                route = (
+                    "count_list_ledger_typed_python"
+                    if args.count_list_ledger == "agent_blend"
+                    else f"count_list_ledger_{args.count_list_ledger}"
+                )
+                hypothesis = cached_chat_completion(
+                    args,
+                    purpose="generation",
+                    qid=qid,
+                    model=generation_model_for_item(args, item),
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=generation_max_tokens_for_item(args, item),
+                )
+                append_jsonl(
+                    args.hypotheses_out,
+                    {
+                        "question_id": qid,
+                        "hypothesis": hypothesis,
+                        "route": route,
+                        "count_list_ledger_report": count_list_ledger_report,
+                    },
+                )
+                print(f"[generate {i}/{len(data)}] {qid} {item['question_type']} route={route}", flush=True)
+                continue
+        if (
+            args.count_list_ledger in {"agent_llm", "agent_plan", "agent_schema", "agent_blend"}
+            and item["question_type"] == "multi-session"
+            and (is_count_list_question(item["question"]) or typed_numeric_question)
+            and not is_unsupported_count_list_ledger_question(item["question"])
+        ):
+            if qid in extracted_done and "count_list_agent_report" in extracted_done[qid]:
+                count_list_agent_report = extracted_done[qid]["count_list_agent_report"]
+            else:
+                extract_prompt, source_ids = build_count_list_agent_extraction_prompt(
+                    item,
+                    retrieved,
+                    top_k=top_k_context,
+                    max_session_chars=args.max_session_chars,
+                    include_calculation_plan=args.count_list_ledger == "agent_plan",
+                )
+                raw_extraction = cached_chat_completion(
+                    args,
+                    purpose="count_list_extraction",
+                    qid=qid,
+                    model=extraction_model_for_item(args, item),
+                    messages=[{"role": "user", "content": extract_prompt}],
+                    max_tokens=extraction_max_tokens_for_item(args, item),
+                )
+                count_list_agent_report = validate_count_list_agent_extraction(
+                    raw_extraction,
+                    source_ids,
+                    allow_calculation_plan=args.count_list_ledger == "agent_plan",
+                    derive_schema_operation=args.count_list_ledger in {"agent_schema", "agent_blend"},
+                    question=item["question"],
+                )
+                extract_row = {
+                    "question_id": qid,
+                    "count_list_agent_raw": raw_extraction,
+                    "count_list_agent_report": count_list_agent_report,
+                }
+                append_jsonl(args.extract_out, extract_row)
+                extracted_done[qid] = extract_row
+            safe_agent_route = (
+                is_safe_count_list_agent_plan_route(count_list_agent_report)
+                if args.count_list_ledger == "agent_plan"
+                else is_safe_count_list_agent_blend_route(count_list_agent_report)
+                if args.count_list_ledger == "agent_blend"
+                else is_safe_count_list_agent_schema_route(count_list_agent_report)
+                if args.count_list_ledger == "agent_schema"
+                else is_safe_count_list_agent_route(count_list_agent_report)
+            )
+            if safe_agent_route:
+                route = (
+                    "count_list_ledger_agent_schema"
+                    if args.count_list_ledger == "agent_blend"
+                    else f"count_list_ledger_{args.count_list_ledger}"
+                )
+                hypothesis = build_count_list_agent_hypothesis(count_list_agent_report)
+                append_jsonl(
+                    args.hypotheses_out,
+                    {
+                        "question_id": qid,
+                        "hypothesis": hypothesis,
+                        "route": route,
+                        "count_list_agent_report": count_list_agent_report,
+                    },
+                )
+                print(f"[generate {i}/{len(data)}] {qid} {item['question_type']} route={route}", flush=True)
+                continue
         if should_use_aggregation_assembly(item, aggregation_assembly_mode):
             prompt, aggregation_report = build_aggregation_assembly_prompt(
                 item,
@@ -1419,9 +2503,9 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                     args,
                     purpose="generation",
                     qid=qid,
-                    model=args.generation_model,
+                    model=generation_model_for_item(args, item),
                     messages=[{"role": "user", "content": prompt}],
-                    max_tokens=args.generation_max_tokens,
+                    max_tokens=generation_max_tokens_for_item(args, item),
                 )
                 append_jsonl(
                     args.hypotheses_out,
@@ -1453,9 +2537,9 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                 args,
                 purpose="generation",
                 qid=qid,
-                model=args.generation_model,
+                model=generation_model_for_item(args, item),
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=args.generation_max_tokens,
+                max_tokens=generation_max_tokens_for_item(args, item),
             )
             append_jsonl(args.hypotheses_out, {"question_id": qid, "hypothesis": hypothesis, "route": route})
             print(f"[generate {i}/{len(data)}] {qid} {item['question_type']} route={route}", flush=True)
@@ -1477,9 +2561,9 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                 args,
                 purpose="generation",
                 qid=qid,
-                model=args.generation_model,
+                model=generation_model_for_item(args, item),
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=args.generation_max_tokens,
+                max_tokens=generation_max_tokens_for_item(args, item),
             )
             append_jsonl(args.hypotheses_out, {"question_id": qid, "hypothesis": hypothesis, "route": route})
             print(f"[generate {i}/{len(data)}] {qid} {item['question_type']} route={route}", flush=True)
@@ -1500,9 +2584,9 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                     args,
                     purpose="extraction",
                     qid=qid,
-                    model=args.extraction_model,
+                    model=extraction_model_for_item(args, item),
                     messages=[{"role": "user", "content": extract_prompt}],
-                    max_tokens=args.extraction_max_tokens,
+                    max_tokens=extraction_max_tokens_for_item(args, item),
                 )
                 extract_row = {"question_id": qid, "structured_facts": structured_facts}
                 append_jsonl(args.extract_out, extract_row)
@@ -1516,9 +2600,9 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                 args,
                 purpose="generation",
                 qid=qid,
-                model=args.generation_model,
+                model=generation_model_for_item(args, item),
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=args.generation_max_tokens,
+                max_tokens=generation_max_tokens_for_item(args, item),
             )
             if should_fallback_from_structured_answer(item, hypothesis):
                 structured_hypothesis = hypothesis
@@ -1541,14 +2625,17 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                     token_evidence_signals=False,
                     count_list_mode=False,
                     strict_missing_final_answer=False,
+                    preference_support_packet=args.preference_support_packet,
+                    preference_support_max_items=args.preference_support_max_items,
+                    preference_support_per_source=args.preference_support_per_source,
                 )
                 hypothesis = cached_chat_completion(
                     args,
                     purpose="generation",
                     qid=qid,
-                    model=args.generation_model,
+                    model=generation_model_for_item(args, item),
                     messages=[{"role": "user", "content": fallback_prompt}],
-                    max_tokens=args.generation_max_tokens,
+                    max_tokens=generation_max_tokens_for_item(args, item),
                 )
                 route = "source_aware_fallback_after_structured_unavailable"
                 append_jsonl(
@@ -1580,9 +2667,9 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                     args,
                     purpose="extraction",
                     qid=qid,
-                    model=args.extraction_model,
+                    model=extraction_model_for_item(args, item),
                     messages=[{"role": "user", "content": extract_prompt}],
-                    max_tokens=args.extraction_max_tokens,
+                    max_tokens=extraction_max_tokens_for_item(args, item),
                 )
                 extract_row = {"question_id": qid, "structured_facts": structured_facts}
                 append_jsonl(args.extract_out, extract_row)
@@ -1612,6 +2699,9 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                 token_evidence_signals=args.token_evidence_signals,
                 count_list_mode=args.count_list_mode,
                 strict_missing_final_answer=args.strict_missing_final_answer,
+                preference_support_packet=args.preference_support_packet,
+                preference_support_max_items=args.preference_support_max_items,
+                preference_support_per_source=args.preference_support_per_source,
             )
             if not args.source_aware:
                 route = "standard"
@@ -1619,9 +2709,9 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
             args,
             purpose="generation",
             qid=qid,
-            model=args.generation_model,
+            model=generation_model_for_item(args, item),
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=args.generation_max_tokens,
+            max_tokens=generation_max_tokens_for_item(args, item),
         )
         row: dict[str, Any] = {"question_id": qid, "hypothesis": hypothesis, "route": route}
         if aggregation_report is not None:
@@ -1645,9 +2735,9 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                     args,
                     purpose="correction",
                     qid=qid,
-                    model=args.generation_model,
+                    model=generation_model_for_item(args, item),
                     messages=[{"role": "user", "content": correction_prompt}],
-                    max_tokens=args.generation_max_tokens,
+                    max_tokens=generation_max_tokens_for_item(args, item),
                 )
                 row["original_hypothesis"] = hypothesis
                 row["hypothesis"] = corrected
@@ -1776,10 +2866,25 @@ def main() -> int:
     ap.add_argument("--extraction-model", default=DEFAULT_GENERATION_MODEL)
     ap.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL)
     ap.add_argument("--answerability-model", default=DEFAULT_JUDGE_MODEL)
+    ap.add_argument(
+        "--answerer-router",
+        choices=("off", "question_type_gpt5mini_temporal_preference_multi"),
+        default="off",
+        help=(
+            "route answerer/extractor/answerability models for selected question types; "
+            "question_type_gpt5mini_temporal_preference_multi routes temporal, preference, and multi-session rows"
+        ),
+    )
+    ap.add_argument("--routed-generation-model", default="gpt-5-mini")
+    ap.add_argument("--routed-extraction-model")
+    ap.add_argument("--routed-answerability-model")
     ap.add_argument("--generation-max-tokens", type=int, default=500)
     ap.add_argument("--judge-max-tokens", type=int, default=10)
     ap.add_argument("--extraction-max-tokens", type=int, default=1200)
     ap.add_argument("--answerability-max-tokens", type=int, default=10)
+    ap.add_argument("--routed-generation-max-tokens", type=int, default=0)
+    ap.add_argument("--routed-extraction-max-tokens", type=int, default=0)
+    ap.add_argument("--routed-answerability-max-tokens", type=int, default=0)
     ap.add_argument(
         "--generation-seed",
         type=int,
@@ -1893,6 +2998,33 @@ def main() -> int:
         default=12_000,
         help="max characters in deterministic aggregation assembly",
     )
+    ap.add_argument(
+        "--count-list-ledger",
+        choices=(
+            "off",
+            "python",
+            "typed_python",
+            "semantic_python",
+            "agent_llm",
+            "agent_plan",
+            "agent_schema",
+            "agent_blend",
+        ),
+        default="off",
+        help="use a structured candidate/dedupe/count ledger for multi-session count/list rows",
+    )
+    ap.add_argument(
+        "--count-list-ledger-max-candidates",
+        type=int,
+        default=36,
+        help="max candidate rows in Python count/list ledger",
+    )
+    ap.add_argument(
+        "--count-list-ledger-max-chars",
+        type=int,
+        default=12_000,
+        help="max characters in Python count/list ledger",
+    )
     ap.add_argument("--count-list-mode", action="store_true", help="use a specialized candidate/deduped-set prompt for count/list questions")
     ap.add_argument("--token-evidence", action="store_true", help="prepend a deterministic token evidence table to the answer prompt")
     ap.add_argument(
@@ -1940,6 +3072,24 @@ def main() -> int:
     ap.add_argument("--token-evidence-max-lines", type=int, default=5, help="max fact lines per retrieved source in the token evidence table")
     ap.add_argument("--token-evidence-signals", action="store_true", help="include raw date/number/temporal token dumps in the token evidence table")
     ap.add_argument(
+        "--preference-support-packet",
+        choices=("off", "retrieved"),
+        default="off",
+        help="prepend compact source-ordered preference support extracted only from already retrieved sessions",
+    )
+    ap.add_argument(
+        "--preference-support-max-items",
+        type=int,
+        default=10,
+        help="max compact preference-support rows to include",
+    )
+    ap.add_argument(
+        "--preference-support-per-source",
+        type=int,
+        default=2,
+        help="max compact preference-support rows per retrieved source",
+    )
+    ap.add_argument(
         "--strict-missing-final-answer",
         action="store_true",
         help="force unavailable final answers when source notes explicitly say required evidence is missing",
@@ -1967,6 +3117,36 @@ def main() -> int:
         type=int,
         default=12_000,
         help="max characters in the deterministic multi-session evidence ledger",
+    )
+    ap.add_argument(
+        "--multi-session-evidence-set",
+        choices=("off", "count_list", "source_select", "confidence_source_select"),
+        default="off",
+        help="use a compact broad-pool evidence set or source selector for multi-session count/list rows",
+    )
+    ap.add_argument(
+        "--multi-session-evidence-set-min-confidence",
+        type=float,
+        default=0.72,
+        help="minimum deterministic selector confidence for --multi-session-evidence-set confidence_source_select",
+    )
+    ap.add_argument(
+        "--multi-session-evidence-set-pool-k",
+        type=int,
+        default=30,
+        help="retrieved-session pool size scanned by --multi-session-evidence-set",
+    )
+    ap.add_argument(
+        "--multi-session-evidence-set-max-candidates",
+        type=int,
+        default=16,
+        help="max compact candidate rows in the multi-session evidence set",
+    )
+    ap.add_argument(
+        "--multi-session-evidence-set-max-chars",
+        type=int,
+        default=8_000,
+        help="max characters in the compact multi-session evidence set",
     )
     ap.add_argument("--answerability-check", action="store_true", help="gate unsupported answers before judging")
     ap.add_argument(

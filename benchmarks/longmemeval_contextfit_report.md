@@ -1493,3 +1493,44 @@ use. Keep `--aggregation-assembly` off by default as a failed diagnostic. The
 next useful path is not another table-to-prompt wrapper; it is typed extraction
 with row-level verification or a deterministic reducer that can abstain before
 the answer model sees an incomplete candidate set.
+
+## 2026-05-23 selective-fusion QA progress
+
+This section records end-to-end LongMemEval-S QA progress after the May 19
+fusion QA companion. It remains separate from retrieval/evidence recall. These
+runs generate answers from retrieved ContextFit evidence and judge them with the
+LongMemEval-style GPT-4o yes/no evaluator. They are local reproductions, not
+official leaderboard submissions.
+
+| QA run | Overall | Task-avg | Abstention | Model split |
+|---|---:|---:|---:|---|
+| Selective fusion, GPT-4o-only | 85.2% | 85.67% | 93.33% | GPT-4o generation/extraction/answerability/judge |
+| Selective fusion, GPT-5-mini answerer | **87.2%** | **87.58%** | **93.33%** | GPT-5-mini generation/extraction/answerability, GPT-4o judge |
+| First-class answerer router | 86.8% | 86.65% | 93.33% | GPT-5-mini for temporal/preference/multi-session rows, GPT-4o otherwise, GPT-4o judge |
+
+GPT-5-mini answerer breakdown:
+
+| Question type | Correct | Accuracy |
+|---|---:|---:|
+| knowledge-update | 71 / 78 | 91.03% |
+| multi-session | 104 / 133 | 78.20% |
+| single-session-assistant | 56 / 56 | 100.00% |
+| single-session-preference | 22 / 30 | 73.33% |
+| single-session-user | 67 / 70 | 95.71% |
+| temporal-reasoning | 116 / 133 | 87.22% |
+
+The first-class router validated that temporal rows benefit from the routed
+high-budget GPT-5-mini path: temporal-reasoning reached 118 / 133 = 88.72%,
+above both the GPT-5-mini full-answerer run and the GPT-4o-only run. The same
+router weakened multi-session synthesis to 100 / 133 = 75.19%, below both
+full-answerer baselines. Practical readout: keep 87.2% as the clean current QA
+headline, keep the 85.2% GPT-4o-only result for apples-to-apples comparison,
+and treat answerer routing as experimental until a follow-up run validates the
+more selective temporal-only benefit without losing multi-session rows.
+
+Primary artifacts:
+
+- `benchmarks/longmemeval_contextfit_qa_summary_selective_fusion_userpref_agent_blend_full_gpt4o_20260523.json`
+- `benchmarks/longmemeval_contextfit_qa_summary_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.json`
+- `benchmarks/longmemeval_contextfit_qa_summary_answerer_router_gpt5mini_temporal_pref_multi_else_gpt4o_20260523.json`
+- `benchmarks/longmemeval_gpt5mini_regression_audit_20260523.md`

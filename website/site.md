@@ -41,7 +41,7 @@ Behavior highlights:
 
 - Preference recommendation: ContextFit 85.5% R@1 vs OpenAI 77.4%.
 - Multi-session synthesis: ContextFit 82.1% R@1 vs OpenAI 87.5%.
-- LongMemEval-S: pure token-native ContextFit with conversation-aware parent/child chunks reaches 95.1% Any@5. It matches OpenAI fusion on preference Any@5 (83.3%) and narrows multi-session Any@5 to within ~0.8 pts. The companion-evidence coverage reranker preserves 95.1% Any@5 while improving overall All@5 from 77.9% to 80.4% and multi-session All@5 from 55.4% to 65.3%. A fresh optional OpenAI fusion artifact reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval with no vector database required. Its end-to-end GPT-4o QA companion reports 84.8% overall accuracy and 86.8% task-averaged accuracy using source-aware answer generation and GPT-4o judging.
+- LongMemEval-S: pure token-native ContextFit with conversation-aware parent/child chunks reaches 95.1% Any@5. It matches OpenAI fusion on preference Any@5 (83.3%) and narrows multi-session Any@5 to within ~0.8 pts. The companion-evidence coverage reranker preserves 95.1% Any@5 while improving overall All@5 from 77.9% to 80.4% and multi-session All@5 from 55.4% to 65.3%. A fresh optional OpenAI fusion artifact reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval with no vector database required. Current end-to-end QA progress reports 85.2% overall with a GPT-4o-only selective-fusion run, and 87.2% overall / 87.6% task-averaged with a GPT-5-mini answerer/extractor plus GPT-4o judging. These are local LongMemEval-style evaluations, not official leaderboard submissions.
 
 ## Install
 
