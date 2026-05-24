@@ -1598,7 +1598,8 @@
       Evaluated on a 499-case domain-agnostic agent memory benchmark across
       8 behavioral categories and 26 domains (Mem0 comparison on the original 79-case subset) — plus LongMemEval-S reruns where token-only
       coverage reranking improves complete multi-session evidence while preserving 95.1% Any@5. A fresh optional OpenAI fusion run reaches
-      <a href="/longmemeval-fusion-20260519.html">96.6% Any@5 / 98.7% Any@10</a> evidence retrieval with no vector database required,
+      <a href="/longmemeval-fusion-20260519.html">96.6% Any@5 / 98.7% Any@10</a> evidence retrieval with no vector database required;
+      auditable evidence-certificate reranking lifts that path to <strong>98.3% Any@5 / 99.2% Any@10</strong> and <strong>86.4% All@5</strong> with zero paired top-5 losses,
       and current end-to-end QA progress reports
       <a href="/longmemeval-fusion-qa-20260519.html">87.2% overall / 87.6% task-averaged</a> answer correctness with a GPT-5-mini answerer and GPT-4o judge.
     </p>
@@ -2043,7 +2044,7 @@
     <div class="wp-card reveal">
       <div class="label">Research</div>
       <h2 class="scroll-tokenize">Token-Native Agent Memory</h2>
-      <p>The full technical whitepaper: architecture, six primitives, 499-case benchmark
+      <p>The full technical whitepaper: architecture, seven primitives, 499-case benchmark
       methodology, feature ablation, per-behavior analysis, and deployment architecture.</p>
       <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
         <a href="whitepaper.html" class="btn-primary">Read the Whitepaper</a>

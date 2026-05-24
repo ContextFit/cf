@@ -7,7 +7,7 @@
 
 ## Abstract
 
-Modern AI agent memory systems share a common architectural assumption: that raw conversational context must be converted into embedding vectors before it can be retrieved. This paper challenges that assumption. We present **ContextFit**, a token-native memory retrieval system that operates directly on tokenized text without embedding APIs, LLM preprocessing, or vector databases. We introduce six novel primitives — **memory atoms** (deterministic domain-agnostic fact extraction), an **episode relevance scorer** (structural numeric session ranking), a **deterministic query router** (zero-cost query-to-mode dispatch), a **structural session reranker** (token-native post-retrieval reranking with question-type slot matching), a **router-gated preference reranker** (token-native taste-evidence ranking for personalized recommendations), and a **multi-session evidence-coverage reranker** (token-native complementary-evidence ranking for synthesis queries) — and evaluate them on a 499-case domain-agnostic agent-memory benchmark across eight behavioral categories spanning 26 domains. ContextFit's token-native episode scorer achieves **69.6% Recall@1 and MRR 0.824** on hard episodic inference tasks, outperforming OpenAI `text-embedding-3-small` (55.7% / 0.745) by 14 points and Mem0 with GPT-4o-mini extraction (54.4% / 0.716) by 15 points, while requiring **zero API calls** and running at **0.4ms query latency** — 375× faster than embedding-based retrieval. At scale, the auto router with preference and evidence-coverage reranking achieves **62.3% Recall@1 / 93.0% Recall@3** overall, **85.5% Recall@1** on preference recommendation retrieval, and **82.1% Recall@1** on multi-session synthesis, surpassing Cohere `embed-english-v3.0` (58.7% overall, 83.9% preference) at zero API cost. On LongMemEval-S, pure token-native ContextFit with conversation-aware parent/child chunks reaches **95.1% Any@5**, improving the previous token baseline through turn-aware session boundaries plus full-session parent context with no embeddings. A token-only companion-evidence coverage reranker lifts overall complete evidence coverage from **77.9% to 80.4% All@5** while preserving the 95.1% Any@5 headline. Optional OpenAI fusion achieves **96.0% Any@5**, within 1.6 points of the best published result; fusion is an optional boost, not the core claim.
+Modern AI agent memory systems share a common architectural assumption: that raw conversational context must be converted into embedding vectors before it can be retrieved. This paper challenges that assumption. We present **ContextFit**, a token-native memory retrieval system that operates directly on tokenized text without embedding APIs, LLM preprocessing, or vector databases. We introduce seven novel primitives — **memory atoms** (deterministic domain-agnostic fact extraction), an **episode relevance scorer** (structural numeric session ranking), a **deterministic query router** (zero-cost query-to-mode dispatch), a **structural session reranker** (token-native post-retrieval reranking with question-type slot matching), a **router-gated preference reranker** (token-native taste-evidence ranking for personalized recommendations), a **multi-session evidence-coverage reranker** (token-native complementary-evidence ranking for synthesis queries), and an **evidence-certificate reranker** (auditable generic promotion rules for answer-shaped evidence) — and evaluate them on a 499-case domain-agnostic agent-memory benchmark across eight behavioral categories spanning 26 domains. ContextFit's token-native episode scorer achieves **69.6% Recall@1 and MRR 0.824** on hard episodic inference tasks, outperforming OpenAI `text-embedding-3-small` (55.7% / 0.745) by 14 points and Mem0 with GPT-4o-mini extraction (54.4% / 0.716) by 15 points, while requiring **zero API calls** and running at **0.4ms query latency** — 375× faster than embedding-based retrieval. At scale, the auto router with preference and evidence-coverage reranking achieves **62.3% Recall@1 / 93.0% Recall@3** overall, **85.5% Recall@1** on preference recommendation retrieval, and **82.1% Recall@1** on multi-session synthesis, surpassing Cohere `embed-english-v3.0` (58.7% overall, 83.9% preference) at zero API cost. On LongMemEval-S, pure token-native ContextFit with conversation-aware parent/child chunks reaches **95.1% Any@5**, improving the previous token baseline through turn-aware session boundaries plus full-session parent context with no embeddings. A token-only companion-evidence coverage reranker lifts overall complete evidence coverage from **77.9% to 80.4% All@5** while preserving the 95.1% Any@5 headline. Optional OpenAI fusion achieves **96.6% Any@5** and **98.7% Any@10** evidence retrieval with no vector database required; auditable evidence-certificate reranking lifts that optional path to **98.3% Any@5**, **99.2% Any@10**, and **86.4% All@5** with zero paired top-5 losses versus the 96.6% fusion baseline.
 
 ---
 
@@ -349,6 +349,36 @@ A guardrail result is important: LongMemEval's `single-session-preference` slice
 
 ---
 
+### 7.7 Evidence-Certificate Reranking
+
+Evidence-certificate reranking is an auditable post-retrieval promotion layer. Unlike a learned reranker or benchmark-specific weight table, it only moves a candidate when a generic, named reason code fires and when the move does not displace protected answer-shaped evidence.
+
+Certificates are intentionally domain-agnostic:
+
+| Certificate | Meaning |
+|---|---|
+| `multi_count_target_fact` | Count/list query and candidate contains the item being counted, not just generic count words |
+| `temporal_date_entity` | Temporal query plus date, entity, and action evidence |
+| `answer_evidence_tail_protection` | Preserve rank-5 answer-shaped evidence unless the replacement is also answer-shaped |
+| `preference_episode_rescue` | Preference query where an outside candidate has stronger personal preference evidence than the rank-5 tail |
+| `temporal_entity_action_rescue` | Temporal rescue candidate has entity overlap, action evidence, and personal context |
+
+The production API exposes this as an optional `query_auto()` rerank:
+
+```python
+result = engine.query_auto(
+    query,
+    top_k=5,
+    evidence_certificate_rerank=True,
+    typed_rescue=True,
+    evidence_certificate_candidate_k=80,
+)
+```
+
+The targeted non-LongMemEval typed-rescue gate uses fictional product-shaped preference and temporal cases plus risk controls where the rescue must stay silent. The current gate passes **8/8** cases with paired movement **+5 / 0**, exercising both `preference_episode_rescue` and `temporal_entity_action_rescue`. This supports treating typed rescue as default-capable from a test-bar standpoint, while still keeping certificate traces visible for production observability.
+
+---
+
 ## 8. Benchmark Results
 
 ### 8.1 Agent-Memory Evaluation Suite
@@ -423,16 +453,19 @@ All metrics are Recall@1.
 
 On LongMemEval-S (500 questions, 470 scored after abstention exclusion):
 
-| System | Any@1 | Any@3 | Any@5 | All@5 | MRR |
-|---|---:|---:|---:|---:|---:|
-| ContextFit conversation-aware token-only | 82.3% | 90.4% | 94.7% | 77.7% | 0.870 |
-| ContextFit parent/child token-only | 82.8% | 90.6% | **95.1%** | 77.9% | 0.873 |
-| **ContextFit parent/child + coverage rerank** | **82.8%** | **91.3%** | **95.1%** | **80.4%** | **0.875** |
-| ContextFit + local BGE fusion | 82.3% | 93.0% | 95.1% | 83.2% | 0.879 |
-| ContextFit + OpenAI fusion | 83.6% | 94.0% | **96.0%** | 84.9% | 0.889 |
-| gbrain-hybrid (published) | — | — | **97.6%** | — | — |
+| System | Any@1 | Any@3 | Any@5 | Any@10 | All@5 | All@10 | MRR |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| ContextFit conversation-aware token-only | 82.3% | 90.4% | 94.7% | — | 77.7% | — | 0.870 |
+| ContextFit parent/child token-only | 82.8% | 90.6% | **95.1%** | — | 77.9% | — | 0.873 |
+| **ContextFit parent/child + coverage rerank** | **82.8%** | **91.3%** | **95.1%** | — | **80.4%** | — | **0.875** |
+| ContextFit + local BGE fusion | 82.3% | 93.0% | 95.1% | — | 83.2% | — | 0.879 |
+| ContextFit + OpenAI fusion | 83.6% | 94.0% | 96.0% | — | 84.9% | — | 0.889 |
+| **ContextFit + OpenAI fusion, 2026-05-19 artifact** | **84.7%** | **94.3%** | **96.6%** | **98.7%** | **83.6%** | **91.3%** | **0.900** |
+| ContextFit + OpenAI fusion + evidence certificates | 84.9% | 94.9% | 98.1% | 98.9% | **86.4%** | — | 0.902 |
+| **ContextFit + OpenAI fusion + certificates + typed rescue** | **84.9%** | **94.9%** | **98.3%** | **99.2%** | 86.4% | — | **0.902** |
+| gbrain-hybrid (published) | — | — | **97.6%** | — | — | — | — |
 
-ContextFit's parent/child conversation-aware token-native path is the primary LongMemEval claim and closes most of the theoretical gap at zero cost. It reaches 95.1% Any@5 without embeddings, narrowing the gap to gbrain-hybrid to 2.5 percentage points; optional OpenAI embedding fusion narrows it to 1.6 percentage points. The companion-evidence coverage reranker keeps that 95.1% Any@5 headline intact while lifting overall All@5 from **77.9% to 80.4%**.
+ContextFit's parent/child conversation-aware token-native path is the primary LongMemEval claim and closes most of the theoretical gap at zero cost. It reaches 95.1% Any@5 without embeddings, narrowing the gap to gbrain-hybrid to 2.5 percentage points. A fresh optional OpenAI fusion artifact reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval with no vector database required. The companion-evidence coverage reranker keeps the 95.1% token-only Any@5 headline intact while lifting overall All@5 from **77.9% to 80.4%**. The evidence-certificate layer is an auditable production reranker: promotions carry generic reason codes, not benchmark-specific labels. In local retrieval validation, certificates plus typed rescue improve the optional-fusion path to **98.3% Any@5** and **99.2% Any@10** with zero paired top-5 losses versus the 96.6% baseline.
 
 By question type, the parent/child token-only path closes the LongMemEval preference gap on top-5 retrieval: single-session preference Any@5 improves from 76.7% in the original token baseline to **83.3%**, matching OpenAI fusion, while preference Any@1 is higher than OpenAI fusion (43.3% vs 40.0%). On multi-session questions, token-only Any@5 improves from 93.4% to **95.0%**, narrowing the gap to OpenAI fusion to roughly 0.8 points. Coverage reranking targets the remaining weakness: multi-session All@5 improves from **55.4% to 65.3%**, narrowing the OpenAI fusion coverage gap from 17.4 points to 7.4 points.
 
@@ -476,7 +509,7 @@ Token-native retrieval has O(N) CPU cost at ingest (tokenization + BM25 index) a
 
 ### 9.5 It Is Composable
 
-The six primitives — memory atoms, episode scorer, query router, structural reranker, preference reranker, and evidence-coverage reranker — are independently useful and combinable:
+The seven primitives — memory atoms, episode scorer, query router, structural reranker, preference reranker, evidence-coverage reranker, and evidence-certificate reranker — are independently useful and combinable:
 
 - **Memory atoms alone** provide a 70% Recall@1 baseline that beats raw BM25 by 26 points on explicit memory queries
 - **Episode scorer alone** provides the best single-mode performance for vague advice queries
@@ -484,6 +517,7 @@ The six primitives — memory atoms, episode scorer, query router, structural re
 - **Structural reranker** improves BM25-path precision with ten token-native session features and question-type slot matching
 - **Preference reranker** closes the generated preference recommendation gap with 85.5% R@1 at zero API cost
 - **Evidence-coverage reranker** narrows the multi-session synthesis gap from −14.3 to −5.4 points vs OpenAI embeddings
+- **Evidence-certificate reranker** promotes answer-shaped evidence with auditable reason codes and zero paired top-5 losses on the latest LongMemEval-S retrieval validation
 - **OpenAI fusion** is available as an optional enhancement that adds embedding signal where it genuinely helps (facts, decisions) while the token-native path handles episodic inference
 
 No other memory system in this space offers this composability with deterministic, interpretable routing.
@@ -500,9 +534,9 @@ The episode scorer performs a linear scan over all indexed sessions. At 100 sess
 
 The current memory atom patterns are English-only. Extending to multilingual corpora requires either translated pattern sets or a language-agnostic alternative (e.g., dependency-parse-based extraction).
 
-### 10.3 LongMemEval Gap
+### 10.3 LongMemEval Framing
 
-A 1.6-point gap to the best published LongMemEval result remains when using optional OpenAI fusion. Fresh local-embedding experiments with BGE already reach **95.1% Any@5** without an external API, only 0.9 points below OpenAI fusion. The remaining work is to integrate local embedding fusion as a first-class optional mode without compromising the pure token-native default.
+The optional OpenAI-fusion plus evidence-certificate path now reaches **98.3% Any@5** and **99.2% Any@10** in the local retrieval harness, above gbrain-hybrid's published **97.6% R@5** reference. This should still be framed carefully: ContextFit's primary product claim remains the token-native path, and broad public comparisons should be apples-to-apples against exact harnesses. The remaining work is not to tune harder to LongMemEval, but to validate the same certificate behavior on more product-shaped agent-memory corpora and expose certificate traces in runtime observability.
 
 ### 10.4 Multi-Session Synthesis
 
@@ -637,7 +671,8 @@ All code, benchmark runners, and evaluation data are available at:
 Key files:
 - `src/contextfit/retrieval/memory_atoms.py` — atom extraction and episode scorer
 - `src/contextfit/retrieval/query_router.py` — deterministic query router
-- `src/contextfit/retrieval/engine.py` — production retrieval engine (includes `rerank_sessions_by_structure()` and structure-aware `ingest_file()`)
+- `src/contextfit/retrieval/engine.py` — production retrieval engine (includes `rerank_sessions_by_structure()`, `rerank_sessions_by_evidence_certificates()`, and structure-aware `ingest_file()`)
+- `src/contextfit/retrieval/evidence_certificates.py` — auditable evidence-certificate promotion and typed-rescue rules
 - `src/contextfit/extractors/document.py` — Markdown/plain-text metadata extraction and structure-aware chunking
 - `src/contextfit/extractors/tmd.py` — row-aware TMD extraction/chunking
 - `src/contextfit/extractors/structured.py` — JSON/JSONL object records and CSV/TSV row-aware chunking

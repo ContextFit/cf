@@ -249,6 +249,7 @@
       <li><a href="#scorer">Relevance Scorer</a></li>
       <li><a href="#router">Query Router</a></li>
       <li><a href="#structure-ingest">Structure-Aware Ingestion</a></li>
+      <li><a href="#certificates">Evidence Certificates</a></li>
       <li><a href="#results">Benchmark Results</a></li>
       <li><a href="#impact">Impact</a></li>
       <li><a href="#conclusion">Conclusion</a></li>
@@ -273,7 +274,7 @@
     </div>
 
     <div id="abstract" class="abstract">
-      Modern AI agent memory systems share a common architectural assumption: that raw conversational context must be converted into embedding vectors before it can be retrieved. This paper challenges that assumption. We present <strong>ContextFit</strong>, a token-native memory retrieval system that operates directly on tokenized text without embedding APIs, LLM preprocessing, or vector databases.
+      Modern AI agent memory systems share a common architectural assumption: that raw conversational context must be converted into embedding vectors before it can be retrieved. This paper challenges that assumption. We present <strong>ContextFit</strong>, a token-native memory retrieval system that operates directly on tokenized text without embedding APIs, LLM preprocessing, or vector databases. The latest architecture adds auditable evidence certificates: generic reason codes that can promote answer-shaped evidence without hiding ranking behavior inside opaque weights.
     </div>
 
     <div id="intro">
@@ -295,7 +296,7 @@
         <strong>The Token-Native Pipeline:</strong><br>
         Ingest (2.7ms/session) &rarr; Tokenization &rarr; Inverted Index (BM25) &rarr; Deterministic Atom Extraction &rarr; LSH Signatures.
         <br><br>
-        Query (0.4-9ms) &rarr; Deterministic Router &rarr; Mode Selection &rarr; Structural / Preference / Evidence-Coverage Reranking &rarr; Ranked Results.
+        Query (0.4-9ms) &rarr; Deterministic Router &rarr; Mode Selection &rarr; Structural / Preference / Evidence-Coverage / Evidence-Certificate Reranking &rarr; Ranked Results.
       </div>
     </div>
 
@@ -369,8 +370,17 @@
       </div>
     </div>
 
+    <div id="certificates">
+      <h2>9. Evidence-Certificate Reranking</h2>
+      <p>Evidence-certificate reranking is an auditable post-retrieval promotion layer. A candidate can move up only when a generic, named reason code fires, and the move cannot displace protected answer-shaped evidence with weaker companion evidence.</p>
+      <p>Certificate reasons include <code>multi_count_target_fact</code>, <code>temporal_date_entity</code>, <code>answer_evidence_tail_protection</code>, <code>preference_episode_rescue</code>, and <code>temporal_entity_action_rescue</code>. The rule names are part of the trace, so runtime logs can show why a result moved, where it came from, and whether typed rescue fired.</p>
+      <div class="highlight-card">
+        On the targeted non-LongMemEval typed-rescue gate, the certificate layer passes <strong>8/8</strong> product-shaped cases with paired movement <strong>+5 / 0</strong>. On LongMemEval-S retrieval, optional OpenAI fusion plus certificates and typed rescue reaches <strong>98.3% Any@5</strong>, <strong>99.2% Any@10</strong>, and <strong>86.4% All@5</strong> with zero paired top-5 losses versus the 96.6% fusion baseline.
+      </div>
+    </div>
+
     <div id="results">
-      <h2>9. Benchmark Results</h2>
+      <h2>10. Benchmark Results</h2>
       <p>Evaluated on a 499-case domain-agnostic agent-memory benchmark across 8 behaviors and 26 domains, plus a 79-case hard episodic subset.</p>
       <table>
         <thead>
@@ -395,17 +405,17 @@
         </tbody>
       </table>
       <p>On the 79-case hard episodic subset, ContextFit outperforms OpenAI embeddings by 14 points in Recall@1 while running 375&times; faster. On the expanded 499-case benchmark, the auto router with preference and evidence-coverage reranking reaches 62.3% overall R@1 / 93.0% R@3, 85.5% preference R@1, and 82.1% multi-session synthesis R@1 at zero API cost.</p>
-      <p>On fresh LongMemEval-S reruns, pure token-native ContextFit with conversation-aware parent/child chunks reaches 95.1% Any@5, improving the previous token baseline through turn-aware session boundaries plus full-session parent context with no embeddings. A token-only companion-evidence coverage reranker then improves complete evidence coverage: overall All@5 rises from 77.9% to 80.4% while preserving the 95.1% Any@5 headline. Optional OpenAI fusion reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval with no vector database required; fusion is an optional boost, not the core claim.</p>
+      <p>On fresh LongMemEval-S reruns, pure token-native ContextFit with conversation-aware parent/child chunks reaches 95.1% Any@5, improving the previous token baseline through turn-aware session boundaries plus full-session parent context with no embeddings. A token-only companion-evidence coverage reranker then improves complete evidence coverage: overall All@5 rises from 77.9% to 80.4% while preserving the 95.1% Any@5 headline. Optional OpenAI fusion reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval with no vector database required; auditable evidence certificates plus typed rescue lift that optional path to 98.3% Any@5, 99.2% Any@10, and 86.4% All@5 with zero paired top-5 losses versus the 96.6% fusion baseline.</p>
       <p>By question type, parent/child token-only closes the top-5 preference gap: single-session preference Any@5 reaches 83.3%, matching OpenAI fusion, while preference Any@1 is higher than OpenAI fusion (43.3% vs 40.0%). On multi-session questions, token-only Any@5 improves to 95.0%, within roughly 0.8 points of OpenAI fusion, and coverage reranking lifts multi-session All@5 from 55.4% to 65.3%. The remaining OpenAI advantage is now narrower: 65.3% token-only versus 72.7% with OpenAI fusion.</p>
     </div>
 
     <div id="impact">
-      <h2>10. Impact & Implications</h2>
+      <h2>11. Impact & Implications</h2>
       <p>By removing the embedding dependency tier, ContextFit eliminates vendor lock-in, reduces network failure modes in the critical retrieval path, and eliminates per-query costs at agent scale.</p>
     </div>
 
     <div id="conclusion">
-      <h2>11. Conclusion</h2>
+      <h2>12. Conclusion</h2>
       <p>The assumption that conversational memory must be converted to vectors is a convention inherited from document retrieval, not a technical necessity. Token-native retrieval is not just faster and cheaper—for the hardest memory problems, it is more accurate.</p>
     </div>
 

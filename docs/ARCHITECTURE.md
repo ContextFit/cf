@@ -295,6 +295,29 @@ def traverse(query_tokens, start_chunks, depth=2):
     return visited
 ```
 
+### 3.5 Post-Retrieval Evidence Certificates
+
+ContextFit can apply an optional evidence-certificate rerank after candidate
+retrieval. The rerank stays token-native and auditable: a session can move up
+only when a named, generic certificate fires, and protected answer-shaped
+evidence is not displaced by weaker companion evidence.
+
+Examples:
+- `multi_count_target_fact`: count/list query and candidate contains the item being counted.
+- `temporal_date_entity`: temporal query plus date, entity, and action evidence.
+- `answer_evidence_tail_protection`: preserve answer-shaped rank-5 evidence unless the replacement is also answer-shaped.
+- `preference_episode_rescue`: preference query where an outside candidate has stronger personal preference evidence than the rank-5 tail.
+- `temporal_entity_action_rescue`: temporal rescue candidate has entity overlap, action evidence, and personal context.
+
+Production entry points:
+- `RetrievalEngine.rerank_sessions_by_evidence_certificates(...)`
+- `query_auto(..., evidence_certificate_rerank=True, typed_rescue=True, evidence_certificate_candidate_k=80)`
+
+Certificate traces are part of the design: callers should be able to inspect why
+a result moved, the original rank, the certificate reason, and whether typed
+rescue fired. The rules are not tied to LongMemEval labels or benchmark-specific
+IDs.
+
 ---
 
 ## 4. Hierarchy Layer: Geo-Map Navigation

@@ -8,7 +8,7 @@ ContextFit is a filesystem-native Python memory retrieval engine for AI agents. 
 
 - ContextFit retrieves directly over tokenized conversation/session text.
 - The core path is local, deterministic, CPU-only, and zero API cost.
-- It uses interpretable primitives: memory atoms, episode relevance scoring, query routing, structural reranking, preference reranking, and multi-session evidence coverage.
+- It uses interpretable primitives: memory atoms, episode relevance scoring, query routing, structural reranking, preference reranking, multi-session evidence coverage, and auditable evidence certificates.
 - It supports compact citation handles: the model can see short `@r1` references while exact provenance, scores, and expiration live in a sidecar map for runtime/UI resolution.
 - It is designed for agent memory: preferences, decisions, goals, constraints, temporal updates, open loops, and synthesis across sessions.
 - It is not just a benchmark trick; it is a deployment simplification. The index is files on disk.
@@ -18,7 +18,7 @@ ContextFit is a filesystem-native Python memory retrieval engine for AI agents. 
 - 499-case agent-memory eval: 62.3% R@1 / 93.0% R@3 with routed rerankers.
 - Preference recommendation: 85.5% R@1, ahead of OpenAI embed-3-small on that behavior.
 - Multi-session synthesis: 82.1% R@1, narrowing the embedding gap substantially.
-- LongMemEval-S: 95.1% Any@5 pure token-native ContextFit with conversation-aware parent/child chunks. It matches OpenAI fusion on preference Any@5 (83.3%) and narrows multi-session Any@5 to within ~0.8 pts. A token-only companion-evidence coverage reranker preserves 95.1% Any@5 while improving overall All@5 from 77.9% to 80.4% and multi-session All@5 from 55.4% to 65.3%. A fresh optional OpenAI fusion artifact reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval with no vector database required; the auditable evidence-certificate reranker reaches 98.3% Any@5 and 99.2% Any@10 in the same local retrieval harness. Current end-to-end QA progress reports 85.2% overall with a GPT-4o-only selective-fusion run, and 87.2% overall / 87.6% task-averaged with a GPT-5-mini answerer/extractor plus GPT-4o judging. These are local LongMemEval-style evaluations, not official leaderboard submissions.
+- LongMemEval-S: 95.1% Any@5 pure token-native ContextFit with conversation-aware parent/child chunks. It matches OpenAI fusion on preference Any@5 (83.3%) and narrows multi-session Any@5 to within ~0.8 pts. A token-only companion-evidence coverage reranker preserves 95.1% Any@5 while improving overall All@5 from 77.9% to 80.4% and multi-session All@5 from 55.4% to 65.3%. A fresh optional OpenAI fusion artifact reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval with no vector database required; the auditable evidence-certificate reranker reaches 98.3% Any@5, 99.2% Any@10, and 86.4% All@5 in the same local retrieval harness, with zero paired top-5 losses versus the 96.6% fusion baseline. Current end-to-end QA progress reports 85.2% overall with a GPT-4o-only selective-fusion run, and 87.2% overall / 87.6% task-averaged with a GPT-5-mini answerer/extractor plus GPT-4o judging. These are local LongMemEval-style evaluations, not official leaderboard submissions.
 
 ## Install
 

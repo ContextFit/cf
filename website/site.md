@@ -4,7 +4,7 @@ ContextFit is an open-source memory retrieval engine for AI agents. It asks a si
 
 Interactive demo: https://context.fit/demo.html shows four memory scenarios where ContextFit retrieves preferences, open loops, temporal updates, and multi-session evidence with citations.
 
-Instead of sending every session through an embedding model and hiding meaning inside cosine distance, ContextFit keeps memory close to the text. It indexes tokenized conversations, extracts deterministic memory atoms, scores episodes by the kind of memory they contain, routes queries to the right retrieval mode, and reranks with transparent token-native signals.
+Instead of sending every session through an embedding model and hiding meaning inside cosine distance, ContextFit keeps memory close to the text. It indexes tokenized conversations, extracts deterministic memory atoms, scores episodes by the kind of memory they contain, routes queries to the right retrieval mode, and reranks with transparent token-native signals, including auditable evidence certificates.
 
 The emotional point is trust. Agent memory is intimate: preferences, decisions, constraints, goals, open loops, and the history of what someone told you. ContextFit is designed so that memory can be inspected, explained, moved, backed up, and run locally.
 
@@ -25,6 +25,7 @@ The emotional point is trust. Agent memory is intimate: preferences, decisions, 
 4. **Structural session reranker** — token-native post-retrieval reranking with question-type slot matching.
 5. **Preference reranker** — user-authored taste evidence for personalized recommendations.
 6. **Evidence-coverage reranker** — complementary-evidence ranking for multi-session synthesis.
+7. **Evidence-certificate reranker** — auditable promotion rules that move strong answer evidence up only when generic reason codes fire.
 
 ## Benchmarks
 
@@ -41,7 +42,7 @@ Behavior highlights:
 
 - Preference recommendation: ContextFit 85.5% R@1 vs OpenAI 77.4%.
 - Multi-session synthesis: ContextFit 82.1% R@1 vs OpenAI 87.5%.
-- LongMemEval-S: pure token-native ContextFit with conversation-aware parent/child chunks reaches 95.1% Any@5. It matches OpenAI fusion on preference Any@5 (83.3%) and narrows multi-session Any@5 to within ~0.8 pts. The companion-evidence coverage reranker preserves 95.1% Any@5 while improving overall All@5 from 77.9% to 80.4% and multi-session All@5 from 55.4% to 65.3%. A fresh optional OpenAI fusion artifact reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval with no vector database required; the auditable evidence-certificate reranker reaches 98.3% Any@5 and 99.2% Any@10 in the same local retrieval harness. Current end-to-end QA progress reports 85.2% overall with a GPT-4o-only selective-fusion run, and 87.2% overall / 87.6% task-averaged with a GPT-5-mini answerer/extractor plus GPT-4o judging. These are local LongMemEval-style evaluations, not official leaderboard submissions.
+- LongMemEval-S: pure token-native ContextFit with conversation-aware parent/child chunks reaches 95.1% Any@5. It matches OpenAI fusion on preference Any@5 (83.3%) and narrows multi-session Any@5 to within ~0.8 pts. The companion-evidence coverage reranker preserves 95.1% Any@5 while improving overall All@5 from 77.9% to 80.4% and multi-session All@5 from 55.4% to 65.3%. A fresh optional OpenAI fusion artifact reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval with no vector database required; the auditable evidence-certificate reranker reaches 98.3% Any@5, 99.2% Any@10, and 86.4% All@5 in the same local retrieval harness, with zero paired top-5 losses versus the 96.6% fusion baseline. Current end-to-end QA progress reports 85.2% overall with a GPT-4o-only selective-fusion run, and 87.2% overall / 87.6% task-averaged with a GPT-5-mini answerer/extractor plus GPT-4o judging. These are local LongMemEval-style evaluations, not official leaderboard submissions.
 
 ## Install
 
