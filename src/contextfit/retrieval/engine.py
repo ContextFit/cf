@@ -23,6 +23,7 @@ from contextfit.index.bm25 import BM25Scorer
 from contextfit.index.inverted import InvertedIndex, SegmentWriter, SegmentMerger
 from contextfit.metadata.index import MetadataIndex
 from contextfit.retrieval.evidence_atoms import rerank_sessions_by_evidence_atoms
+from contextfit.retrieval.evidence_certificates import rerank_with_optional_typed_rescue
 from contextfit.retrieval.memory_atoms import (
     augment_query_for_memory_atoms,
     atom_type_priors,
@@ -984,6 +985,9 @@ class RetrievalEngine:
         max_tokens: int = 200_000,
         session_field: str = "session_id",
         evidence_atom_rerank: bool = False,
+        evidence_certificate_rerank: bool = False,
+        typed_rescue: bool = False,
+        evidence_certificate_candidate_k: int = 80,
     ) -> dict:
         """Auto-route a query to the best retrieval mode and return results.
 
@@ -994,6 +998,11 @@ class RetrievalEngine:
         - multi_session_rerank: evidence-coverage planning/background queries
         - atom_fusion: preference / constraint / goal queries with strong verbs
         - episode_bm25_fusion: fallback multi-session synthesis fusion
+
+        `evidence_certificate_rerank` enables the productionized v4
+        certificate promotion layer. `typed_rescue` additionally enables the
+        v5 rescue-only preference/temporal stage; it has no effect unless
+        certificate reranking is enabled.
 
         Returns a dict with:
             route: QueryRoute
@@ -1220,7 +1229,122 @@ class RetrievalEngine:
                     if len(session_ids) >= top_k:
                         break
 
+        if evidence_certificate_rerank and session_ids:
+            cert_result = self.rerank_sessions_by_evidence_certificates(
+                query,
+                session_ids,
+                route_mode=route.mode,
+                top_k=top_k,
+                retrieval_k=retrieval_k,
+                method=method,
+                max_tokens=max_tokens,
+                session_field=session_field,
+                candidate_k=evidence_certificate_candidate_k,
+                typed_rescue=typed_rescue,
+            )
+            session_ids = cert_result["session_ids"]
+            if cert_result["certificates"]:
+                details["evidence_certificates"] = cert_result["certificates"]
+            details["evidence_certificate_rerank"] = {
+                "enabled": True,
+                "typed_rescue": typed_rescue,
+                "candidate_k": evidence_certificate_candidate_k,
+            }
+
         return {"route": route, "session_ids": session_ids, "details": details}
+
+    def rerank_sessions_by_evidence_certificates(
+        self,
+        query: str,
+        current_session_ids: list[str],
+        *,
+        route_mode: str | None = None,
+        top_k: int = 10,
+        retrieval_k: int = 50,
+        method: str = "hybrid",
+        max_tokens: int = 200_000,
+        session_field: str = "session_id",
+        candidate_k: int = 80,
+        typed_rescue: bool = False,
+    ) -> dict:
+        """Apply auditable evidence certificates to session-level results.
+
+        This is the production hook for the v4/v5 certificate work.  It
+        preserves the current top sessions unless a broader candidate has a
+        reusable certificate strong enough to justify a tail promotion.
+        """
+        base_order: list[str] = []
+        seen: set[str] = set()
+        source_texts: dict[str, list[str]] = {}
+        source_dates: dict[str, str] = {}
+
+        def add_session(session_id: str, text: str = "", metadata: dict | None = None) -> None:
+            sid = str(session_id)
+            if not sid:
+                return
+            if sid not in seen:
+                seen.add(sid)
+                base_order.append(sid)
+            if text:
+                source_texts.setdefault(sid, []).append(text)
+            if metadata:
+                for field in ("date", "timestamp", "created_at", "updated_at"):
+                    value = metadata.get(field)
+                    if value and sid not in source_dates:
+                        source_dates[sid] = str(value)
+                        break
+
+        for sid in current_session_ids:
+            add_session(str(sid))
+
+        broad = self.query(
+            query,
+            top_k=max(retrieval_k, candidate_k, top_k),
+            method=method,
+            max_tokens=max_tokens,
+        )
+        for chunk in broad.chunks:
+            meta = chunk.metadata or self.metadata.get(chunk.chunk_id)
+            sid = str(meta.get(session_field) or meta.get("source_id") or "")
+            if not sid:
+                continue
+            try:
+                text = self.tokenizer.decode(chunk.tokens.tolist())
+            except Exception:
+                text = ""
+            add_session(sid, text, meta)
+
+        # Fill missing texts/dates from indexed session chunks. This keeps the
+        # post-processor usable when the current route came from episode scores
+        # or grouped retrieval rather than direct chunks.
+        need_all_sessions = typed_rescue
+        wanted = set(base_order[: max(top_k, candidate_k)])
+        for chunk in self.store.iter_chunks(level=0):
+            meta = chunk.metadata or self.metadata.get(chunk.chunk_id)
+            sid = str(meta.get(session_field) or meta.get("source_id") or "")
+            if not sid or (not need_all_sessions and sid not in wanted):
+                continue
+            try:
+                text = self.tokenizer.decode(chunk.tokens.tolist())
+            except Exception:
+                text = ""
+            add_session(sid, text, meta)
+
+        flat_texts = {sid: "\n".join(parts) for sid, parts in source_texts.items()}
+        result = rerank_with_optional_typed_rescue(
+            query,
+            flat_texts,
+            base_order,
+            top_k,
+            candidate_k=candidate_k,
+            source_dates=source_dates,
+            route_mode=route_mode,
+            typed_rescue=typed_rescue,
+        )
+        return {
+            "session_ids": result.session_ids,
+            "certificates": result.traces(),
+        }
 
     def query_groups(
         self,

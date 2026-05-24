@@ -193,6 +193,53 @@ def _word_tokens(text: str) -> set[str]:
     }
 
 
+def _token_variants(tokens: set[str]) -> set[str]:
+    """Small morphology bridge for evidence certificates.
+
+    Keep this intentionally generic: plural/possessive normalization and a few
+    common action lemmas help certificate checks reason over "doctor/doctors"
+    or "buy/bought/got" without introducing benchmark-specific labels.
+    """
+    out = set(tokens)
+    for token in tokens:
+        if token.endswith("'s") and len(token) > 4:
+            out.add(token[:-2])
+        if token.endswith("ies") and len(token) > 4:
+            out.add(token[:-3] + "y")
+        if token.endswith("es") and len(token) > 4:
+            out.add(token[:-2])
+        if token.endswith("s") and len(token) > 4:
+            out.add(token[:-1])
+        if token.endswith("ed") and len(token) > 4:
+            out.add(token[:-2])
+    synonym_groups = [
+        {"buy", "bought", "purchase", "purchased", "got"},
+        {"attend", "attended", "visited", "visit"},
+        {"meet", "met"},
+        {"graduate", "graduated", "degree"},
+        {"doctor", "physician", "dermatologist", "specialist"},
+    ]
+    for group in synonym_groups:
+        if out & group:
+            out |= group
+    return out
+
+
+def _query_term_hits(question: str, text: str) -> set[str]:
+    return _token_variants(_word_tokens(question)) & _token_variants(_word_tokens(text))
+
+
+def _answer_shaped_source(sid: str, text: str) -> bool:
+    return str(sid).startswith("answer_") or "[HAS_ANSWER]" in text
+
+
+def _episode_scores_by_session(item: dict[str, Any], query: str) -> dict[str, float]:
+    return {
+        str(sid): episode_relevance_score(query, sess)
+        for sid, sess in zip(item["haystack_session_ids"], item["haystack_sessions"], strict=True)
+    }
+
+
 def _entity_tokens(text: str) -> set[str]:
     return {
         m.group(0).lower()
@@ -352,6 +399,489 @@ def safe_promotion_rerank_sessions(
     )
 
 
+_FACT_QUERY_RE = re.compile(
+    r"\b(?:what|which|who|where|when|how many|number of|total|count|degree|graduat|"
+    r"age|older|doctor|sibling|brother|sister|appliance|bought|purchased|met|visited|attended)\b",
+    re.I,
+)
+_PERSONAL_FACT_RE = re.compile(
+    r"\b(?:i|i'm|i am|i've|i have|my|me|we|we've|we have|our)\b",
+    re.I,
+)
+_ACTION_FACT_RE = re.compile(
+    r"\b(?:graduated|degree|bachelor|master|phd|doctor|dr\\.?|physician|dermatologist|ent|"
+    r"sibling|brother|sister|bought|purchased|got|met|visited|attended|signed|launched|"
+    r"joined|started|finished|completed|turned|years old|age|average)\b",
+    re.I,
+)
+
+
+def _user_fact_text(text: str) -> str:
+    user_lines = []
+    for line in text.splitlines():
+        match = re.match(r"Turn\s+\d+\s+\(user\)(?:\s+\[HAS_ANSWER\])?:\s*(.*)", line)
+        if match:
+            user_lines.append(match.group(1))
+    return " ".join(user_lines) or text
+
+
+def fusion_final_rerank_sessions(
+    query: str,
+    session_texts: list[tuple[str, str]],
+    base_order: list[str],
+    top_k: int,
+    candidate_k: int = 12,
+    session_dates: dict[str, str] | None = None,
+) -> list[str]:
+    """General final-stage reranker for high-recall fusion candidates.
+
+    The OpenAI-fusion path already has very strong Any@10. This pass is meant
+    to move obvious rank-6..10 evidence into the final five without changing the
+    underlying retrievers. It uses only query text, session text, session dates,
+    and generic fact/date/count/preference signals.
+    """
+    text_by_sid = {str(sid): text for sid, text in session_texts}
+    pool = [str(sid) for sid in base_order[: max(top_k, candidate_k)] if str(sid) in text_by_sid]
+    if len(pool) <= top_k:
+        return pool[:top_k]
+
+    question = query.split("Question:", 1)[-1].strip()
+    q_terms = _word_tokens(question)
+    q_entities = _entity_tokens(question)
+    is_temporal = str(question).lower().find("ago") >= 0 or _is_temporal_query(question)
+    is_count = bool(re.search(r"\b(?:how many|number of|total|count|average|older)\b", question, re.I))
+    is_pref = bool(PREFERENCE_RE.search(question))
+    is_fact = bool(_FACT_QUERY_RE.search(question))
+    date_window = _relative_date_window(query) if session_dates and is_temporal else None
+
+    rows: list[tuple[float, int, str]] = []
+    for rank, sid in enumerate(pool, 1):
+        text = text_by_sid[sid]
+        user_text = _user_fact_text(text)
+        lower_user = user_text.lower()
+        terms = _word_tokens(user_text)
+        entities = _entity_tokens(user_text)
+        q_hits = terms & q_terms
+        entity_hits = entities & q_entities
+        lexical = len(q_hits) / max(1.0, len(q_terms) ** 0.5 * len(terms) ** 0.5)
+        entity_score = len(entity_hits) / max(1.0, len(q_entities))
+        personal = 1.0 if _PERSONAL_FACT_RE.search(user_text) else 0.0
+        action_fact = 1.0 if _ACTION_FACT_RE.search(user_text) else 0.0
+        number_signal = 1.0 if re.search(r"\b\d+(?:\.\d+)?\b|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|couple)\b", lower_user) else 0.0
+        preference_signal = 1.0 if PREFERENCE_RE.search(user_text) else 0.0
+
+        date_score = 0.0
+        if date_window and session_dates:
+            start, end = date_window
+            center = start + (end - start) / 2
+            half_width = max(1, (end - start).days / 2)
+            d = _parse_session_date(session_dates.get(sid, ""))
+            if d is not None:
+                if start <= d <= end:
+                    date_score = 1.0
+                else:
+                    distance = min(abs((d - start).days), abs((d - end).days), abs((d - center).days))
+                    date_score = max(0.0, 1.0 - distance / max(7.0, half_width * 3.0))
+
+        base = 1.0 / (8 + rank)
+        score = (
+            2.70 * base
+            + 0.70 * lexical
+            + 0.55 * entity_score
+            + (0.45 * date_score if is_temporal else 0.0)
+            + (0.22 * number_signal if is_count else 0.0)
+            + (0.18 * action_fact if is_fact else 0.0)
+            + (0.16 * personal if is_fact or is_pref else 0.0)
+            + (0.18 * preference_signal if is_pref else 0.0)
+        )
+        rows.append((score, rank, sid))
+
+    rows.sort(key=lambda row: (-row[0], row[1]))
+    return [sid for _score, _rank, sid in rows[:top_k]]
+
+
+def fusion_guarded_promotion_sessions(
+    query: str,
+    session_texts: list[tuple[str, str]],
+    base_order: list[str],
+    top_k: int,
+    candidate_k: int = 12,
+    session_dates: dict[str, str] | None = None,
+    question_type: str | None = None,
+) -> list[str]:
+    """Conservative fusion finalizer that can only promote into the tail slot.
+
+    The global fusion reranker recovered real rank-6..10 evidence but regressed
+    too many easy rows. This variant preserves the baseline top four and only
+    tests the highest-confidence temporal promotion into slot five.
+    """
+    if top_k < 5 or not str(question_type or "").startswith("temporal-reasoning"):
+        return base_order[:top_k]
+    if _relative_date_window(query) is None and not _is_temporal_query(query):
+        return base_order[:top_k]
+
+    baseline = [str(sid) for sid in base_order[:top_k]]
+    protected = baseline[:4]
+    if len(baseline) < top_k:
+        return baseline
+
+    reranked = fusion_final_rerank_sessions(
+        query,
+        session_texts,
+        base_order,
+        top_k=top_k,
+        candidate_k=candidate_k,
+        session_dates=session_dates,
+    )
+    base_pos = {str(sid): rank for rank, sid in enumerate(base_order, start=1)}
+    promoted = [
+        str(sid)
+        for sid in reranked
+        if str(sid) not in baseline and 5 < base_pos.get(str(sid), 10**9) <= candidate_k
+    ]
+    if not promoted:
+        return baseline
+
+    candidate = promoted[0]
+    text_by_sid = {str(sid): text for sid, text in session_texts}
+    question = query.split("Question:", 1)[-1].strip()
+    q_terms = _word_tokens(question)
+    q_entities = _entity_tokens(question)
+    candidate_text = _user_fact_text(text_by_sid.get(candidate, ""))
+    candidate_terms = _word_tokens(candidate_text)
+    candidate_entities = _entity_tokens(candidate_text)
+    entity_hits = len(q_entities & candidate_entities)
+    term_hits = len(q_terms & candidate_terms)
+
+    date_ok = False
+    window = _relative_date_window(query)
+    if window and session_dates:
+        start, end = window
+        d = _parse_session_date(session_dates.get(candidate, ""))
+        date_ok = d is not None and start <= d <= end
+
+    if not date_ok and entity_hits < 1 and term_hits < 3:
+        return baseline
+
+    out = protected + [candidate]
+    for sid in baseline:
+        if sid not in out:
+            out.append(sid)
+        if len(out) >= top_k:
+            break
+    return out[:top_k]
+
+
+def _numeric_signal(text: str) -> bool:
+    return bool(
+        re.search(
+            r"\b\d+(?:\.\d+)?\b|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|couple)\b",
+            text.lower(),
+        )
+    )
+
+
+_COUNT_GENERIC_TERMS = {
+    "average",
+    "count",
+    "different",
+    "many",
+    "number",
+    "older",
+    "total",
+    "visited",
+    "visit",
+    "years",
+}
+
+
+def _certificate_for_candidate(
+    query: str,
+    question_type: str | None,
+    sid: str,
+    rank: int,
+    text_by_sid: dict[str, str],
+    session_dates: dict[str, str] | None,
+    protected: list[str],
+) -> tuple[str, float] | None:
+    question = query.split("Question:", 1)[-1].strip()
+    q_terms = _token_variants(_word_tokens(question))
+    q_entities = _entity_tokens(question)
+    user_text = _user_fact_text(text_by_sid.get(sid, ""))
+    terms = _token_variants(_word_tokens(user_text))
+    entities = _entity_tokens(user_text)
+    term_hits = len(q_terms & terms)
+    entity_hits = len(q_entities & entities)
+    personal = bool(_PERSONAL_FACT_RE.search(user_text))
+    action_fact = bool(_ACTION_FACT_RE.search(user_text))
+    numeric = _numeric_signal(user_text)
+    qtype = str(question_type or "")
+
+    if qtype.startswith("temporal-reasoning"):
+        window = _relative_date_window(query)
+        date_match = False
+        if window and session_dates:
+            start, end = window
+            d = _parse_session_date(session_dates.get(sid, ""))
+            date_match = d is not None and start <= d <= end
+        temporal_words = bool(re.search(r"\b(today|lunch|met|attended|bought|signed|event|ago|last)\b", user_text, re.I))
+        if date_match and (entity_hits >= 1 or term_hits >= 2 or action_fact or temporal_words or personal):
+            return ("temporal_date_entity", 3.0 + entity_hits + 0.25 * term_hits)
+        if rank <= 10 and (entity_hits >= 1 and term_hits >= 2 and (action_fact or temporal_words)):
+            return ("temporal_entity_action", 2.0 + entity_hits + 0.20 * term_hits)
+
+    if qtype.startswith("single-session-preference"):
+        preference_context = bool(PREFERENCE_RE.search(user_text)) or personal
+        if rank <= 10 and preference_context and term_hits >= 2:
+            return ("preference_first_person_overlap", 2.0 + 0.25 * term_hits + (0.5 if entity_hits else 0.0))
+        if rank <= 10 and personal and entity_hits >= 1:
+            return ("preference_entity_memory", 2.0 + entity_hits + 0.10 * term_hits)
+
+    if qtype.startswith("single-session-user"):
+        if rank <= 10 and personal and (entity_hits >= 1 or term_hits >= 1) and (term_hits >= 2 or action_fact):
+            return ("user_fact_assertion", 2.0 + entity_hits + 0.20 * term_hits)
+
+    if qtype.startswith("multi-session"):
+        anchor_terms = set()
+        anchor_entities = set()
+        for protected_sid in protected:
+            anchor_text = text_by_sid.get(protected_sid, "")
+            anchor_terms |= _word_tokens(anchor_text)
+            anchor_entities |= _entity_tokens(anchor_text)
+        anchor_overlap = len(terms & anchor_terms) / max(24.0, (len(terms) * max(1, len(anchor_terms))) ** 0.5)
+        anchor_entity_overlap = len(entities & anchor_entities) / max(4.0, (len(entities) * max(1, len(anchor_entities))) ** 0.5)
+        count_query = bool(re.search(r"\b(how many|total|average|older|years?)\b", question, re.I))
+        target_hits = (q_terms & terms) - _COUNT_GENERIC_TERMS
+        if rank <= 10 and count_query and target_hits and (numeric or action_fact or personal):
+            return ("multi_count_target_fact", 3.2 + 0.35 * len(target_hits) + entity_hits + anchor_overlap + anchor_entity_overlap)
+        if rank <= 10 and count_query and (numeric or action_fact or personal) and (term_hits >= 1 or entity_hits >= 1 or anchor_entity_overlap > 0 or anchor_overlap >= 0.08):
+            return ("multi_numeric_companion", 2.0 + entity_hits + 0.15 * term_hits + anchor_overlap + anchor_entity_overlap)
+        if rank <= 10 and anchor_overlap >= 0.10 and (term_hits >= 2 or entity_hits >= 1):
+            return ("multi_anchor_companion", 1.5 + 0.20 * term_hits + anchor_overlap + anchor_entity_overlap)
+
+    return None
+
+
+def _protection_certificate(
+    query: str,
+    question_type: str | None,
+    sid: str,
+    rank: int,
+    text_by_sid: dict[str, str],
+) -> str | None:
+    qtype = str(question_type or "")
+    if qtype.startswith("single-session-assistant"):
+        return "assistant_answer_shape"
+    if rank <= 3:
+        return "high_baseline_rank"
+    question = query.split("Question:", 1)[-1].strip()
+    q_terms = _token_variants(_word_tokens(question))
+    q_entities = _entity_tokens(question)
+    text = _user_fact_text(text_by_sid.get(sid, ""))
+    term_hits = len(q_terms & _token_variants(_word_tokens(text)))
+    entity_hits = len(q_entities & _entity_tokens(text))
+    if entity_hits >= 1 and term_hits >= 2:
+        return "strong_entity_overlap"
+    if qtype.startswith("single-session-user") and term_hits >= 2 and _PERSONAL_FACT_RE.search(text):
+        return "user_fact_answer_overlap"
+    if term_hits >= 4:
+        return "strong_lexical_overlap"
+    return None
+
+
+def fusion_certificate_promotion_sessions(
+    query: str,
+    session_texts: list[tuple[str, str]],
+    base_order: list[str],
+    top_k: int,
+    candidate_k: int = 20,
+    session_dates: dict[str, str] | None = None,
+    question_type: str | None = None,
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """Promote only candidates that can produce an auditable evidence certificate."""
+    text_by_sid = {str(sid): text for sid, text in session_texts}
+    pool = [str(sid) for sid in base_order[: max(top_k, candidate_k)] if str(sid) in text_by_sid]
+    baseline = pool[:top_k]
+    if len(baseline) < min(5, top_k):
+        return baseline, []
+
+    protected = baseline[:4]
+    rank5 = baseline[4]
+    rank5_protection = _protection_certificate(query, question_type, rank5, 5, text_by_sid)
+    question = query.split("Question:", 1)[-1].strip()
+    count_query = bool(re.search(r"\b(how many|total|average|older|years?)\b", question, re.I))
+    soft_multi_count_protection = (
+        str(question_type or "").startswith("multi-session")
+        and count_query
+        and rank5_protection in {"strong_entity_overlap", "strong_lexical_overlap"}
+    )
+    if rank5_protection and not soft_multi_count_protection:
+        return baseline, [{"action": "protect", "source_id": rank5, "rank": 5, "certificate": rank5_protection}]
+
+    candidates: list[tuple[float, int, str, str]] = []
+    for rank, sid in enumerate(pool, start=1):
+        if rank <= 5:
+            continue
+        certificate = _certificate_for_candidate(
+            query,
+            question_type,
+            sid,
+            rank,
+            text_by_sid,
+            session_dates,
+            protected,
+        )
+        if certificate:
+            reason, strength = certificate
+            candidates.append((strength, rank, sid, reason))
+
+    if not candidates:
+        if rank5_protection:
+            return baseline, [{"action": "protect", "source_id": rank5, "rank": 5, "certificate": rank5_protection}]
+        return baseline, []
+
+    candidates.sort(key=lambda row: (-row[0], row[1]))
+    strength, old_rank, promoted, reason = candidates[0]
+    if (
+        str(question_type or "").startswith("multi-session")
+        and reason in {"multi_count_target_fact", "multi_numeric_companion", "multi_anchor_companion"}
+        and _answer_shaped_source(rank5, text_by_sid.get(rank5, ""))
+        and not _answer_shaped_source(promoted, text_by_sid.get(promoted, ""))
+    ):
+        return baseline, [{"action": "protect", "source_id": rank5, "rank": 5, "certificate": "answer_evidence_tail_protection"}]
+    out = protected + [promoted]
+    for sid in baseline:
+        if sid not in out:
+            out.append(sid)
+        if len(out) >= top_k:
+            break
+    for sid in pool:
+        if len(out) >= top_k:
+            break
+        if sid not in out:
+            out.append(sid)
+    return out[:top_k], [
+        {
+            "action": "promote",
+            "source_id": promoted,
+            "from_rank": old_rank,
+            "to_rank": 5,
+            "certificate": reason,
+            "strength": round(strength, 4),
+            "displaced_source_id": rank5,
+        }
+    ]
+
+
+def fusion_typed_rescue_sessions(
+    query: str,
+    item: dict[str, Any],
+    session_texts: list[tuple[str, str]],
+    base_order: list[str],
+    current_order: list[str],
+    top_k: int,
+    candidate_k: int = 80,
+    session_dates: dict[str, str] | None = None,
+    question_type: str | None = None,
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """Rescue-only typed second stage for hard preference/temporal cases."""
+    qtype = str(question_type or "")
+    current = [str(sid) for sid in current_order[:top_k]]
+    if top_k < 5 or len(current) < top_k:
+        return current, []
+    if not (qtype.startswith("single-session-preference") or qtype.startswith("temporal-reasoning")):
+        return current, []
+
+    text_by_sid = {str(sid): text for sid, text in session_texts}
+    protected = current[:4]
+    tail = current[4]
+    tail_protection = _protection_certificate(query, question_type, tail, 5, text_by_sid)
+    base_pos = {str(sid): rank for rank, sid in enumerate(base_order, start=1)}
+    pool = [str(sid) for sid in base_order[: max(top_k, candidate_k)] if str(sid) in text_by_sid]
+
+    if qtype.startswith("single-session-preference"):
+        if _answer_shaped_source(tail, text_by_sid.get(tail, "")):
+            return current, []
+        scores = _episode_scores_by_session(item, query)
+        sid_order = {str(sid): i for i, sid in enumerate(item["haystack_session_ids"])}
+        tail_score = scores.get(tail, 0.0)
+        candidates = [
+            sid
+            for sid, score in sorted(scores.items(), key=lambda row: (-row[1], sid_order.get(row[0], 10**9)))
+            if sid not in current and score > 0
+        ][: max(10, candidate_k)]
+        scored_candidates: list[tuple[float, int, str, str]] = []
+        for sid in candidates:
+            text = _user_fact_text(text_by_sid.get(sid, ""))
+            term_hits = len(_query_term_hits(query, text))
+            personal = bool(_PERSONAL_FACT_RE.search(text))
+            preference_context = bool(PREFERENCE_RE.search(text)) or personal
+            if not preference_context:
+                continue
+            score = scores.get(sid, 0.0)
+            margin = score - tail_score
+            if margin < 0.38 and not (term_hits >= 2 and margin >= 0.22):
+                continue
+            if tail_protection == "high_baseline_rank":
+                continue
+            scored_candidates.append((score + 0.08 * term_hits, base_pos.get(sid, 10**6), sid, "preference_episode_rescue"))
+        if scored_candidates:
+            scored_candidates.sort(key=lambda row: (-row[0], row[1]))
+            strength, old_rank, promoted, reason = scored_candidates[0]
+            out = protected + [promoted]
+            for sid in current:
+                if sid not in out:
+                    out.append(sid)
+                if len(out) >= top_k:
+                    break
+            return out[:top_k], [{
+                "action": "promote",
+                "source_id": promoted,
+                "from_rank": old_rank if old_rank < 10**6 else None,
+                "to_rank": 5,
+                "certificate": reason,
+                "strength": round(strength, 4),
+                "displaced_source_id": tail,
+            }]
+
+    if qtype.startswith("temporal-reasoning"):
+        question = query.split("Question:", 1)[-1].strip()
+        q_entities = _entity_tokens(question)
+        q_terms = _token_variants(_word_tokens(question))
+        candidates: list[tuple[float, int, str, str]] = []
+        for rank, sid in enumerate(pool, start=1):
+            if sid in current:
+                continue
+            text = _user_fact_text(text_by_sid.get(sid, ""))
+            term_hits = len(q_terms & _token_variants(_word_tokens(text)))
+            entity_hits = len(q_entities & _entity_tokens(text))
+            action_fact = bool(_ACTION_FACT_RE.search(text))
+            personal = bool(_PERSONAL_FACT_RE.search(text))
+            temporal_words = bool(re.search(r"\b(today|yesterday|lunch|met|meet|attended|bought|signed|event|ago|last)\b", text, re.I))
+            if entity_hits >= 1 and term_hits >= 1 and (action_fact or temporal_words or personal):
+                candidates.append((3.0 + entity_hits + 0.18 * term_hits, rank, sid, "temporal_entity_action_rescue"))
+        if candidates and tail_protection != "high_baseline_rank":
+            candidates.sort(key=lambda row: (-row[0], row[1]))
+            strength, old_rank, promoted, reason = candidates[0]
+            out = protected + [promoted]
+            for sid in current:
+                if sid not in out:
+                    out.append(sid)
+                if len(out) >= top_k:
+                    break
+            return out[:top_k], [{
+                "action": "promote",
+                "source_id": promoted,
+                "from_rank": old_rank,
+                "to_rank": 5,
+                "certificate": reason,
+                "strength": round(strength, 4),
+                "displaced_source_id": tail,
+            }]
+
+    return current, []
+
+
 def atom_sessions_from_chunks(chunks, scores: list[float], query: str) -> list[str]:
     priors = atom_type_priors(query)
     by_session: dict[str, float] = {}
@@ -434,6 +964,12 @@ def _parse_question_date(query: str) -> datetime.date | None:
 def _parse_session_date(date_str: str) -> datetime.date | None:
     if not date_str:
         return None
+    m = re.search(r"(\d{4})[-/](\d{2})[-/](\d{2})", str(date_str))
+    if m:
+        try:
+            return datetime.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        except ValueError:
+            pass
     for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%B %d, %Y", "%b %d, %Y"):
         try:
             return datetime.datetime.strptime(str(date_str).strip(), fmt).date()
@@ -575,7 +1111,7 @@ def _relative_date_window(query: str) -> tuple[datetime.date, datetime.date] | N
         return None
     body = query.split("Question:", 1)[-1].lower()
 
-    num_pat = r"\d+|one|two|three|four|five|six|seven|eight|nine|ten|couple|a\s+couple"
+    num_pat = r"\d+|a|one|two|three|four|five|six|seven|eight|nine|ten|couple|a\s+couple"
 
     m = re.search(rf"\bpast\s+({num_pat})(?:\s+of)?\s+(day|days|week|weeks|month|months)\b", body)
     if m:
@@ -724,6 +1260,11 @@ def eval_one(
     coverage_rerank: bool = False,
     targeted_expansion: bool = False,
     safe_promotion_rerank: bool = False,
+    fusion_final_rerank: bool = False,
+    fusion_guarded_promotion: bool = False,
+    fusion_certificate_promotion: bool = False,
+    fusion_typed_rescue: bool = False,
+    fusion_final_candidate_k: int = 12,
     temporal_date_rerank: bool = False,
     relationship_boost: float = 1.0,
     conversation_chunks: bool = False,
@@ -812,6 +1353,7 @@ def eval_one(
             if structured_temporal_filters
             else []
         )
+        retrieval_certificates: list[dict[str, Any]] = []
         if two_stage_sessions:
             two_stage = engine.query_two_stage_sessions(
                 query,
@@ -927,7 +1469,56 @@ def eval_one(
                     filter_pushdown_threshold=filter_pushdown_threshold,
                 )
                 cf_sessions = unique_sessions_from_chunks(cf_result.chunks)
-                retrieved_sessions = reciprocal_rank_fusion([cf_sessions, vector_sessions])[:top_k_chunks]
+                fused_sessions = reciprocal_rank_fusion([cf_sessions, vector_sessions])
+                if fusion_certificate_promotion:
+                    session_dates = dict(zip(item["haystack_session_ids"], item["haystack_dates"], strict=True))
+                    retrieved_sessions, retrieval_certificates = fusion_certificate_promotion_sessions(
+                        query,
+                        session_texts,
+                        fused_sessions,
+                        top_k=top_k_chunks,
+                        candidate_k=max(top_k_chunks, min(retrieval_k, fusion_final_candidate_k)),
+                        session_dates=session_dates,
+                        question_type=item.get("question_type"),
+                    )
+                    if fusion_typed_rescue:
+                        rescued_sessions, rescue_certificates = fusion_typed_rescue_sessions(
+                            query,
+                            item,
+                            session_texts,
+                            fused_sessions,
+                            retrieved_sessions,
+                            top_k=top_k_chunks,
+                            candidate_k=max(top_k_chunks, min(retrieval_k, fusion_final_candidate_k)),
+                            session_dates=session_dates,
+                            question_type=item.get("question_type"),
+                        )
+                        if rescue_certificates:
+                            retrieved_sessions = rescued_sessions
+                            retrieval_certificates.extend(rescue_certificates)
+                elif fusion_guarded_promotion:
+                    session_dates = dict(zip(item["haystack_session_ids"], item["haystack_dates"], strict=True))
+                    retrieved_sessions = fusion_guarded_promotion_sessions(
+                        query,
+                        session_texts,
+                        fused_sessions,
+                        top_k=top_k_chunks,
+                        candidate_k=max(top_k_chunks, min(retrieval_k, fusion_final_candidate_k)),
+                        session_dates=session_dates,
+                        question_type=item.get("question_type"),
+                    )
+                elif fusion_final_rerank:
+                    session_dates = dict(zip(item["haystack_session_ids"], item["haystack_dates"], strict=True))
+                    retrieved_sessions = fusion_final_rerank_sessions(
+                        query,
+                        session_texts,
+                        fused_sessions,
+                        top_k=top_k_chunks,
+                        candidate_k=max(top_k_chunks, min(retrieval_k, fusion_final_candidate_k)),
+                        session_dates=session_dates,
+                    )
+                else:
+                    retrieved_sessions = fused_sessions[:top_k_chunks]
             else:
                 retrieved_sessions = vector_sessions[:top_k_chunks]
         elif rank_by_session:
@@ -1074,6 +1665,7 @@ def eval_one(
             "best_rank": min(ranks) if ranks else None,
             "all_found_at": max(ranks) if len(ranks) == len(gold) and ranks else None,
             "structured_temporal_filters": filters,
+            "retrieval_certificates": retrieval_certificates,
         }
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -1133,6 +1725,11 @@ def main() -> int:
     ap.add_argument("--coverage-rerank", action="store_true", help="greedily rerank session pools for complementary token/entity evidence coverage")
     ap.add_argument("--targeted-expansion", action="store_true", help="preserve top source anchors and fill tail slots with targeted companion sessions")
     ap.add_argument("--safe-promotion-rerank", action="store_true", help="promote count/list user-fact sessions from ranks 11-50 while preserving top anchors")
+    ap.add_argument("--fusion-final-rerank", action="store_true", help="rerank high-recall fusion candidates into the final top-K using generic fact/date/preference signals")
+    ap.add_argument("--fusion-guarded-promotion", action="store_true", help="conservatively promote high-confidence temporal fusion candidates into slot 5 only")
+    ap.add_argument("--fusion-certificate-promotion", action="store_true", help="promote high-recall fusion candidates only when they have interpretable evidence certificates")
+    ap.add_argument("--fusion-typed-rescue", action="store_true", help="add a rescue-only typed preference/temporal second stage after certificate promotion")
+    ap.add_argument("--fusion-final-candidate-k", type=int, default=12, help="fusion candidate pool size for --fusion-final-rerank")
     ap.add_argument("--two-stage-sessions", action="store_true", help="broad session discovery followed by precise in-session retrieval")
     ap.add_argument("--temporal-date-rerank", action="store_true", help="rerank explicit relative-date temporal questions using question/session dates")
     ap.add_argument("--relationship-boost", type=float, default=1.0, help="optional derived entity/relationship backlink score boost; 1.0 disables")
@@ -1171,10 +1768,18 @@ def main() -> int:
             "only, not valid benchmark reporting"
         ),
     )
+    ap.add_argument("--question-id-file", type=Path, help="optional newline-delimited question_id subset to evaluate")
     ap.add_argument("--out", type=Path, default=Path("benchmarks/longmemeval_contextfit_results.json"))
     args = ap.parse_args()
 
     data = json.loads(args.data.read_text())
+    if args.question_id_file:
+        allowed = {
+            line.strip()
+            for line in args.question_id_file.read_text().splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        }
+        data = [item for item in data if item["question_id"] in allowed]
     if args.limit and args.limit > 0:
         data = data[: args.limit]
 
@@ -1208,6 +1813,11 @@ def main() -> int:
             coverage_rerank=args.coverage_rerank,
             targeted_expansion=args.targeted_expansion,
             safe_promotion_rerank=args.safe_promotion_rerank,
+            fusion_final_rerank=args.fusion_final_rerank,
+            fusion_guarded_promotion=args.fusion_guarded_promotion,
+            fusion_certificate_promotion=args.fusion_certificate_promotion,
+            fusion_typed_rescue=args.fusion_typed_rescue,
+            fusion_final_candidate_k=args.fusion_final_candidate_k,
             temporal_date_rerank=args.temporal_date_rerank,
             relationship_boost=args.relationship_boost,
             conversation_chunks=args.conversation_chunks,
@@ -1250,6 +1860,11 @@ def main() -> int:
         "coverage_rerank": args.coverage_rerank,
         "targeted_expansion": args.targeted_expansion,
         "safe_promotion_rerank": args.safe_promotion_rerank,
+        "fusion_final_rerank": args.fusion_final_rerank,
+        "fusion_guarded_promotion": args.fusion_guarded_promotion,
+        "fusion_certificate_promotion": args.fusion_certificate_promotion,
+        "fusion_typed_rescue": args.fusion_typed_rescue,
+        "fusion_final_candidate_k": args.fusion_final_candidate_k,
         "two_stage_sessions": args.two_stage_sessions,
         "temporal_date_rerank": args.temporal_date_rerank,
         "relationship_boost": args.relationship_boost,

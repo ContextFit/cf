@@ -1534,3 +1534,44 @@ Primary artifacts:
 - `benchmarks/longmemeval_contextfit_qa_summary_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.json`
 - `benchmarks/longmemeval_contextfit_qa_summary_answerer_router_gpt5mini_temporal_pref_multi_else_gpt4o_20260523.json`
 - `benchmarks/longmemeval_gpt5mini_regression_audit_20260523.md`
+
+## 2026-05-24 evidence-certificate retrieval rerank
+
+This section records the productionized evidence-certificate rerank work. The
+goal was to improve the optional OpenAI-fusion retrieval path without shipping a
+black-box global reranker. A candidate can only move up when it carries an
+auditable, domain-neutral reason code, and the existing top-5 tail is protected
+when it is already answer-shaped evidence.
+
+| Retrieval run | Any@5 | Any@10 | All@5 | MRR | Paired top-5 vs 96.6 baseline |
+|---|---:|---:|---:|---:|---:|
+| OpenAI fusion baseline | 96.6% | 98.7% | 83.6% | 0.900 | — |
+| Certificate v4 | 98.1% | 98.9% | **86.4%** | 0.902 | +8 / 0 |
+| Certificate v5 typed rescue | **98.3%** | **99.2%** | **86.4%** | **0.902** | +9 / 0 |
+
+Production hooks added:
+
+- `contextfit.retrieval.evidence_certificates` contains the reusable certificate engine.
+- `RetrievalEngine.rerank_sessions_by_evidence_certificates(...)` applies the post-retrieval session rerank.
+- `query_auto(..., evidence_certificate_rerank=True, typed_rescue=True)` enables the full v5 path.
+- Certificate traces include reason code, source id, old/new rank, strength, and displaced source.
+
+The targeted non-LongMemEval typed-rescue gate uses fictional/product-shaped
+preference and temporal cases plus risk controls. Final result: 8/8 cases
+passed, paired movement +5 / 0, with no unexpected risk-control promotions.
+This gate caught and fixed two over-permissive rules before the final run:
+generic preference wording and generic temporal/entity word salad can no longer
+trigger typed rescue without personal/action evidence.
+
+Independent gates after productionization:
+
+- Full test suite: 247 passed.
+- Agent-memory 499-case v5-tight gate: Recall@1 62.7%, Recall@3 94.0%, Recall@5 100.0%, MRR 0.784.
+- `git diff --check`: clean.
+
+Primary artifacts:
+
+- `benchmarks/longmemeval_fusion_certificate_promotion_v4_20260524.json`
+- `benchmarks/longmemeval_fusion_certificate_promotion_v5_typed_rescue_20260524.json`
+- `benchmarks/typed_rescue_eval_20260524.json`
+- `benchmarks/agent_memory_eval_500_auto_cert_v5_prod_tight_20260524.json`

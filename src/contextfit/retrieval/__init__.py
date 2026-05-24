@@ -8,6 +8,13 @@ from contextfit.retrieval.evidence_atoms import (
     query_evidence_facets,
     rerank_sessions_by_evidence_atoms,
 )
+from contextfit.retrieval.evidence_certificates import (
+    CertificateRerankResult,
+    EvidenceCertificate,
+    apply_typed_rescue,
+    rerank_with_evidence_certificates,
+    rerank_with_optional_typed_rescue,
+)
 from contextfit.retrieval.evidence_compiler import (
     EvidenceContext,
     EvidenceSource,
@@ -57,6 +64,11 @@ __all__ = [
     "extract_evidence_atoms",
     "query_evidence_facets",
     "rerank_sessions_by_evidence_atoms",
+    "CertificateRerankResult",
+    "EvidenceCertificate",
+    "apply_typed_rescue",
+    "rerank_with_evidence_certificates",
+    "rerank_with_optional_typed_rescue",
     "EvidenceContext",
     "EvidenceSource",
     "MISSING_ANSWER",

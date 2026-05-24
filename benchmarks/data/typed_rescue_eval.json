@@ -1,0 +1,146 @@
+[
+  {
+    "id": "pref_anniversary_restaurant",
+    "behavior": "preference_rescue",
+    "query": "Question: Can you recommend a restaurant for my anniversary dinner?",
+    "route_mode": "preference_rerank",
+    "base_order": ["s1", "s2", "s3", "s4", "s5", "s6"],
+    "initial_order": ["s1", "s2", "s3", "s4", "s5"],
+    "gold_session_id": "s6",
+    "expected_certificate": "preference_episode_rescue",
+    "source_texts": {
+      "s1": "Turn 1 (user): I read an article about restaurants downtown.",
+      "s2": "Turn 1 (user): I asked for a list of weekend events.",
+      "s3": "Turn 1 (user): I discussed parking options near the theater.",
+      "s4": "Turn 1 (user): I compared delivery app fees.",
+      "s5": "Turn 1 (user): I looked up dinner reservations generally.",
+      "s6": "Turn 1 (user): I usually prefer quiet seafood restaurants for anniversary dinners and I avoid loud tasting-menu places."
+    }
+  },
+  {
+    "id": "pref_laptop_bag",
+    "behavior": "preference_rescue",
+    "query": "Question: What laptop bag should I buy for commuting?",
+    "route_mode": "preference_rerank",
+    "base_order": ["s1", "s2", "s3", "s4", "s5", "s6"],
+    "initial_order": ["s1", "s2", "s3", "s4", "s5"],
+    "gold_session_id": "s6",
+    "expected_certificate": "preference_episode_rescue",
+    "source_texts": {
+      "s1": "Turn 1 (user): I compared train schedules for commuting.",
+      "s2": "Turn 1 (user): I asked about laptop screen sizes.",
+      "s3": "Turn 1 (user): I read a review of office chairs.",
+      "s4": "Turn 1 (user): I checked the weather for next week.",
+      "s5": "Turn 1 (user): I looked at several backpacks online.",
+      "s6": "Turn 1 (user): I prefer slim laptop bags for commuting, and I hate bulky backpacks that snag on crowded trains."
+    }
+  },
+  {
+    "id": "pref_party_drink",
+    "behavior": "preference_rescue",
+    "query": "Question: What drink should I serve at the party?",
+    "route_mode": "preference_rerank",
+    "base_order": ["s1", "s2", "s3", "s4", "s5", "s6"],
+    "initial_order": ["s1", "s2", "s3", "s4", "s5"],
+    "gold_session_id": "s6",
+    "expected_certificate": "preference_episode_rescue",
+    "source_texts": {
+      "s1": "Turn 1 (user): I made a party playlist.",
+      "s2": "Turn 1 (user): I bought paper plates and napkins.",
+      "s3": "Turn 1 (user): I asked how much ice to buy.",
+      "s4": "Turn 1 (user): I compared grocery delivery times.",
+      "s5": "Turn 1 (user): I looked up popular party drinks.",
+      "s6": "Turn 1 (user): I love citrus mocktails for parties, and I avoid sugary punch because it feels heavy."
+    }
+  },
+  {
+    "id": "temporal_meeting_person",
+    "behavior": "temporal_rescue",
+    "query": "Date: 2026-05-24\nQuestion: When did I meet Jordan for lunch?",
+    "route_mode": "temporal-reasoning",
+    "base_order": ["s1", "s2", "s3", "s4", "s5", "s6"],
+    "initial_order": ["s1", "s2", "s3", "s4", "s5"],
+    "gold_session_id": "s6",
+    "expected_certificate": "temporal_entity_action_rescue",
+    "source_texts": {
+      "s1": "Turn 1 (user): I had coffee near the office.",
+      "s2": "Turn 1 (user): I checked email after lunch.",
+      "s3": "Turn 1 (user): I read a note about Jordan Street.",
+      "s4": "Turn 1 (user): I walked downtown.",
+      "s5": "Turn 1 (user): I made lunch at home.",
+      "s6": "Turn 1 (user): I met Jordan for lunch yesterday at the cafe."
+    }
+  },
+  {
+    "id": "temporal_signed_contract",
+    "behavior": "temporal_rescue",
+    "query": "Date: 2026-05-24\nQuestion: When did I sign the Orion contract?",
+    "route_mode": "temporal-reasoning",
+    "base_order": ["s1", "s2", "s3", "s4", "s5", "s6"],
+    "initial_order": ["s1", "s2", "s3", "s4", "s5"],
+    "gold_session_id": "s6",
+    "expected_certificate": "temporal_entity_action_rescue",
+    "source_texts": {
+      "s1": "Turn 1 (user): I reviewed contract templates.",
+      "s2": "Turn 1 (user): I discussed the Orion project roadmap.",
+      "s3": "Turn 1 (user): I checked a calendar invite.",
+      "s4": "Turn 1 (user): I asked about legal review timing.",
+      "s5": "Turn 1 (user): I filed paperwork for the week.",
+      "s6": "Turn 1 (user): I signed the Orion contract yesterday after legal approved it."
+    }
+  },
+  {
+    "id": "risk_generic_preference_overlap",
+    "behavior": "risk_control",
+    "query": "Question: Can you recommend a restaurant for dinner?",
+    "route_mode": "preference_rerank",
+    "base_order": ["s1", "s2", "s3", "s4", "s5", "s6"],
+    "initial_order": ["s1", "s2", "s3", "s4", "s5"],
+    "gold_session_id": "s5",
+    "expected_certificate": null,
+    "source_texts": {
+      "s1": "Turn 1 (user): I read about restaurants.",
+      "s2": "Turn 1 (user): I checked dinner hours.",
+      "s3": "Turn 1 (user): I looked at a map.",
+      "s4": "Turn 1 (user): I made a reservation.",
+      "s5": "Turn 1 (user): I asked about dinner plans.",
+      "s6": "Turn 1 (user): Restaurant dinner recommendation words only, with no personal preference or constraint."
+    }
+  },
+  {
+    "id": "risk_answer_tail_protected",
+    "behavior": "risk_control",
+    "query": "Question: What laptop bag should I buy for commuting?",
+    "route_mode": "preference_rerank",
+    "base_order": ["s1", "s2", "s3", "s4", "answer_tail", "s6"],
+    "initial_order": ["s1", "s2", "s3", "s4", "answer_tail"],
+    "gold_session_id": "answer_tail",
+    "expected_certificate": null,
+    "source_texts": {
+      "s1": "Turn 1 (user): I compared train schedules.",
+      "s2": "Turn 1 (user): I asked about laptop sleeves.",
+      "s3": "Turn 1 (user): I read a commuter guide.",
+      "s4": "Turn 1 (user): I looked at office supplies.",
+      "answer_tail": "Turn 1 (assistant) [HAS_ANSWER]: The right choice was a slim weatherproof laptop messenger bag.",
+      "s6": "Turn 1 (user): I prefer compact laptop bags for commuting."
+    }
+  },
+  {
+    "id": "risk_temporal_generic_entity",
+    "behavior": "risk_control",
+    "query": "Date: 2026-05-24\nQuestion: When did I meet Jordan for lunch?",
+    "route_mode": "temporal-reasoning",
+    "base_order": ["s1", "s2", "s3", "s4", "s5", "s6"],
+    "initial_order": ["s1", "s2", "s3", "s4", "s5"],
+    "gold_session_id": "s5",
+    "expected_certificate": null,
+    "source_texts": {
+      "s1": "Turn 1 (user): I had coffee near the office.",
+      "s2": "Turn 1 (user): I checked email after lunch.",
+      "s3": "Turn 1 (user): I read a note about Jordan Street.",
+      "s4": "Turn 1 (user): I walked downtown.",
+      "s5": "Turn 1 (user): I made lunch at home.",
+      "s6": "Turn 1 (user): Jordan lunch when calendar question note."
+    }
+  }
+]

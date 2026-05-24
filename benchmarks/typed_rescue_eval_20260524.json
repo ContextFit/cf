@@ -1,0 +1,271 @@
+{
+  "data": "benchmarks/data/typed_rescue_eval.json",
+  "top_k": 5,
+  "candidate_k": 20,
+  "summary": {
+    "overall": {
+      "n": 8,
+      "passed": 8,
+      "pass_rate": 1.0,
+      "paired_wins": 5,
+      "paired_losses": 0
+    },
+    "promotion_cases": {
+      "n": 5,
+      "passed": 5
+    },
+    "risk_controls": {
+      "n": 3,
+      "passed": 3,
+      "unexpected_promotions": []
+    },
+    "certificate_counts": {
+      "preference_episode_rescue": 3,
+      "temporal_entity_action_rescue": 2
+    }
+  },
+  "rows": [
+    {
+      "id": "pref_anniversary_restaurant",
+      "behavior": "preference_rescue",
+      "passed": true,
+      "before_hit": false,
+      "after_hit": true,
+      "before": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s5"
+      ],
+      "after": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s6"
+      ],
+      "gold_session_id": "s6",
+      "expected_certificate": "preference_episode_rescue",
+      "certificates": [
+        {
+          "action": "promote",
+          "source_id": "s6",
+          "certificate": "preference_episode_rescue",
+          "from_rank": 6,
+          "to_rank": 5,
+          "strength": 2.3852,
+          "displaced_source_id": "s5"
+        }
+      ]
+    },
+    {
+      "id": "pref_laptop_bag",
+      "behavior": "preference_rescue",
+      "passed": true,
+      "before_hit": false,
+      "after_hit": true,
+      "before": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s5"
+      ],
+      "after": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s6"
+      ],
+      "gold_session_id": "s6",
+      "expected_certificate": "preference_episode_rescue",
+      "certificates": [
+        {
+          "action": "promote",
+          "source_id": "s6",
+          "certificate": "preference_episode_rescue",
+          "from_rank": 6,
+          "to_rank": 5,
+          "strength": 2.5193,
+          "displaced_source_id": "s5"
+        }
+      ]
+    },
+    {
+      "id": "pref_party_drink",
+      "behavior": "preference_rescue",
+      "passed": true,
+      "before_hit": false,
+      "after_hit": true,
+      "before": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s5"
+      ],
+      "after": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s6"
+      ],
+      "gold_session_id": "s6",
+      "expected_certificate": "preference_episode_rescue",
+      "certificates": [
+        {
+          "action": "promote",
+          "source_id": "s6",
+          "certificate": "preference_episode_rescue",
+          "from_rank": 6,
+          "to_rank": 5,
+          "strength": 1.9497,
+          "displaced_source_id": "s5"
+        }
+      ]
+    },
+    {
+      "id": "temporal_meeting_person",
+      "behavior": "temporal_rescue",
+      "passed": true,
+      "before_hit": false,
+      "after_hit": true,
+      "before": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s5"
+      ],
+      "after": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s6"
+      ],
+      "gold_session_id": "s6",
+      "expected_certificate": "temporal_entity_action_rescue",
+      "certificates": [
+        {
+          "action": "promote",
+          "source_id": "s6",
+          "certificate": "temporal_entity_action_rescue",
+          "from_rank": 6,
+          "to_rank": 5,
+          "strength": 4.72,
+          "displaced_source_id": "s5"
+        }
+      ]
+    },
+    {
+      "id": "temporal_signed_contract",
+      "behavior": "temporal_rescue",
+      "passed": true,
+      "before_hit": false,
+      "after_hit": true,
+      "before": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s5"
+      ],
+      "after": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s6"
+      ],
+      "gold_session_id": "s6",
+      "expected_certificate": "temporal_entity_action_rescue",
+      "certificates": [
+        {
+          "action": "promote",
+          "source_id": "s6",
+          "certificate": "temporal_entity_action_rescue",
+          "from_rank": 6,
+          "to_rank": 5,
+          "strength": 4.54,
+          "displaced_source_id": "s5"
+        }
+      ]
+    },
+    {
+      "id": "risk_generic_preference_overlap",
+      "behavior": "risk_control",
+      "passed": true,
+      "before_hit": true,
+      "after_hit": true,
+      "before": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s5"
+      ],
+      "after": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s5"
+      ],
+      "gold_session_id": "s5",
+      "expected_certificate": null,
+      "certificates": []
+    },
+    {
+      "id": "risk_answer_tail_protected",
+      "behavior": "risk_control",
+      "passed": true,
+      "before_hit": true,
+      "after_hit": true,
+      "before": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "answer_tail"
+      ],
+      "after": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "answer_tail"
+      ],
+      "gold_session_id": "answer_tail",
+      "expected_certificate": null,
+      "certificates": []
+    },
+    {
+      "id": "risk_temporal_generic_entity",
+      "behavior": "risk_control",
+      "passed": true,
+      "before_hit": true,
+      "after_hit": true,
+      "before": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s5"
+      ],
+      "after": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s5"
+      ],
+      "gold_session_id": "s5",
+      "expected_certificate": null,
+      "certificates": []
+    }
+  ]
+}

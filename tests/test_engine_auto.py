@@ -287,6 +287,34 @@ def test_query_auto_can_use_evidence_atom_rerank_for_multi_session(tmp_path):
     assert result["session_ids"][:2] == ["s_goal", "s_constraint"]
 
 
+def test_query_auto_can_apply_evidence_certificate_rerank(tmp_path):
+    engine = RetrievalEngine.create(tmp_path)
+    for sid, text in [
+        ("s1", "Turn 1 (user): Project Orion appointment notes."),
+        ("s2", "Turn 1 (user): Project Orion calendar background."),
+        ("s3", "Turn 1 (user): Project Orion health topic."),
+        ("s4", "Turn 1 (user): Project Orion visit notes."),
+        ("s5", "Turn 1 (user): Project Orion visit count generic."),
+        ("s6", "Turn 1 (user): Project Orion involved three different doctors, including a physician and dermatologist."),
+    ]:
+        engine.ingest_text(
+            f"Session ID: {sid}\nDate: 2026/02/0{sid[-1]}\n\n{text}",
+            metadata={"session_id": sid, "kind": "session", "date": f"2026/02/0{sid[-1]}"},
+            update_indexes=True,
+        )
+
+    result = engine.query_auto(
+        "For Project Orion, how many different doctors did I visit?",
+        top_k=5,
+        retrieval_k=20,
+        evidence_certificate_rerank=True,
+    )
+
+    assert result["details"]["evidence_certificate_rerank"]["enabled"] is True
+    assert "evidence_certificates" in result["details"]
+    assert result["details"]["evidence_certificates"][0]["action"] in {"protect", "promote"}
+
+
 def test_query_two_stage_sessions_searches_inside_discovered_parent(tmp_path):
     engine = RetrievalEngine.create(tmp_path)
     engine.ingest_text(

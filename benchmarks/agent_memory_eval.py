@@ -564,7 +564,18 @@ def token_native_rerank_sessions(
     return [sid for score, _pos, sid in rows[:top_k] if score > 0]
 
 
-def eval_one(item: dict[str, Any], mode: str, method: str, top_k: int, openai_model: str = "text-embedding-3-small", voyage_model: str = "voyage-3", cohere_model: str = "embed-english-v3.0", embed_cache: Path = Path("benchmarks/cache/openai_embeddings")) -> dict[str, Any]:
+def eval_one(
+    item: dict[str, Any],
+    mode: str,
+    method: str,
+    top_k: int,
+    openai_model: str = "text-embedding-3-small",
+    voyage_model: str = "voyage-3",
+    cohere_model: str = "embed-english-v3.0",
+    embed_cache: Path = Path("benchmarks/cache/openai_embeddings"),
+    evidence_certificate_rerank: bool = False,
+    typed_rescue: bool = False,
+) -> dict[str, Any]:
     import time as _time
     tmp = Path(tempfile.mkdtemp(prefix="cf-agent-memory-"))
     try:
@@ -687,7 +698,15 @@ def eval_one(item: dict[str, Any], mode: str, method: str, top_k: int, openai_mo
         elif mode == "mem0":
             retrieved, ingest_ms, query_ms = eval_mem0(item, query, top_k)
         elif mode == "auto":
-            result = engine.query_auto(query, top_k=top_k, retrieval_k=50, method=method, max_tokens=100_000)
+            result = engine.query_auto(
+                query,
+                top_k=top_k,
+                retrieval_k=50,
+                method=method,
+                max_tokens=100_000,
+                evidence_certificate_rerank=evidence_certificate_rerank,
+                typed_rescue=typed_rescue,
+            )
             retrieved = result["session_ids"]
         elif mode == "two_stage":
             result = engine.query_two_stage_sessions(
@@ -772,6 +791,9 @@ def eval_one(item: dict[str, Any], mode: str, method: str, top_k: int, openai_mo
         if mode == "auto":
             route = route_query(query)
             row["route"] = describe_route(route)
+            certificates = result.get("details", {}).get("evidence_certificates") if "result" in locals() else None
+            if certificates:
+                row["evidence_certificates"] = certificates
         return row
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -808,17 +830,38 @@ def main() -> int:
     ap.add_argument("--embed-cache", type=Path, default=Path("benchmarks/cache/openai_embeddings"))
     ap.add_argument("--method", choices=["exact", "bm25", "hybrid", "hybrid_rrf"], default="hybrid")
     ap.add_argument("--top-k", type=int, default=5)
+    ap.add_argument("--evidence-certificate-rerank", action="store_true", help="enable production evidence-certificate rerank for auto mode")
+    ap.add_argument("--typed-rescue", action="store_true", help="enable v5 typed rescue after evidence-certificate rerank for auto mode")
     ap.add_argument("--out", type=Path)
     args = ap.parse_args()
 
     items = json.loads(args.data.read_text())
     rows = []
     for item in items:
-        row = eval_one(item, args.mode, args.method, args.top_k, openai_model=args.openai_model, voyage_model=args.voyage_model, cohere_model=args.cohere_model, embed_cache=args.embed_cache)
+        row = eval_one(
+            item,
+            args.mode,
+            args.method,
+            args.top_k,
+            openai_model=args.openai_model,
+            voyage_model=args.voyage_model,
+            cohere_model=args.cohere_model,
+            embed_cache=args.embed_cache,
+            evidence_certificate_rerank=args.evidence_certificate_rerank,
+            typed_rescue=args.typed_rescue,
+        )
         rows.append(row)
         print(f"{row['id']} {row['behavior']} best_rank={row['best_rank']} retrieved={row['retrieved_sessions']}")
 
-    result = {"mode": args.mode, "method": args.method, "top_k": args.top_k, "summary": summarize(rows), "rows": rows}
+    result = {
+        "mode": args.mode,
+        "method": args.method,
+        "top_k": args.top_k,
+        "evidence_certificate_rerank": args.evidence_certificate_rerank,
+        "typed_rescue": args.typed_rescue,
+        "summary": summarize(rows),
+        "rows": rows,
+    }
     print(json.dumps(result["summary"], indent=2))
     if args.out:
         args.out.write_text(json.dumps(result, indent=2))
