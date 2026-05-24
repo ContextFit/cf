@@ -35,13 +35,14 @@ On the 499-case domain-agnostic agent-memory benchmark (Mem0 measured on the ori
 |---|---:|---:|---:|---:|
 | Mem0 (GPT-4o-mini + embed, 79-case) | 54.4% | 91.1% | 0.716 | LLM + embed API |
 | Cohere embed-english-v3 | 58.7% | 91.4% | 0.751 | embed API |
-| ContextFit + routed rerankers | 62.3% | 93.0% | 0.777 | $0 core path |
+| ContextFit + routed rerankers + certificates | 62.7% | 94.0% | 0.784 | $0 core path |
 | OpenAI text-embedding-3-small | 63.1% | 96.6% | 0.792 | embed API |
 
 Behavior highlights:
 
 - Preference recommendation: ContextFit 85.5% R@1 vs OpenAI 77.4%.
 - Multi-session synthesis: ContextFit 82.1% R@1 vs OpenAI 87.5%.
+- Aggregate: ContextFit beats Cohere and Mem0 on R@1, but still trails OpenAI text-embedding-3-small overall (62.7% vs 63.1% R@1).
 - LongMemEval-S: pure token-native ContextFit with conversation-aware parent/child chunks reaches 95.1% Any@5. It matches OpenAI fusion on preference Any@5 (83.3%) and narrows multi-session Any@5 to within ~0.8 pts. The companion-evidence coverage reranker preserves 95.1% Any@5 while improving overall All@5 from 77.9% to 80.4% and multi-session All@5 from 55.4% to 65.3%. A fresh optional OpenAI fusion artifact reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval with no vector database required; the auditable evidence-certificate reranker reaches 98.3% Any@5, 99.2% Any@10, and 86.4% All@5 in the same local retrieval harness, with zero paired top-5 losses versus the 96.6% fusion baseline. Current end-to-end QA progress reports 85.2% overall with a GPT-4o-only selective-fusion run, and 87.2% overall / 87.6% task-averaged with a GPT-5-mini answerer/extractor plus GPT-4o judging. These are local LongMemEval-style evaluations, not official leaderboard submissions.
 
 ## Install

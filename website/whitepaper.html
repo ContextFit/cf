@@ -355,7 +355,7 @@
       <h2>7. Structure-Aware File Ingestion</h2>
       <p>ContextFit now chooses semantic file boundaries before final token encoding. Markdown files chunk by heading and block boundaries with <code>heading_path</code> metadata; plain text chunks by paragraphs and separators; TMD ledgers chunk by source rows while preserving schema/front-matter context.</p>
       <div class="highlight-card">
-        This is a structural improvement, not a new benchmark claim: token-native storage and retrieval remain unchanged, while file chunks map more closely to human document meaning and are easier to cite. The latest 499-case auto-router run remained stable/slightly improved at <strong>62.3% Recall@1 / 93.0% Recall@3 / 99.8% Recall@5</strong>.
+        This is a structural improvement, not a new benchmark claim: token-native storage and retrieval remain unchanged, while file chunks map more closely to human document meaning and are easier to cite. The current 499-case auto-router run with routed rerankers plus evidence certificates is stable/slightly improved at <strong>62.7% Recall@1 / 94.0% Recall@3 / 100.0% Recall@5</strong>.
       </div>
     </div>
 
@@ -404,7 +404,7 @@
           </tr>
         </tbody>
       </table>
-      <p>On the 79-case hard episodic subset, ContextFit outperforms OpenAI embeddings by 14 points in Recall@1 while running 375&times; faster. On the expanded 499-case benchmark, the auto router with preference and evidence-coverage reranking reaches 62.3% overall R@1 / 93.0% R@3, 85.5% preference R@1, and 82.1% multi-session synthesis R@1 at zero API cost.</p>
+      <p>On the 79-case hard episodic subset, ContextFit outperforms OpenAI embeddings by 14 points in Recall@1 while running 375&times; faster. On the expanded 499-case benchmark, the current auto router with preference reranking, evidence-coverage reranking, and evidence certificates reaches 62.7% overall R@1 / 94.0% R@3, 85.5% preference R@1, and 82.1% multi-session synthesis R@1 at zero API cost. That beats Cohere and Mem0 on aggregate R@1, but still trails OpenAI text-embedding-3-small on aggregate R@1/R@3.</p>
       <p>On fresh LongMemEval-S reruns, pure token-native ContextFit with conversation-aware parent/child chunks reaches 95.1% Any@5, improving the previous token baseline through turn-aware session boundaries plus full-session parent context with no embeddings. A token-only companion-evidence coverage reranker then improves complete evidence coverage: overall All@5 rises from 77.9% to 80.4% while preserving the 95.1% Any@5 headline. Optional OpenAI fusion reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval with no vector database required; auditable evidence certificates plus typed rescue lift that optional path to 98.3% Any@5, 99.2% Any@10, and 86.4% All@5 with zero paired top-5 losses versus the 96.6% fusion baseline.</p>
       <p>By question type, parent/child token-only closes the top-5 preference gap: single-session preference Any@5 reaches 83.3%, matching OpenAI fusion, while preference Any@1 is higher than OpenAI fusion (43.3% vs 40.0%). On multi-session questions, token-only Any@5 improves to 95.0%, within roughly 0.8 points of OpenAI fusion, and coverage reranking lifts multi-session All@5 from 55.4% to 65.3%. The remaining OpenAI advantage is now narrower: 65.3% token-only versus 72.7% with OpenAI fusion.</p>
     </div>

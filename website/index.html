@@ -1368,8 +1368,8 @@
   <div class="stat-row">
     <div class="stat-pill">
       <span class="val">98.3%</span>
-      <span class="lbl">LongMemEval-S Any@5</span>
-      <span class="sub">99.2% Any@10 · 86.4% All@5</span>
+      <span class="lbl">Optional fusion Any@5</span>
+      <span class="sub">95.1% token-native · 99.2% fusion Any@10</span>
     </div>
     <div class="stat-pill">
       <span class="val">8.7ms</span>
@@ -1594,9 +1594,9 @@
 <section id="benchmark">
   <div class="container">
     <div class="section-label">Benchmarks</div>
-    <h2 class="scroll-tokenize">Beats Mem0 and Cohere.<br/>Narrows multi-session and preference gaps.</h2>
+    <h2 class="scroll-tokenize">Beats Mem0 and Cohere.<br/>Still trails OpenAI aggregate.</h2>
     <p class="section-intro scroll-tokenize">
-      Evaluated on a 499-case domain-agnostic agent memory benchmark across
+      Re-run on the current code against a 499-case domain-agnostic agent memory benchmark across
       8 behavioral categories and 26 domains (Mem0 comparison on the original 79-case subset) — plus LongMemEval-S reruns where token-only
       coverage reranking improves complete multi-session evidence while preserving 95.1% Any@5. A fresh optional OpenAI fusion run reaches
       <a href="/longmemeval-fusion-20260519.html">96.6% Any@5 / 98.7% Any@10</a> evidence retrieval with no vector database required;
@@ -1632,9 +1632,9 @@
           </tr>
           <tr class="row-cf">
             <td>ContextFit <span style="font-size:0.72rem;color:var(--sky);font-family:'JetBrains Mono',monospace;">+ routed rerankers</span></td>
-            <td class="highlight-num">62.3%</td>
-            <td class="highlight-num">93.0%</td>
-            <td class="highlight-num">0.777</td>
+            <td class="highlight-num">62.7%</td>
+            <td class="highlight-num">94.0%</td>
+            <td class="highlight-num">0.784</td>
             <td class="cost-free">$0</td>
             <td class="check">✓ CPU</td>
           </tr>
@@ -1649,7 +1649,8 @@
     </div>
     <div class="bench-note">
       Agent-memory retrieval eval. Mem0 was measured on the original 79-case subset;
-      Cohere, ContextFit, and OpenAI were measured on the expanded 499-case benchmark.
+      Cohere, ContextFit, and OpenAI were measured on the expanded 499-case benchmark. ContextFit beats
+      Cohere and Mem0 on aggregate R@1, but still trails OpenAI text-embedding-3-small on aggregate R@1/R@3.
       LongMemEval evidence and QA results are reported separately in the links above.
     </div>
 
@@ -1667,8 +1668,8 @@
       </div>
       <div class="bar-row">
         <div class="bar-label" style="color:var(--sky)">ContextFit</div>
-        <div class="bar-track"><div class="bar-fill cf" data-pct="62.3"></div></div>
-        <div class="bar-val cf">62.3%</div>
+        <div class="bar-track"><div class="bar-fill cf" data-pct="62.7"></div></div>
+        <div class="bar-val cf">62.7%</div>
       </div>
       <div class="bar-row">
         <div class="bar-label">OpenAI embed-3-small</div>
@@ -1688,10 +1689,10 @@
       <div class="behavior-card">
         <h4>open_loop_retrieval</h4>
         <div class="behavior-delta">
-          <span class="num delta-pos">+19.7</span>
+          <span class="num delta-pos">+16.4</span>
           <span class="unit">pts</span>
         </div>
-        <div class="behavior-desc">83.6% vs 63.9% — structural markers dominate</div>
+        <div class="behavior-desc">80.3% vs 63.9% — structural markers dominate</div>
         <div class="behavior-example"><span>Example</span>“What did I say I still need to follow up on?”</div>
       </div>
       <div class="behavior-card">
@@ -1706,10 +1707,10 @@
       <div class="behavior-card">
         <h4>temporal_supersession</h4>
         <div class="behavior-delta">
-          <span class="num delta-neg">−3.2</span>
+          <span class="num delta-pos">+1.6</span>
           <span class="unit">pts</span>
         </div>
-        <div class="behavior-desc">44.4% vs 47.6% — still an active routing target</div>
+        <div class="behavior-desc">49.2% vs 47.6% — certificates help, but routing remains active</div>
         <div class="behavior-example"><span>Example</span>“Which support inbox am I using now?”</div>
       </div>
       <div class="behavior-card">
