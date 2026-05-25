@@ -1549,6 +1549,21 @@ when it is already answer-shaped evidence.
 | Certificate v4 | 98.1% | 98.9% | **86.4%** | 0.902 | +8 / 0 |
 | Certificate v5 typed rescue | **98.3%** | **99.2%** | **86.4%** | **0.902** | +9 / 0 |
 
+The same certificate logic was then run against the non-fusion token-native
+LongMemEval-S path, using the existing parent/child + coverage-rerank artifact
+as the apples-to-apples baseline.
+
+| Token-native retrieval run | Any@5 | Any@10 | All@5 | All@10 | MRR | Paired top-5 vs 95.1 baseline |
+|---|---:|---:|---:|---:|---:|---:|
+| Parent/child + coverage rerank | 95.1% | 97.0% | 80.4% | 86.8% | 0.875 | — |
+| Parent/child + coverage + certificates + typed rescue | **96.8%** | **97.9%** | **84.3%** | **88.5%** | **0.877** | +8 / 0 |
+
+Artifact: `benchmarks/longmemeval_token_native_certificate_promotion_v5_typed_rescue_tight_20260524.json`
+with SHA-256 `c0e7ebc5d925549e1e3058b6100ab0786654c4d8c1bd4a99fe920c57f3ff2ea6`.
+Certificate counts included `multi_count_target_fact=60`,
+`answer_evidence_tail_protection=16`, `preference_episode_rescue=13`, and
+`temporal_entity_action_rescue=7`.
+
 Production hooks added:
 
 - `contextfit.retrieval.evidence_certificates` contains the reusable certificate engine.

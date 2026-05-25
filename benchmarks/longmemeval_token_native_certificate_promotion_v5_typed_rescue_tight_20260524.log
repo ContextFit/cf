@@ -1,0 +1,598 @@
+[1/500] e47becba single-session-user best_rank=5 sessions=53 4.08s
+[2/500] 118b2229 single-session-user best_rank=1 sessions=45 3.75s
+[3/500] 51a45a95 single-session-user best_rank=1 sessions=50 4.11s
+[4/500] 58bf7951 single-session-user best_rank=1 sessions=57 3.97s
+[5/500] 1e043500 single-session-user best_rank=1 sessions=50 4.10s
+[6/500] c5e8278d single-session-user best_rank=1 sessions=44 3.75s
+[7/500] 6ade9755 single-session-user best_rank=1 sessions=51 3.98s
+[8/500] 6f9b354f single-session-user best_rank=1 sessions=50 4.03s
+[9/500] 58ef2f1c single-session-user best_rank=1 sessions=50 3.94s
+[10/500] f8c5f88b single-session-user best_rank=1 sessions=46 3.84s
+[11/500] 5d3d2817 single-session-user best_rank=5 sessions=53 3.99s
+[12/500] 7527f7e2 single-session-user best_rank=1 sessions=45 4.00s
+[13/500] c960da58 single-session-user best_rank=1 sessions=46 3.81s
+[14/500] 3b6f954b single-session-user best_rank=1 sessions=50 3.96s
+[15/500] 726462e0 single-session-user best_rank=1 sessions=48 3.95s
+[16/500] 94f70d80 single-session-user best_rank=1 sessions=49 3.87s
+[17/500] 66f24dbb single-session-user best_rank=1 sessions=50 3.93s
+[18/500] ad7109d1 single-session-user best_rank=1 sessions=44 3.83s
+[19/500] af8d2e46 single-session-user best_rank=1 sessions=50 4.02s
+[20/500] dccbc061 single-session-user best_rank=1 sessions=49 4.08s
+[21/500] c8c3f81d single-session-user best_rank=1 sessions=52 4.04s
+[22/500] 8ebdbe50 single-session-user best_rank=1 sessions=48 3.99s
+[23/500] 6b168ec8 single-session-user best_rank=1 sessions=50 4.14s
+[24/500] 75499fd8 single-session-user best_rank=1 sessions=52 3.98s
+[25/500] 21436231 single-session-user best_rank=1 sessions=50 4.01s
+[26/500] 95bcc1c8 single-session-user best_rank=1 sessions=46 3.76s
+[27/500] 0862e8bf single-session-user best_rank=1 sessions=50 3.74s
+[28/500] 853b0a1d single-session-user best_rank=1 sessions=52 3.78s
+[29/500] a06e4cfe single-session-user best_rank=1 sessions=53 3.94s
+[30/500] 37d43f65 single-session-user best_rank=1 sessions=49 3.99s
+[31/500] b86304ba single-session-user best_rank=1 sessions=41 3.95s
+[32/500] d52b4f67 single-session-user best_rank=1 sessions=52 3.82s
+[33/500] 25e5aa4f single-session-user best_rank=1 sessions=45 3.97s
+[34/500] caf9ead2 single-session-user best_rank=1 sessions=43 4.05s
+[35/500] 8550ddae single-session-user best_rank=1 sessions=42 3.89s
+[36/500] 60d45044 single-session-user best_rank=2 sessions=51 3.96s
+[37/500] 3f1e9474 single-session-user best_rank=1 sessions=52 4.14s
+[38/500] 86b68151 single-session-user best_rank=1 sessions=47 3.89s
+[39/500] 577d4d32 single-session-user best_rank=3 sessions=46 4.07s
+[40/500] ec81a493 single-session-user best_rank=1 sessions=51 4.42s
+[41/500] 15745da0 single-session-user best_rank=1 sessions=47 3.89s
+[42/500] e01b8e2f single-session-user best_rank=5 sessions=53 4.00s
+[43/500] bc8a6e93 single-session-user best_rank=1 sessions=48 4.04s
+[44/500] ccb36322 single-session-user best_rank=None sessions=46 3.85s
+[45/500] 001be529 single-session-user best_rank=1 sessions=51 4.10s
+[46/500] b320f3f8 single-session-user best_rank=1 sessions=46 4.00s
+[47/500] 19b5f2b3 single-session-user best_rank=1 sessions=43 3.86s
+[48/500] 4fd1909e single-session-user best_rank=1 sessions=55 3.96s
+[49/500] 545bd2b5 single-session-user best_rank=1 sessions=44 3.78s
+[50/500] 8a137a7f single-session-user best_rank=1 sessions=51 3.84s
+[51/500] 76d63226 single-session-user best_rank=1 sessions=48 3.95s
+[52/500] 86f00804 single-session-user best_rank=1 sessions=43 3.68s
+[53/500] 8e9d538c single-session-user best_rank=1 sessions=48 3.82s
+[54/500] 311778f1 single-session-user best_rank=1 sessions=52 4.29s
+[55/500] c19f7a0b single-session-user best_rank=1 sessions=46 3.87s
+[56/500] 4100d0a0 single-session-user best_rank=1 sessions=50 4.14s
+[57/500] 29f2956b single-session-user best_rank=1 sessions=47 3.81s
+[58/500] 1faac195 single-session-user best_rank=1 sessions=45 3.85s
+[59/500] faba32e5 single-session-user best_rank=1 sessions=46 4.12s
+[60/500] f4f1d8a4 single-session-user best_rank=1 sessions=52 4.01s
+[61/500] c14c00dd single-session-user best_rank=5 sessions=51 4.01s
+[62/500] 36580ce8 single-session-user best_rank=1 sessions=55 4.06s
+[63/500] 3d86fd0a single-session-user best_rank=1 sessions=55 3.90s
+[64/500] a82c026e single-session-user best_rank=1 sessions=47 4.02s
+[65/500] 0862e8bf_abs single-session-user best_rank=None sessions=52 3.91s
+[66/500] 15745da0_abs single-session-user best_rank=1 sessions=50 3.92s
+[67/500] bc8a6e93_abs single-session-user best_rank=1 sessions=47 4.02s
+[68/500] 19b5f2b3_abs single-session-user best_rank=4 sessions=50 3.86s
+[69/500] 29f2956b_abs single-session-user best_rank=9 sessions=50 4.07s
+[70/500] f4f1d8a4_abs single-session-user best_rank=4 sessions=50 4.19s
+[71/500] 0a995998 multi-session best_rank=1 sessions=44 4.38s
+[72/500] 6d550036 multi-session best_rank=4 sessions=47 4.00s
+[73/500] gpt4_59c863d7 multi-session best_rank=3 sessions=47 4.27s
+[74/500] b5ef892d multi-session best_rank=2 sessions=52 4.26s
+[75/500] e831120c multi-session best_rank=1 sessions=47 4.17s
+[76/500] 3a704032 multi-session best_rank=2 sessions=48 4.56s
+[77/500] gpt4_d84a3211 multi-session best_rank=1 sessions=48 4.23s
+[78/500] aae3761f multi-session best_rank=1 sessions=47 4.23s
+[79/500] gpt4_f2262a51 multi-session best_rank=None sessions=45 4.19s
+[80/500] dd2973ad multi-session best_rank=1 sessions=49 4.22s
+[81/500] c4a1ceb8 multi-session best_rank=1 sessions=49 4.23s
+[82/500] gpt4_a56e767c multi-session best_rank=2 sessions=48 4.28s
+[83/500] 6cb6f249 multi-session best_rank=1 sessions=41 4.11s
+[84/500] 46a3abf7 multi-session best_rank=1 sessions=50 4.31s
+[85/500] 36b9f61e multi-session best_rank=1 sessions=47 4.33s
+[86/500] 28dc39ac multi-session best_rank=1 sessions=38 3.93s
+[87/500] gpt4_2f8be40d multi-session best_rank=3 sessions=46 4.36s
+[88/500] 2e6d26dc multi-session best_rank=1 sessions=54 4.46s
+[89/500] gpt4_15e38248 multi-session best_rank=3 sessions=46 4.21s
+[90/500] 88432d0a multi-session best_rank=5 sessions=45 4.44s
+[91/500] 80ec1f4f multi-session best_rank=1 sessions=46 4.16s
+[92/500] d23cf73b multi-session best_rank=2 sessions=51 4.26s
+[93/500] gpt4_7fce9456 multi-session best_rank=1 sessions=44 4.21s
+[94/500] d682f1a2 multi-session best_rank=1 sessions=47 4.15s
+[95/500] 7024f17c multi-session best_rank=1 sessions=47 4.13s
+[96/500] gpt4_5501fe77 multi-session best_rank=1 sessions=45 4.42s
+[97/500] gpt4_2ba83207 multi-session best_rank=1 sessions=53 4.26s
+[98/500] 2318644b multi-session best_rank=1 sessions=41 4.15s
+[99/500] 2ce6a0f2 multi-session best_rank=1 sessions=47 4.32s
+[100/500] gpt4_d12ceb0e multi-session best_rank=1 sessions=45 4.19s
+[101/500] 00ca467f multi-session best_rank=1 sessions=47 4.34s
+[102/500] b3c15d39 multi-session best_rank=1 sessions=51 4.16s
+[103/500] gpt4_31ff4165 multi-session best_rank=1 sessions=42 4.07s
+[104/500] eeda8a6d multi-session best_rank=1 sessions=49 4.34s
+[105/500] 2788b940 multi-session best_rank=1 sessions=47 4.20s
+[106/500] 60bf93ed multi-session best_rank=1 sessions=51 4.42s
+[107/500] 9d25d4e0 multi-session best_rank=1 sessions=44 4.45s
+[108/500] 129d1232 multi-session best_rank=1 sessions=48 4.27s
+[109/500] 60472f9c multi-session best_rank=1 sessions=45 4.10s
+[110/500] gpt4_194be4b3 multi-session best_rank=2 sessions=44 4.17s
+[111/500] a9f6b44c multi-session best_rank=1 sessions=45 4.07s
+[112/500] d851d5ba multi-session best_rank=1 sessions=46 4.37s
+[113/500] 5a7937c8 multi-session best_rank=1 sessions=42 4.19s
+[114/500] gpt4_ab202e7f multi-session best_rank=1 sessions=46 4.23s
+[115/500] gpt4_e05b82a6 multi-session best_rank=1 sessions=46 4.32s
+[116/500] gpt4_731e37d7 multi-session best_rank=1 sessions=48 4.15s
+[117/500] edced276 multi-session best_rank=1 sessions=46 4.34s
+[118/500] 10d9b85a multi-session best_rank=4 sessions=44 4.31s
+[119/500] e3038f8c multi-session best_rank=1 sessions=45 4.32s
+[120/500] 2b8f3739 multi-session best_rank=1 sessions=47 4.48s
+[121/500] 1a8a66a6 multi-session best_rank=2 sessions=51 4.45s
+[122/500] c2ac3c61 multi-session best_rank=1 sessions=53 4.57s
+[123/500] bf659f65 multi-session best_rank=1 sessions=52 4.22s
+[124/500] gpt4_372c3eed multi-session best_rank=2 sessions=45 4.33s
+[125/500] gpt4_2f91af09 multi-session best_rank=1 sessions=53 4.34s
+[126/500] 81507db6 multi-session best_rank=1 sessions=50 4.41s
+[127/500] 88432d0a_abs multi-session best_rank=7 sessions=44 4.12s
+[128/500] 80ec1f4f_abs multi-session best_rank=1 sessions=44 4.28s
+[129/500] eeda8a6d_abs multi-session best_rank=1 sessions=49 4.13s
+[130/500] 60bf93ed_abs multi-session best_rank=1 sessions=51 4.49s
+[131/500] edced276_abs multi-session best_rank=1 sessions=47 4.20s
+[132/500] gpt4_372c3eed_abs multi-session best_rank=2 sessions=44 4.16s
+[133/500] 8a2466db single-session-preference best_rank=1 sessions=50 4.09s
+[134/500] 06878be2 single-session-preference best_rank=3 sessions=48 4.05s
+[135/500] 75832dbd single-session-preference best_rank=4 sessions=48 3.99s
+[136/500] 0edc2aef single-session-preference best_rank=3 sessions=46 4.04s
+[137/500] 35a27287 single-session-preference best_rank=1 sessions=51 4.05s
+[138/500] 32260d93 single-session-preference best_rank=None sessions=46 3.91s
+[139/500] 195a1a1b single-session-preference best_rank=1 sessions=46 4.28s
+[140/500] afdc33df single-session-preference best_rank=1 sessions=46 4.09s
+[141/500] caf03d32 single-session-preference best_rank=1 sessions=51 3.92s
+[142/500] 54026fce single-session-preference best_rank=1 sessions=49 4.21s
+[143/500] 06f04340 single-session-preference best_rank=None sessions=55 4.05s
+[144/500] 6b7dfb22 single-session-preference best_rank=1 sessions=45 4.26s
+[145/500] 1a1907b4 single-session-preference best_rank=4 sessions=48 4.29s
+[146/500] 09d032c9 single-session-preference best_rank=None sessions=43 3.96s
+[147/500] 38146c39 single-session-preference best_rank=3 sessions=46 3.94s
+[148/500] d24813b1 single-session-preference best_rank=5 sessions=44 4.06s
+[149/500] 57f827a0 single-session-preference best_rank=4 sessions=51 3.98s
+[150/500] 95228167 single-session-preference best_rank=5 sessions=49 4.04s
+[151/500] 505af2f5 single-session-preference best_rank=5 sessions=53 4.04s
+[152/500] 75f70248 single-session-preference best_rank=1 sessions=42 4.11s
+[153/500] d6233ab6 single-session-preference best_rank=5 sessions=44 4.06s
+[154/500] 1da05512 single-session-preference best_rank=1 sessions=47 4.05s
+[155/500] fca70973 single-session-preference best_rank=1 sessions=45 3.87s
+[156/500] b6025781 single-session-preference best_rank=1 sessions=47 3.93s
+[157/500] a89d7624 single-session-preference best_rank=2 sessions=49 4.04s
+[158/500] b0479f84 single-session-preference best_rank=3 sessions=48 4.06s
+[159/500] 1d4e3b97 single-session-preference best_rank=1 sessions=45 4.05s
+[160/500] 07b6f563 single-session-preference best_rank=3 sessions=52 4.07s
+[161/500] 1c0ddc50 single-session-preference best_rank=4 sessions=51 4.26s
+[162/500] 0a34ad58 single-session-preference best_rank=1 sessions=42 4.05s
+[163/500] d3ab962e multi-session best_rank=2 sessions=49 4.20s
+[164/500] 2311e44b multi-session best_rank=1 sessions=50 4.26s
+[165/500] cc06de0d multi-session best_rank=1 sessions=42 4.37s
+[166/500] a11281a2 multi-session best_rank=1 sessions=50 4.51s
+[167/500] 4f54b7c9 multi-session best_rank=1 sessions=45 4.03s
+[168/500] 85fa3a3f multi-session best_rank=1 sessions=47 4.08s
+[169/500] 9aaed6a3 multi-session best_rank=1 sessions=51 4.15s
+[170/500] 1f2b8d4f multi-session best_rank=1 sessions=51 4.22s
+[171/500] e6041065 multi-session best_rank=1 sessions=45 4.07s
+[172/500] 51c32626 multi-session best_rank=1 sessions=51 4.33s
+[173/500] d905b33f multi-session best_rank=1 sessions=48 4.21s
+[174/500] 7405e8b1 multi-session best_rank=1 sessions=48 4.33s
+[175/500] f35224e0 multi-session best_rank=1 sessions=53 4.41s
+[176/500] 6456829e multi-session best_rank=2 sessions=47 4.29s
+[177/500] a4996e51 multi-session best_rank=1 sessions=48 4.29s
+[178/500] 3c1045c8 multi-session best_rank=1 sessions=52 4.19s
+[179/500] 60036106 multi-session best_rank=1 sessions=44 4.35s
+[180/500] 681a1674 multi-session best_rank=1 sessions=49 4.09s
+[181/500] e25c3b8d multi-session best_rank=1 sessions=48 4.15s
+[182/500] 4adc0475 multi-session best_rank=1 sessions=45 4.41s
+[183/500] 4bc144e2 multi-session best_rank=1 sessions=48 4.16s
+[184/500] ef66a6e5 multi-session best_rank=1 sessions=45 4.36s
+[185/500] 5025383b multi-session best_rank=1 sessions=46 4.02s
+[186/500] a1cc6108 multi-session best_rank=2 sessions=43 4.48s
+[187/500] 9ee3ecd6 multi-session best_rank=1 sessions=50 4.36s
+[188/500] 3fdac837 multi-session best_rank=1 sessions=44 4.16s
+[189/500] 91b15a6e multi-session best_rank=1 sessions=49 4.29s
+[190/500] 27016adc multi-session best_rank=1 sessions=45 4.38s
+[191/500] 720133ac multi-session best_rank=1 sessions=47 4.37s
+[192/500] 77eafa52 multi-session best_rank=2 sessions=51 4.28s
+[193/500] 8979f9ec multi-session best_rank=1 sessions=43 4.41s
+[194/500] 0100672e multi-session best_rank=1 sessions=49 4.26s
+[195/500] a96c20ee multi-session best_rank=1 sessions=51 4.27s
+[196/500] 92a0aa75 multi-session best_rank=None sessions=42 4.61s
+[197/500] 3fe836c9 multi-session best_rank=1 sessions=45 4.28s
+[198/500] 1c549ce4 multi-session best_rank=1 sessions=45 4.27s
+[199/500] 6c49646a multi-session best_rank=1 sessions=43 4.15s
+[200/500] 1192316e multi-session best_rank=2 sessions=42 4.28s
+[201/500] 0ea62687 multi-session best_rank=1 sessions=43 4.42s
+[202/500] 67e0d0f2 multi-session best_rank=4 sessions=52 4.31s
+[203/500] bb7c3b45 multi-session best_rank=1 sessions=47 4.24s
+[204/500] ba358f49 multi-session best_rank=1 sessions=41 4.21s
+[205/500] 61f8c8f8 multi-session best_rank=1 sessions=48 4.33s
+[206/500] 60159905 multi-session best_rank=1 sessions=44 4.46s
+[207/500] ef9cf60a multi-session best_rank=1 sessions=54 4.16s
+[208/500] 73d42213 multi-session best_rank=1 sessions=49 4.20s
+[209/500] bc149d6b multi-session best_rank=1 sessions=46 4.43s
+[210/500] 099778bb multi-session best_rank=1 sessions=46 4.34s
+[211/500] 09ba9854 multi-session best_rank=1 sessions=44 4.27s
+[212/500] d6062bb9 multi-session best_rank=1 sessions=50 4.42s
+[213/500] 157a136e multi-session best_rank=3 sessions=47 4.16s
+[214/500] c18a7dc8 multi-session best_rank=None sessions=49 4.19s
+[215/500] a3332713 multi-session best_rank=1 sessions=42 4.20s
+[216/500] 55241a1f multi-session best_rank=1 sessions=49 4.31s
+[217/500] a08a253f multi-session best_rank=1 sessions=53 4.09s
+[218/500] f0e564bc multi-session best_rank=1 sessions=50 4.20s
+[219/500] 078150f1 multi-session best_rank=1 sessions=46 4.19s
+[220/500] 8cf4d046 multi-session best_rank=1 sessions=45 4.27s
+[221/500] a346bb18 multi-session best_rank=1 sessions=49 4.34s
+[222/500] 37f165cf multi-session best_rank=1 sessions=45 4.30s
+[223/500] 8e91e7d9 multi-session best_rank=None sessions=47 4.22s
+[224/500] 87f22b4a multi-session best_rank=9 sessions=47 4.28s
+[225/500] e56a43b9 multi-session best_rank=1 sessions=45 4.26s
+[226/500] efc3f7c2 multi-session best_rank=1 sessions=48 4.25s
+[227/500] 21d02d0d multi-session best_rank=1 sessions=47 4.32s
+[228/500] 2311e44b_abs multi-session best_rank=1 sessions=49 4.27s
+[229/500] 6456829e_abs multi-session best_rank=1 sessions=53 4.41s
+[230/500] e5ba910e_abs multi-session best_rank=3 sessions=48 4.44s
+[231/500] a96c20ee_abs multi-session best_rank=1 sessions=53 4.28s
+[232/500] ba358f49_abs multi-session best_rank=1 sessions=48 4.34s
+[233/500] 09ba9854_abs multi-session best_rank=1 sessions=50 4.30s
+[234/500] gpt4_59149c77 temporal-reasoning best_rank=1 sessions=48 4.15s
+[235/500] gpt4_f49edff3 temporal-reasoning best_rank=1 sessions=47 3.94s
+[236/500] 71017276 temporal-reasoning best_rank=1 sessions=49 3.82s
+[237/500] b46e15ed temporal-reasoning best_rank=1 sessions=46 4.11s
+[238/500] gpt4_fa19884c temporal-reasoning best_rank=1 sessions=46 3.99s
+[239/500] 0bc8ad92 temporal-reasoning best_rank=1 sessions=49 3.75s
+[240/500] af082822 temporal-reasoning best_rank=1 sessions=43 4.02s
+[241/500] gpt4_4929293a temporal-reasoning best_rank=1 sessions=44 4.10s
+[242/500] gpt4_b5700ca9 temporal-reasoning best_rank=1 sessions=52 4.19s
+[243/500] 9a707b81 temporal-reasoning best_rank=1 sessions=54 4.01s
+[244/500] gpt4_1d4ab0c9 temporal-reasoning best_rank=1 sessions=53 4.02s
+[245/500] gpt4_e072b769 temporal-reasoning best_rank=1 sessions=45 4.16s
+[246/500] 0db4c65d temporal-reasoning best_rank=1 sessions=44 3.84s
+[247/500] gpt4_1d80365e temporal-reasoning best_rank=1 sessions=51 4.22s
+[248/500] gpt4_7f6b06db temporal-reasoning best_rank=5 sessions=52 3.72s
+[249/500] gpt4_6dc9b45b temporal-reasoning best_rank=1 sessions=48 3.76s
+[250/500] gpt4_8279ba02 temporal-reasoning best_rank=4 sessions=47 3.85s
+[251/500] gpt4_18c2b244 temporal-reasoning best_rank=1 sessions=44 4.14s
+[252/500] gpt4_a1b77f9c temporal-reasoning best_rank=1 sessions=49 3.93s
+[253/500] gpt4_1916e0ea temporal-reasoning best_rank=1 sessions=56 4.33s
+[254/500] gpt4_7a0daae1 temporal-reasoning best_rank=1 sessions=61 3.86s
+[255/500] gpt4_468eb063 temporal-reasoning best_rank=5 sessions=44 4.04s
+[256/500] gpt4_7abb270c temporal-reasoning best_rank=3 sessions=48 3.95s
+[257/500] gpt4_1e4a8aeb temporal-reasoning best_rank=1 sessions=48 4.14s
+[258/500] gpt4_4fc4f797 temporal-reasoning best_rank=1 sessions=45 3.94s
+[259/500] 4dfccbf7 temporal-reasoning best_rank=1 sessions=47 4.07s
+[260/500] gpt4_61e13b3c temporal-reasoning best_rank=1 sessions=48 4.05s
+[261/500] gpt4_45189cb4 temporal-reasoning best_rank=1 sessions=45 4.08s
+[262/500] 2ebe6c90 temporal-reasoning best_rank=1 sessions=43 4.00s
+[263/500] gpt4_e061b84f temporal-reasoning best_rank=4 sessions=46 3.86s
+[264/500] 370a8ff4 temporal-reasoning best_rank=1 sessions=46 3.87s
+[265/500] gpt4_d6585ce8 temporal-reasoning best_rank=1 sessions=50 3.75s
+[266/500] gpt4_4ef30696 temporal-reasoning best_rank=1 sessions=49 4.13s
+[267/500] gpt4_ec93e27f temporal-reasoning best_rank=1 sessions=47 3.94s
+[268/500] 6e984301 temporal-reasoning best_rank=1 sessions=50 4.31s
+[269/500] 8077ef71 temporal-reasoning best_rank=3 sessions=47 3.95s
+[270/500] gpt4_f420262c temporal-reasoning best_rank=1 sessions=47 4.07s
+[271/500] gpt4_8e165409 temporal-reasoning best_rank=1 sessions=47 3.89s
+[272/500] gpt4_74aed68e temporal-reasoning best_rank=1 sessions=45 3.77s
+[273/500] bcbe585f temporal-reasoning best_rank=1 sessions=48 3.79s
+[274/500] gpt4_21adecb5 temporal-reasoning best_rank=2 sessions=52 4.09s
+[275/500] 5e1b23de temporal-reasoning best_rank=1 sessions=45 3.84s
+[276/500] gpt4_98f46fc6 temporal-reasoning best_rank=1 sessions=49 4.00s
+[277/500] gpt4_af6db32f temporal-reasoning best_rank=4 sessions=42 4.00s
+[278/500] eac54adc temporal-reasoning best_rank=1 sessions=46 3.93s
+[279/500] gpt4_7ddcf75f temporal-reasoning best_rank=1 sessions=47 4.02s
+[280/500] gpt4_a2d1d1f6 temporal-reasoning best_rank=1 sessions=44 4.07s
+[281/500] gpt4_85da3956 temporal-reasoning best_rank=1 sessions=53 4.14s
+[282/500] gpt4_b0863698 temporal-reasoning best_rank=3 sessions=42 4.11s
+[283/500] gpt4_68e94287 temporal-reasoning best_rank=1 sessions=50 4.06s
+[284/500] gpt4_e414231e temporal-reasoning best_rank=1 sessions=46 4.06s
+[285/500] gpt4_7ca326fa temporal-reasoning best_rank=1 sessions=54 3.91s
+[286/500] gpt4_7bc6cf22 temporal-reasoning best_rank=1 sessions=48 4.12s
+[287/500] 2ebe6c92 temporal-reasoning best_rank=1 sessions=48 3.82s
+[288/500] gpt4_e061b84g temporal-reasoning best_rank=9 sessions=58 3.90s
+[289/500] 71017277 temporal-reasoning best_rank=1 sessions=51 4.04s
+[290/500] b46e15ee temporal-reasoning best_rank=1 sessions=42 3.92s
+[291/500] gpt4_d6585ce9 temporal-reasoning best_rank=1 sessions=42 3.79s
+[292/500] gpt4_1e4a8aec temporal-reasoning best_rank=3 sessions=50 3.91s
+[293/500] gpt4_f420262d temporal-reasoning best_rank=1 sessions=43 3.81s
+[294/500] gpt4_59149c78 temporal-reasoning best_rank=3 sessions=51 4.13s
+[295/500] gpt4_e414231f temporal-reasoning best_rank=1 sessions=46 3.70s
+[296/500] gpt4_4929293b temporal-reasoning best_rank=3 sessions=49 4.07s
+[297/500] gpt4_468eb064 temporal-reasoning best_rank=5 sessions=48 4.14s
+[298/500] gpt4_fa19884d temporal-reasoning best_rank=7 sessions=50 4.11s
+[299/500] 9a707b82 temporal-reasoning best_rank=10 sessions=53 4.09s
+[300/500] eac54add temporal-reasoning best_rank=None sessions=43 3.95s
+[301/500] 4dfccbf8 temporal-reasoning best_rank=5 sessions=43 3.98s
+[302/500] 0bc8ad93 temporal-reasoning best_rank=1 sessions=47 4.02s
+[303/500] 6e984302 temporal-reasoning best_rank=5 sessions=43 4.09s
+[304/500] gpt4_8279ba03 temporal-reasoning best_rank=None sessions=43 3.96s
+[305/500] gpt4_b5700ca0 temporal-reasoning best_rank=4 sessions=50 4.19s
+[306/500] gpt4_68e94288 temporal-reasoning best_rank=3 sessions=44 3.90s
+[307/500] gpt4_2655b836 temporal-reasoning best_rank=1 sessions=45 4.13s
+[308/500] gpt4_2487a7cb temporal-reasoning best_rank=1 sessions=47 3.89s
+[309/500] gpt4_76048e76 temporal-reasoning best_rank=1 sessions=44 4.00s
+[310/500] gpt4_2312f94c temporal-reasoning best_rank=1 sessions=45 3.84s
+[311/500] 0bb5a684 temporal-reasoning best_rank=1 sessions=42 4.01s
+[312/500] 08f4fc43 temporal-reasoning best_rank=1 sessions=47 4.04s
+[313/500] 2c63a862 temporal-reasoning best_rank=1 sessions=54 3.96s
+[314/500] gpt4_385a5000 temporal-reasoning best_rank=1 sessions=51 3.86s
+[315/500] 2a1811e2 temporal-reasoning best_rank=1 sessions=46 4.07s
+[316/500] bbf86515 temporal-reasoning best_rank=1 sessions=45 3.85s
+[317/500] gpt4_5dcc0aab temporal-reasoning best_rank=1 sessions=50 4.05s
+[318/500] gpt4_0b2f1d21 temporal-reasoning best_rank=1 sessions=53 3.91s
+[319/500] f0853d11 temporal-reasoning best_rank=1 sessions=46 3.82s
+[320/500] gpt4_6ed717ea temporal-reasoning best_rank=1 sessions=46 4.04s
+[321/500] gpt4_70e84552 temporal-reasoning best_rank=1 sessions=48 3.89s
+[322/500] a3838d2b temporal-reasoning best_rank=1 sessions=47 3.92s
+[323/500] gpt4_93159ced temporal-reasoning best_rank=1 sessions=42 3.88s
+[324/500] gpt4_2d58bcd6 temporal-reasoning best_rank=1 sessions=46 3.89s
+[325/500] gpt4_65aabe59 temporal-reasoning best_rank=2 sessions=42 4.02s
+[326/500] 982b5123 temporal-reasoning best_rank=1 sessions=47 4.03s
+[327/500] b9cfe692 temporal-reasoning best_rank=1 sessions=48 3.90s
+[328/500] gpt4_4edbafa2 temporal-reasoning best_rank=1 sessions=41 3.94s
+[329/500] c8090214 temporal-reasoning best_rank=1 sessions=47 3.80s
+[330/500] gpt4_483dd43c temporal-reasoning best_rank=1 sessions=52 3.75s
+[331/500] e4e14d04 temporal-reasoning best_rank=1 sessions=45 3.97s
+[332/500] c9f37c46 temporal-reasoning best_rank=1 sessions=50 4.04s
+[333/500] gpt4_2c50253f temporal-reasoning best_rank=1 sessions=56 4.06s
+[334/500] dcfa8644 temporal-reasoning best_rank=1 sessions=46 3.86s
+[335/500] gpt4_b4a80587 temporal-reasoning best_rank=1 sessions=47 4.15s
+[336/500] gpt4_9a159967 temporal-reasoning best_rank=1 sessions=46 4.04s
+[337/500] cc6d1ec1 temporal-reasoning best_rank=1 sessions=46 4.06s
+[338/500] gpt4_8c8961ae temporal-reasoning best_rank=1 sessions=50 4.11s
+[339/500] gpt4_d9af6064 temporal-reasoning best_rank=1 sessions=51 4.08s
+[340/500] gpt4_7de946e7 temporal-reasoning best_rank=1 sessions=49 4.12s
+[341/500] d01c6aa8 temporal-reasoning best_rank=1 sessions=42 4.08s
+[342/500] 993da5e2 temporal-reasoning best_rank=1 sessions=49 3.82s
+[343/500] a3045048 temporal-reasoning best_rank=2 sessions=53 3.97s
+[344/500] gpt4_d31cdae3 temporal-reasoning best_rank=1 sessions=50 3.95s
+[345/500] gpt4_cd90e484 temporal-reasoning best_rank=1 sessions=52 4.06s
+[346/500] gpt4_88806d6e temporal-reasoning best_rank=1 sessions=49 4.22s
+[347/500] gpt4_4cd9eba1 temporal-reasoning best_rank=1 sessions=45 4.01s
+[348/500] gpt4_93f6379c temporal-reasoning best_rank=1 sessions=42 4.05s
+[349/500] b29f3365 temporal-reasoning best_rank=1 sessions=50 4.13s
+[350/500] gpt4_2f56ae70 temporal-reasoning best_rank=3 sessions=45 3.78s
+[351/500] 6613b389 temporal-reasoning best_rank=1 sessions=41 4.37s
+[352/500] gpt4_78cf46a3 temporal-reasoning best_rank=2 sessions=49 4.00s
+[353/500] gpt4_0a05b494 temporal-reasoning best_rank=1 sessions=45 4.03s
+[354/500] gpt4_1a1dc16d temporal-reasoning best_rank=2 sessions=46 4.01s
+[355/500] gpt4_2f584639 temporal-reasoning best_rank=1 sessions=45 4.23s
+[356/500] gpt4_213fd887 temporal-reasoning best_rank=1 sessions=45 4.21s
+[357/500] gpt4_5438fa52 temporal-reasoning best_rank=1 sessions=50 4.35s
+[358/500] gpt4_c27434e8 temporal-reasoning best_rank=1 sessions=51 4.32s
+[359/500] gpt4_fe651585 temporal-reasoning best_rank=1 sessions=48 4.21s
+[360/500] 8c18457d temporal-reasoning best_rank=1 sessions=41 4.24s
+[361/500] gpt4_70e84552_abs temporal-reasoning best_rank=1 sessions=50 4.00s
+[362/500] gpt4_93159ced_abs temporal-reasoning best_rank=8 sessions=44 3.88s
+[363/500] 982b5123_abs temporal-reasoning best_rank=1 sessions=44 4.06s
+[364/500] c8090214_abs temporal-reasoning best_rank=1 sessions=53 4.10s
+[365/500] gpt4_c27434e8_abs temporal-reasoning best_rank=1 sessions=47 4.25s
+[366/500] gpt4_fe651585_abs temporal-reasoning best_rank=2 sessions=49 3.97s
+[367/500] 6a1eabeb knowledge-update best_rank=1 sessions=40 3.86s
+[368/500] 6aeb4375 knowledge-update best_rank=1 sessions=47 4.04s
+[369/500] 830ce83f knowledge-update best_rank=2 sessions=47 3.98s
+[370/500] 852ce960 knowledge-update best_rank=1 sessions=39 4.32s
+[371/500] 945e3d21 knowledge-update best_rank=1 sessions=48 4.18s
+[372/500] d7c942c3 knowledge-update best_rank=1 sessions=49 4.10s
+[373/500] 71315a70 knowledge-update best_rank=1 sessions=53 4.29s
+[374/500] 89941a93 knowledge-update best_rank=1 sessions=51 4.15s
+[375/500] ce6d2d27 knowledge-update best_rank=1 sessions=51 3.90s
+[376/500] 9ea5eabc knowledge-update best_rank=1 sessions=53 4.04s
+[377/500] 07741c44 knowledge-update best_rank=1 sessions=50 4.13s
+[378/500] a1eacc2a knowledge-update best_rank=1 sessions=44 4.18s
+[379/500] 184da446 knowledge-update best_rank=1 sessions=42 3.94s
+[380/500] 031748ae knowledge-update best_rank=1 sessions=46 4.14s
+[381/500] 4d6b87c8 knowledge-update best_rank=1 sessions=52 4.07s
+[382/500] 0f05491a knowledge-update best_rank=1 sessions=45 4.02s
+[383/500] 08e075c7 knowledge-update best_rank=1 sessions=45 4.11s
+[384/500] f9e8c073 knowledge-update best_rank=1 sessions=53 4.23s
+[385/500] 41698283 knowledge-update best_rank=1 sessions=45 3.92s
+[386/500] 2698e78f knowledge-update best_rank=1 sessions=48 4.13s
+[387/500] b6019101 knowledge-update best_rank=1 sessions=49 4.26s
+[388/500] 45dc21b6 knowledge-update best_rank=1 sessions=49 3.96s
+[389/500] 5a4f22c0 knowledge-update best_rank=1 sessions=49 4.23s
+[390/500] 6071bd76 knowledge-update best_rank=1 sessions=46 4.06s
+[391/500] e493bb7c knowledge-update best_rank=1 sessions=51 4.20s
+[392/500] 618f13b2 knowledge-update best_rank=1 sessions=49 4.18s
+[393/500] 72e3ee87 knowledge-update best_rank=1 sessions=51 3.94s
+[394/500] c4ea545c knowledge-update best_rank=1 sessions=46 4.02s
+[395/500] 01493427 knowledge-update best_rank=1 sessions=47 4.01s
+[396/500] 6a27ffc2 knowledge-update best_rank=1 sessions=51 4.04s
+[397/500] 2133c1b5 knowledge-update best_rank=1 sessions=51 4.03s
+[398/500] 18bc8abd knowledge-update best_rank=1 sessions=44 3.98s
+[399/500] db467c8c knowledge-update best_rank=1 sessions=48 4.16s
+[400/500] 7a87bd0c knowledge-update best_rank=1 sessions=48 4.09s
+[401/500] e61a7584 knowledge-update best_rank=1 sessions=50 4.06s
+[402/500] 1cea1afa knowledge-update best_rank=1 sessions=49 3.95s
+[403/500] ed4ddc30 knowledge-update best_rank=1 sessions=46 3.90s
+[404/500] 8fb83627 knowledge-update best_rank=1 sessions=44 3.82s
+[405/500] b01defab knowledge-update best_rank=1 sessions=50 3.87s
+[406/500] 22d2cb42 knowledge-update best_rank=1 sessions=48 3.98s
+[407/500] 0e4e4c46 knowledge-update best_rank=1 sessions=49 3.89s
+[408/500] 4b24c848 knowledge-update best_rank=1 sessions=51 3.97s
+[409/500] 7e974930 knowledge-update best_rank=1 sessions=47 3.85s
+[410/500] 603deb26 knowledge-update best_rank=1 sessions=48 4.74s
+[411/500] 59524333 knowledge-update best_rank=1 sessions=44 4.10s
+[412/500] 5831f84d knowledge-update best_rank=1 sessions=40 3.91s
+[413/500] eace081b knowledge-update best_rank=1 sessions=47 3.98s
+[414/500] affe2881 knowledge-update best_rank=1 sessions=44 4.22s
+[415/500] 50635ada knowledge-update best_rank=1 sessions=48 4.05s
+[416/500] e66b632c knowledge-update best_rank=1 sessions=47 3.98s
+[417/500] 0ddfec37 knowledge-update best_rank=1 sessions=50 3.90s
+[418/500] f685340e knowledge-update best_rank=1 sessions=41 3.82s
+[419/500] cc5ded98 knowledge-update best_rank=1 sessions=53 3.83s
+[420/500] dfde3500 knowledge-update best_rank=1 sessions=47 4.03s
+[421/500] 69fee5aa knowledge-update best_rank=1 sessions=49 3.69s
+[422/500] 7401057b knowledge-update best_rank=1 sessions=47 3.84s
+[423/500] cf22b7bf knowledge-update best_rank=1 sessions=55 3.96s
+[424/500] a2f3aa27 knowledge-update best_rank=1 sessions=44 4.00s
+[425/500] c7dc5443 knowledge-update best_rank=1 sessions=46 3.98s
+[426/500] 06db6396 knowledge-update best_rank=1 sessions=51 4.14s
+[427/500] 3ba21379 knowledge-update best_rank=10 sessions=44 4.00s
+[428/500] 9bbe84a2 knowledge-update best_rank=1 sessions=48 4.05s
+[429/500] 10e09553 knowledge-update best_rank=1 sessions=45 3.85s
+[430/500] dad224aa knowledge-update best_rank=2 sessions=48 4.17s
+[431/500] ba61f0b9 knowledge-update best_rank=1 sessions=45 4.23s
+[432/500] 42ec0761 knowledge-update best_rank=1 sessions=48 4.00s
+[433/500] 5c40ec5b knowledge-update best_rank=1 sessions=51 4.08s
+[434/500] c6853660 knowledge-update best_rank=1 sessions=46 3.97s
+[435/500] 26bdc477 knowledge-update best_rank=1 sessions=48 4.05s
+[436/500] 0977f2af knowledge-update best_rank=1 sessions=44 3.85s
+[437/500] 6aeb4375_abs knowledge-update best_rank=1 sessions=46 3.82s
+[438/500] 031748ae_abs knowledge-update best_rank=1 sessions=52 4.08s
+[439/500] 2698e78f_abs knowledge-update best_rank=5 sessions=46 3.97s
+[440/500] 2133c1b5_abs knowledge-update best_rank=1 sessions=50 3.90s
+[441/500] 0ddfec37_abs knowledge-update best_rank=1 sessions=45 3.88s
+[442/500] f685340e_abs knowledge-update best_rank=1 sessions=43 3.85s
+[443/500] 89941a94 knowledge-update best_rank=1 sessions=46 4.17s
+[444/500] 07741c45 knowledge-update best_rank=1 sessions=49 3.67s
+[445/500] 7161e7e2 single-session-assistant best_rank=1 sessions=48 4.01s
+[446/500] c4f10528 single-session-assistant best_rank=1 sessions=44 4.02s
+[447/500] 89527b6b single-session-assistant best_rank=1 sessions=45 3.95s
+[448/500] e9327a54 single-session-assistant best_rank=1 sessions=50 3.94s
+[449/500] 4c36ccef single-session-assistant best_rank=1 sessions=49 3.92s
+[450/500] 6ae235be single-session-assistant best_rank=1 sessions=48 3.90s
+[451/500] 7e00a6cb single-session-assistant best_rank=1 sessions=62 3.95s
+[452/500] 1903aded single-session-assistant best_rank=2 sessions=47 4.16s
+[453/500] ceb54acb single-session-assistant best_rank=1 sessions=50 4.02s
+[454/500] f523d9fe single-session-assistant best_rank=1 sessions=50 4.03s
+[455/500] 0e5e2d1a single-session-assistant best_rank=1 sessions=46 4.00s
+[456/500] fea54f57 single-session-assistant best_rank=1 sessions=50 4.04s
+[457/500] cc539528 single-session-assistant best_rank=1 sessions=48 4.02s
+[458/500] dc439ea3 single-session-assistant best_rank=1 sessions=47 4.14s
+[459/500] 18dcd5a5 single-session-assistant best_rank=1 sessions=50 4.16s
+[460/500] 488d3006 single-session-assistant best_rank=1 sessions=47 3.89s
+[461/500] 58470ed2 single-session-assistant best_rank=1 sessions=50 3.95s
+[462/500] 8cf51dda single-session-assistant best_rank=1 sessions=46 3.94s
+[463/500] 1d4da289 single-session-assistant best_rank=1 sessions=55 4.21s
+[464/500] 8464fc84 single-session-assistant best_rank=1 sessions=45 4.07s
+[465/500] 8aef76bc single-session-assistant best_rank=1 sessions=48 3.92s
+[466/500] 71a3fd6b single-session-assistant best_rank=1 sessions=44 3.95s
+[467/500] 2bf43736 single-session-assistant best_rank=1 sessions=44 4.03s
+[468/500] 70b3e69b single-session-assistant best_rank=1 sessions=48 4.01s
+[469/500] 8752c811 single-session-assistant best_rank=1 sessions=56 3.92s
+[470/500] 3249768e single-session-assistant best_rank=1 sessions=47 3.97s
+[471/500] 1b9b7252 single-session-assistant best_rank=1 sessions=46 3.90s
+[472/500] 1568498a single-session-assistant best_rank=1 sessions=47 3.81s
+[473/500] 6222b6eb single-session-assistant best_rank=1 sessions=46 4.08s
+[474/500] e8a79c70 single-session-assistant best_rank=1 sessions=44 3.93s
+[475/500] d596882b single-session-assistant best_rank=1 sessions=44 4.07s
+[476/500] e3fc4d6e single-session-assistant best_rank=1 sessions=53 4.21s
+[477/500] 51b23612 single-session-assistant best_rank=1 sessions=47 3.93s
+[478/500] 3e321797 single-session-assistant best_rank=1 sessions=50 3.97s
+[479/500] e982271f single-session-assistant best_rank=1 sessions=54 4.29s
+[480/500] 352ab8bd single-session-assistant best_rank=1 sessions=49 3.86s
+[481/500] fca762bc single-session-assistant best_rank=1 sessions=42 3.87s
+[482/500] 7a8d0b71 single-session-assistant best_rank=1 sessions=45 4.22s
+[483/500] a40e080f single-session-assistant best_rank=1 sessions=48 4.11s
+[484/500] 8b9d4367 single-session-assistant best_rank=1 sessions=53 4.05s
+[485/500] 5809eb10 single-session-assistant best_rank=1 sessions=52 4.10s
+[486/500] 41275add single-session-assistant best_rank=1 sessions=53 4.01s
+[487/500] 4388e9dd single-session-assistant best_rank=1 sessions=43 3.93s
+[488/500] 4baee567 single-session-assistant best_rank=1 sessions=49 4.07s
+[489/500] 561fabcd single-session-assistant best_rank=1 sessions=49 4.04s
+[490/500] b759caee single-session-assistant best_rank=1 sessions=53 4.24s
+[491/500] ac031881 single-session-assistant best_rank=1 sessions=47 3.86s
+[492/500] 28bcfaac single-session-assistant best_rank=1 sessions=50 3.91s
+[493/500] 16c90bf4 single-session-assistant best_rank=1 sessions=55 4.08s
+[494/500] c8f1aeed single-session-assistant best_rank=1 sessions=50 3.94s
+[495/500] eaca4986 single-session-assistant best_rank=5 sessions=47 3.86s
+[496/500] c7cf7dfd single-session-assistant best_rank=1 sessions=51 3.97s
+[497/500] e48988bc single-session-assistant best_rank=1 sessions=50 4.03s
+[498/500] 1de5cff2 single-session-assistant best_rank=1 sessions=45 4.01s
+[499/500] 65240037 single-session-assistant best_rank=1 sessions=51 4.23s
+[500/500] 778164c6 single-session-assistant best_rank=1 sessions=50 4.07s
+{
+  "overall": {
+    "n": 470,
+    "any_recall@1": 0.8276595744680851,
+    "all_evidence@1": 0.28936170212765955,
+    "any_recall@3": 0.9127659574468086,
+    "all_evidence@3": 0.7148936170212766,
+    "any_recall@5": 0.9680851063829787,
+    "all_evidence@5": 0.8425531914893617,
+    "any_recall@10": 0.9787234042553191,
+    "all_evidence@10": 0.8851063829787233,
+    "mrr": 0.8772661263086795,
+    "avg_sessions": 47.7
+  },
+  "by_type": {
+    "knowledge-update": {
+      "n": 72,
+      "any_recall@1": 0.9583333333333334,
+      "all_evidence@1": 0.0,
+      "any_recall@3": 0.9861111111111112,
+      "all_evidence@3": 0.9305555555555556,
+      "any_recall@5": 0.9861111111111112,
+      "all_evidence@5": 0.9444444444444444,
+      "any_recall@10": 1.0,
+      "all_evidence@10": 0.9444444444444444,
+      "mrr": 0.973611111111111,
+      "avg_sessions": 47.55555555555556
+    },
+    "multi-session": {
+      "n": 121,
+      "any_recall@1": 0.7933884297520661,
+      "all_evidence@1": 0.0,
+      "any_recall@3": 0.9256198347107438,
+      "all_evidence@3": 0.4380165289256198,
+      "any_recall@5": 0.9586776859504132,
+      "all_evidence@5": 0.7272727272727273,
+      "any_recall@10": 0.9669421487603306,
+      "all_evidence@10": 0.8099173553719008,
+      "mrr": 0.8627640036730946,
+      "avg_sessions": 47.06611570247934
+    },
+    "single-session-assistant": {
+      "n": 56,
+      "any_recall@1": 0.9642857142857143,
+      "all_evidence@1": 0.9642857142857143,
+      "any_recall@3": 0.9821428571428571,
+      "all_evidence@3": 0.9821428571428571,
+      "any_recall@5": 1.0,
+      "all_evidence@5": 1.0,
+      "any_recall@10": 1.0,
+      "all_evidence@10": 1.0,
+      "mrr": 0.9767857142857144,
+      "avg_sessions": 48.69642857142857
+    },
+    "single-session-preference": {
+      "n": 30,
+      "any_recall@1": 0.43333333333333335,
+      "all_evidence@1": 0.43333333333333335,
+      "any_recall@3": 0.6333333333333333,
+      "all_evidence@3": 0.6333333333333333,
+      "any_recall@5": 0.9,
+      "all_evidence@5": 0.9,
+      "any_recall@10": 0.9,
+      "all_evidence@10": 0.9,
+      "mrr": 0.5655555555555555,
+      "avg_sessions": 47.56666666666667
+    },
+    "single-session-user": {
+      "n": 64,
+      "any_recall@1": 0.890625,
+      "all_evidence@1": 0.890625,
+      "any_recall@3": 0.921875,
+      "all_evidence@3": 0.921875,
+      "any_recall@5": 0.984375,
+      "all_evidence@5": 0.984375,
+      "any_recall@10": 0.984375,
+      "all_evidence@10": 0.984375,
+      "mrr": 0.9161458333333333,
+      "avg_sessions": 48.765625
+    },
+    "temporal-reasoning": {
+      "n": 127,
+      "any_recall@1": 0.7874015748031497,
+      "all_evidence@1": 0.09448818897637795,
+      "any_recall@3": 0.889763779527559,
+      "all_evidence@3": 0.6535433070866141,
+      "any_recall@5": 0.9606299212598425,
+      "all_evidence@5": 0.7401574803149606,
+      "any_recall@10": 0.984251968503937,
+      "all_evidence@10": 0.8188976377952756,
+      "mrr": 0.8466191726034246,
+      "avg_sessions": 47.44094488188976
+    }
+  },
+  "skipped_abstention": 30,
+  "total_rows": 500
+}
+Wrote benchmarks/longmemeval_token_native_certificate_promotion_v5_typed_rescue_tight_20260524.json

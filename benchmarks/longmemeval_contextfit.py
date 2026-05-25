@@ -742,12 +742,7 @@ def fusion_certificate_promotion_sessions(
 
     candidates.sort(key=lambda row: (-row[0], row[1]))
     strength, old_rank, promoted, reason = candidates[0]
-    if (
-        str(question_type or "").startswith("multi-session")
-        and reason in {"multi_count_target_fact", "multi_numeric_companion", "multi_anchor_companion"}
-        and _answer_shaped_source(rank5, text_by_sid.get(rank5, ""))
-        and not _answer_shaped_source(promoted, text_by_sid.get(promoted, ""))
-    ):
+    if _answer_shaped_source(rank5, text_by_sid.get(rank5, "")) and not _answer_shaped_source(promoted, text_by_sid.get(promoted, "")):
         return baseline, [{"action": "protect", "source_id": rank5, "rank": 5, "certificate": "answer_evidence_tail_protection"}]
     out = protected + [promoted]
     for sid in baseline:
@@ -1354,6 +1349,7 @@ def eval_one(
             else []
         )
         retrieval_certificates: list[dict[str, Any]] = []
+        certificate_candidate_order: list[str] | None = None
         if two_stage_sessions:
             two_stage = engine.query_two_stage_sessions(
                 query,
@@ -1525,6 +1521,8 @@ def eval_one(
             group_pool = top_k_chunks
             if coverage_rerank or temporal_date_rerank or evidence_atom_rerank or targeted_expansion or safe_promotion_rerank:
                 group_pool = max(top_k_chunks, 30)
+            if fusion_certificate_promotion:
+                group_pool = max(group_pool, min(retrieval_k, fusion_final_candidate_k))
             if targeted_expansion or safe_promotion_rerank:
                 group_pool = max(group_pool, min(retrieval_k, 50))
             if evidence_atom_rerank:
@@ -1543,6 +1541,7 @@ def eval_one(
                 filter_pushdown_threshold=filter_pushdown_threshold,
             )
             retrieved_sessions = [g["value"] for g in groups]
+            certificate_candidate_order = list(retrieved_sessions)
             if filters and structured_filter_fusion == "rrf":
                 broad_groups = engine.query_groups(
                     query,
@@ -1557,6 +1556,7 @@ def eval_one(
                 retrieved_sessions = reciprocal_rank_fusion(
                     [retrieved_sessions, broad_sessions]
                 )
+                certificate_candidate_order = list(retrieved_sessions)
             if coverage_rerank and not safe_promotion_rerank and str(item.get("question_type") or "").startswith("multi-session"):
                 retrieved_sessions = coverage_rerank_sessions(
                     query,
@@ -1652,6 +1652,40 @@ def eval_one(
                 )[:top_k_chunks]
             else:
                 retrieved_sessions = unique_sessions_from_chunks(result.chunks)[:top_k_chunks]
+        if fusion_certificate_promotion and not openai_fusion:
+            session_dates = dict(zip(item["haystack_session_ids"], item["haystack_dates"], strict=True))
+            candidate_order = certificate_candidate_order or retrieved_sessions
+            if retrieved_sessions and candidate_order:
+                cert_base_order = list(retrieved_sessions)
+                cert_seen = set(cert_base_order)
+                for sid in candidate_order:
+                    if sid not in cert_seen:
+                        cert_seen.add(sid)
+                        cert_base_order.append(sid)
+                retrieved_sessions, retrieval_certificates = fusion_certificate_promotion_sessions(
+                    query,
+                    session_texts,
+                    cert_base_order,
+                    top_k=top_k_chunks,
+                    candidate_k=max(top_k_chunks, min(retrieval_k, fusion_final_candidate_k)),
+                    session_dates=session_dates,
+                    question_type=item.get("question_type"),
+                )
+                if fusion_typed_rescue:
+                    rescued_sessions, rescue_certificates = fusion_typed_rescue_sessions(
+                        query,
+                        item,
+                        session_texts,
+                        cert_base_order,
+                        retrieved_sessions,
+                        top_k=top_k_chunks,
+                        candidate_k=max(top_k_chunks, min(retrieval_k, fusion_final_candidate_k)),
+                        session_dates=session_dates,
+                        question_type=item.get("question_type"),
+                    )
+                    if rescue_certificates:
+                        retrieved_sessions = rescued_sessions
+                        retrieval_certificates.extend(rescue_certificates)
         gold = set(item.get("answer_session_ids") or [])
         ranks = [retrieved_sessions.index(g) + 1 for g in gold if g in retrieved_sessions]
         return {
