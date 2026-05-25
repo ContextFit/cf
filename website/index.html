@@ -326,6 +326,10 @@
       font-size: 0.68rem;
       color: var(--muted2);
     }
+    .stat-pill .sub-emph {
+      color: #38bdf8;
+      font-weight: 700;
+    }
 
 
 
@@ -629,6 +633,38 @@
     .bench-table .row-cf .highlight-num { color: var(--sky); }
     .cost-free { color: var(--green); font-weight: 600; }
     .cost-paid { color: var(--muted); }
+    .bench-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.75rem;
+      margin: 1.75rem 0 1.5rem;
+    }
+    .bench-summary-item {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      background: var(--surface);
+    }
+    .bench-summary-label {
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 0.45rem;
+    }
+    .bench-summary-value {
+      color: var(--text);
+      font-size: 1.25rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .bench-summary-copy {
+      color: var(--muted2);
+      font-size: 0.82rem;
+      line-height: 1.55;
+      margin-top: 0.55rem;
+    }
     .bench-note {
       color: var(--muted);
       font-family: 'JetBrains Mono', monospace;
@@ -1254,6 +1290,7 @@
       section { padding: 4rem 1rem; }
       section[id] { scroll-margin-top: 190px; }
       .section-intro { margin-bottom: 2rem; }
+      .bench-summary { grid-template-columns: 1fr; }
       .problem-grid,
       .primitives,
       .deploy-grid,
@@ -1271,7 +1308,7 @@
       .pipe-step { text-align: center; white-space: normal; }
       .pipe-arrow { transform: rotate(90deg); text-align: center; }
       .bench-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-      .bench-table { min-width: 580px; }
+      .bench-table { min-width: 760px; }
       .bench-table th,
       .bench-table td { padding-left: 1rem; padding-right: 1rem; }
       .bar-label { text-align: left; font-size: 0.72rem; }
@@ -1367,9 +1404,9 @@
   </div>
   <div class="stat-row">
     <div class="stat-pill">
-      <span class="val">96.8%</span>
-      <span class="lbl">Token-native Any@5</span>
-      <span class="sub">98.94% optional fusion · 99.57% fusion Any@10</span>
+      <span class="val">96.2%</span>
+      <span class="lbl">Token-native R@5</span>
+      <span class="sub"><span class="sub-emph">99.0% optional fusion</span> · LongMemEval-S n=500</span>
     </div>
     <div class="stat-pill">
       <span class="val">8.7ms</span>
@@ -1594,22 +1631,86 @@
 <section id="benchmark">
   <div class="container">
     <div class="section-label">Benchmarks</div>
-    <h2 class="scroll-tokenize">Beats Mem0 and Cohere.<br/>Still trails OpenAI aggregate.</h2>
+    <h2 class="scroll-tokenize">Public memory retrieval,<br/>measured like gbrain.</h2>
     <p class="section-intro scroll-tokenize">
-      Re-run on the current code against a 499-case domain-agnostic agent memory benchmark across
-      8 behavioral categories and 26 domains (Mem0 comparison on the original 79-case subset) — plus LongMemEval-S reruns where token-only
-      coverage reranking improves complete multi-session evidence while preserving 95.1% Any@5; token-native evidence certificates lift that path to <strong>96.8% Any@5</strong> and <strong>84.3% All@5</strong> with zero paired top-5 losses. A fresh optional OpenAI fusion run reaches
-      <a href="/longmemeval-fusion-20260519.html">96.6% Any@5 / 98.7% Any@10</a> evidence retrieval with no vector database required;
-      auditable evidence-certificate reranking lifts that path to <strong>98.3% Any@5 / 99.2% Any@10</strong>, and route-gated chunk-vector fusion lifts it again to <strong>98.94% Any@5 / 99.57% Any@10</strong> and <strong>87.45% All@5</strong> with zero paired Any@5 losses and a <strong>+6 / -2</strong> All@5 tradeoff,
-      and current end-to-end QA progress reports
-      <a href="/longmemeval-fusion-qa-20260519.html">87.2% overall / 87.6% task-averaged</a> answer correctness with a GPT-5-mini answerer and GPT-4o judge.
+      LongMemEval-S session retrieval asks one clean question: did the system put
+      a ground-truth answer session in the top 5? No answer generation, no LLM judge,
+      no hidden scoring model. Answer-quality benchmarks stay separate because
+      they depend on the downstream model and judge.
     </p>
+
+    <div class="bench-summary reveal">
+      <div class="bench-summary-item">
+        <div class="bench-summary-label">Token-native</div>
+        <div class="bench-summary-value">96.20% R@5</div>
+        <div class="bench-summary-copy">LongMemEval-S session retrieval across all 500 questions, with no embeddings, no vector DB, and no LLM in retrieval.</div>
+      </div>
+      <div class="bench-summary-item">
+        <div class="bench-summary-label">Optional fusion</div>
+        <div class="bench-summary-value">99.00% R@5</div>
+        <div class="bench-summary-copy">Route-gated OpenAI chunk-vector fusion plus certificates; still no vector database and no LLM in the retrieval loop.</div>
+      </div>
+      <div class="bench-summary-item">
+        <div class="bench-summary-label">Published reference</div>
+        <div class="bench-summary-value">97.60% gbrain</div>
+        <div class="bench-summary-copy">gbrain-hybrid reports 97.60% R@5 on the same LongMemEval-S split and top-5 retrieval metric.</div>
+      </div>
+    </div>
 
     <div class="bench-table-wrap reveal">
       <table class="bench-table">
         <thead>
           <tr>
             <th>System</th>
+            <th>R@1</th>
+            <th>R@3</th>
+            <th>R@5</th>
+            <th>R@10</th>
+            <th>Embeddings</th>
+            <th>Vector store</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>gbrain-hybrid <span style="font-size:0.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">published</span></td>
+            <td>—</td><td>—</td><td>97.60%</td><td>—</td>
+            <td class="cost-paid">yes</td>
+            <td class="check">local</td>
+          </tr>
+          <tr class="row-cf">
+            <td>ContextFit token-native</td>
+            <td>81.80%</td>
+            <td>90.40%</td>
+            <td class="highlight-num">96.20%</td>
+            <td>97.80%</td>
+            <td class="cost-free">no</td>
+            <td class="cross">no</td>
+          </tr>
+          <tr class="row-cf">
+            <td>ContextFit + OpenAI fusion</td>
+            <td>84.60%</td>
+            <td>95.20%</td>
+            <td class="highlight-num">99.00%</td>
+            <td>99.60%</td>
+            <td class="cost-paid">yes</td>
+            <td class="cross">no</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="bench-note">
+      LongMemEval-S session retrieval, all 500 questions, top-5 hit against
+      <code>answer_session_ids</code>. ContextFit scores are from local full-run artifacts;
+      gbrain is the published <code>gbrain-evals</code> headline. This is retrieval recall,
+      not answer accuracy. Full run notes:
+      <a href="/longmemeval_gbrain_style_contextfit_20260525.html">ContextFit comparison artifact</a>.
+    </div>
+
+    <div class="bench-table-wrap reveal">
+      <table class="bench-table">
+        <thead>
+          <tr>
+            <th>Agent-memory eval</th>
             <th>R@1</th>
             <th>R@3</th>
             <th>MRR</th>
@@ -1651,7 +1752,9 @@
       Agent-memory retrieval eval. Mem0 was measured on the original 79-case subset;
       Cohere, ContextFit, and OpenAI were measured on the expanded 499-case benchmark. ContextFit beats
       Cohere and Mem0 on aggregate R@1, but still trails OpenAI text-embedding-3-small on aggregate R@1/R@3.
-      LongMemEval evidence and QA results are reported separately in the links above.
+      LongMemEval evidence and QA results are separate:
+      <a href="/longmemeval-fusion-20260519.html">retrieval artifact</a> and
+      <a href="/longmemeval-fusion-qa-20260519.html">QA artifact</a>.
     </div>
 
     <div class="bar-chart reveal">
