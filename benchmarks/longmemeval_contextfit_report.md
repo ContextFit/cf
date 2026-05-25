@@ -1548,6 +1548,7 @@ when it is already answer-shaped evidence.
 | OpenAI fusion baseline | 96.6% | 98.7% | 83.6% | 0.900 | — |
 | Certificate v4 | 98.1% | 98.9% | **86.4%** | 0.902 | +8 / 0 |
 | Certificate v5 typed rescue | **98.3%** | **99.2%** | **86.4%** | **0.902** | +9 / 0 |
+| Selective chunk-vector v5 typed rescue | **98.9%** | **99.6%** | **87.4%** | **0.909** | +12 / 0 |
 
 The same certificate logic was then run against the non-fusion token-native
 LongMemEval-S path, using the existing parent/child + coverage-rerank artifact
@@ -1563,6 +1564,36 @@ with SHA-256 `c0e7ebc5d925549e1e3058b6100ab0786654c4d8c1bd4a99fe920c57f3ff2ea6`.
 Certificate counts included `multi_count_target_fact=60`,
 `answer_evidence_tail_protection=16`, `preference_episode_rescue=13`, and
 `temporal_entity_action_rescue=7`.
+
+### Selective chunk-vector OpenAI fusion
+
+The original OpenAI fusion path embeds full rendered sessions with
+`text-embedding-3-small`. A follow-up run tested whether route-gated,
+turn-aware conversation chunks are a better embedding unit for the rows where
+semantic chunk focus helps. The selective path uses query-router signals: it
+keeps full-session OpenAI vectors for ordinary and temporal/date-math rows, and
+uses conversation-chunk max scoring for preference and multi-session-style rows.
+The chunk scores are grouped back to sessions before reciprocal-rank fusion and
+the same evidence-certificate / typed-rescue layer runs afterward.
+
+| Optional fusion run | Any@5 | Any@10 | All@5 | All@10 | MRR | Paired Any@5 vs full-session v5 | Paired All@5 vs full-session v5 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Full-session vector + certificates + typed rescue | 98.3% | 99.2% | 86.6% | 91.3% | 0.902 | — | — |
+| Selective chunk-vector + certificates + typed rescue | **98.9%** | **99.6%** | **87.4%** | **91.9%** | **0.909** | **+3 / 0** | **+6 / -2** |
+
+Vector mode counts in the selective run: `full_session=340`,
+`conversation_chunk_max=130`. The top-5 wins were two preference rows and one
+multi-session row. The temporal loss observed in the global chunk-vector spike
+did not recur because temporal/date-math rows stayed on the full-session vector
+path.
+
+Artifact:
+`benchmarks/longmemeval_fusion_selective_chunk_promotion_v5_typed_rescue_20260524.json`
+with SHA-256
+`ababf7387cb18c9310e82c35a57594aeef3cd40a2b60d9a1f336f69b65d3dcd2`.
+
+Public wording should say zero paired Any@5 losses, not zero losses overall:
+All@5 improved on aggregate but had a paired `+6 / -2` tradeoff.
 
 Production hooks added:
 

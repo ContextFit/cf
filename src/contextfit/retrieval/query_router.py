@@ -129,6 +129,24 @@ _EVIDENCE_COVERAGE_RE = re.compile(
     re.I,
 )
 
+# Personal aggregate-memory questions usually need evidence from more than one
+# prior episode. Keep explicit relative-date math out of this route.
+_PERSONAL_AGGREGATE_RE = re.compile(
+    r"\b("
+    r"(?:how\s+many|number\s+of|total\s+number\s+of|count\s+of)\b"
+    r"|what\s+is\s+the\s+total\b"
+    r"|what\s+are\s+all\s+(?:the\s+)?\w+"
+    r")",
+    re.I,
+)
+
+_PERSONAL_PRONOUN_RE = re.compile(r"\b(?:i|me|my|mine|we|us|our|ours)\b", re.I)
+
+_RELATIVE_DATE_MATH_RE = re.compile(
+    r"\b(?:how\s+many\s+)?(?:minutes?|hours?|days?|weeks?|months?|years?)\s+ago\b",
+    re.I,
+)
+
 # Explicit preference / constraint verbs that atom fusion handles well
 _ATOM_STRONG_RE = re.compile(
     r"\b("
@@ -251,6 +269,14 @@ def route_query(query: str) -> QueryRoute:
     if _EVIDENCE_COVERAGE_RE.search(q):
         scores["multi_session_rerank"] += 1.4
         signals.append("evidence_coverage")
+
+    if (
+        _PERSONAL_AGGREGATE_RE.search(q)
+        and _PERSONAL_PRONOUN_RE.search(q)
+        and not _RELATIVE_DATE_MATH_RE.search(q)
+    ):
+        scores["multi_session_rerank"] += 1.6
+        signals.append("personal_aggregate")
 
     # --- Atom-strong preference/constraint ---
     if _ATOM_STRONG_RE.search(q):

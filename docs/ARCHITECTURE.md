@@ -318,6 +318,25 @@ a result moved, the original rank, the certificate reason, and whether typed
 rescue fired. The rules are not tied to LongMemEval labels or benchmark-specific
 IDs.
 
+### 3.6 Optional Route-Gated Chunk-Vector Fusion
+
+The core ContextFit retrieval path remains token-native. For benchmark and
+hybrid deployments, ContextFit can optionally add OpenAI embedding signal as a
+cached fusion input. The original fusion path embeds full rendered sessions with
+`text-embedding-3-small` and combines the vector rank with the ContextFit rank.
+
+The selective chunk-vector variant keeps that full-session path as the default,
+but uses the query router to identify preference and multi-session-style
+queries where turn-aware conversation chunks are a better vector unit. Those
+chunks are embedded and ranked by cosine similarity, then grouped back to
+sessions by max chunk score before reciprocal-rank fusion. Temporal/date-math
+queries continue to use the full-session vector path unless their route changes.
+
+This is intentionally not a vector database dependency. It is an optional
+cached fusion signal layered after token-native retrieval and before evidence
+certificates. The route choice should be logged as `openai_vector_mode`, e.g.
+`full_session` or `conversation_chunk_max`.
+
 ---
 
 ## 4. Hierarchy Layer: Geo-Map Navigation

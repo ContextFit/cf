@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ContextFit LongMemEval-S Fusion Result</title>
-  <meta name="description" content="ContextFit optional OpenAI fusion reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval on LongMemEval-S; auditable evidence-certificate reranking reaches 98.3% Any@5 and 99.2% Any@10." />
+  <meta name="description" content="ContextFit optional OpenAI fusion reaches 98.94% Any@5 and 99.57% Any@10 evidence retrieval on LongMemEval-S with route-gated chunk-vector fusion, evidence certificates, and no vector database." />
   <style>
     :root {
       --bg: #080b12;
@@ -86,18 +86,18 @@
   <main>
     <nav><a href="/">ContextFit</a> / Benchmark Note</nav>
 
-    <h1>98.3% Any@5.<br />99.2% Any@10.</h1>
-    <p class="lede">ContextFit with optional OpenAI fusion reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval on LongMemEval-S; auditable evidence-certificate reranking lifts the same local retrieval harness to 98.3% Any@5 and 99.2% Any@10, with no vector database required.</p>
+    <h1>98.94% Any@5.<br />99.57% Any@10.</h1>
+    <p class="lede">ContextFit with optional OpenAI fusion reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval on LongMemEval-S; auditable evidence certificates and route-gated turn-aware chunk-vector fusion lift the same local retrieval harness to 98.94% Any@5 and 99.57% Any@10, with no vector database required.</p>
 
     <div class="metrics">
-      <div class="metric"><strong>98.30%</strong><span>Any evidence @5</span></div>
-      <div class="metric"><strong>99.15%</strong><span>Any evidence @10</span></div>
-      <div class="metric"><strong>86.38%</strong><span>All evidence @5</span></div>
-      <div class="metric"><strong>0.9016</strong><span>MRR</span></div>
+      <div class="metric"><strong>98.94%</strong><span>Any evidence @5</span></div>
+      <div class="metric"><strong>99.57%</strong><span>Any evidence @10</span></div>
+      <div class="metric"><strong>87.45%</strong><span>All evidence @5</span></div>
+      <div class="metric"><strong>0.9086</strong><span>MRR</span></div>
     </div>
 
     <div class="callout">
-      This is a retrieval/evidence-ranking result, not an official end-to-end LongMemEval QA score. The base fusion run uses OpenAI <code>text-embedding-3-small</code> embeddings as an optional cached signal; the evidence-certificate layer is an auditable post-retrieval reranker with generic reason codes. No vector database is required.
+      This is a retrieval/evidence-ranking result, not an official end-to-end LongMemEval QA score. The base fusion run uses OpenAI <code>text-embedding-3-small</code> embeddings as an optional cached signal; the latest run selectively embeds turn-aware conversation chunks for route types where that signal helped in validation. The evidence-certificate layer remains an auditable post-retrieval reranker with generic reason codes. No vector database is required.
     </div>
 
     <div class="callout">
@@ -110,18 +110,21 @@
       <tbody>
         <tr><td>Scored examples</td><td>470</td></tr>
         <tr><td>Abstention examples skipped</td><td>30</td></tr>
-        <tr><td>Any evidence @1</td><td>84.89%</td></tr>
-        <tr><td>Any evidence @3</td><td>94.89%</td></tr>
-        <tr><td>Any evidence @5</td><td><strong class="good">98.30%</strong></td></tr>
-        <tr><td>Any evidence @10</td><td><strong class="good">99.15%</strong></td></tr>
-        <tr><td>All evidence @5</td><td><strong class="good">86.38%</strong></td></tr>
-        <tr><td>All evidence @10</td><td>91.28%</td></tr>
-        <tr><td>MRR</td><td>0.9016</td></tr>
+        <tr><td>Any evidence @1</td><td>85.32%</td></tr>
+        <tr><td>Any evidence @3</td><td>95.11%</td></tr>
+        <tr><td>Any evidence @5</td><td><strong class="good">98.94%</strong></td></tr>
+        <tr><td>Any evidence @10</td><td><strong class="good">99.57%</strong></td></tr>
+        <tr><td>All evidence @5</td><td><strong class="good">87.45%</strong></td></tr>
+        <tr><td>All evidence @10</td><td>91.91%</td></tr>
+        <tr><td>MRR</td><td>0.9086</td></tr>
       </tbody>
     </table>
 
     <h2>Configuration</h2>
-    <p>LongMemEval-S cleaned, 500 total rows, 470 scored after abstention exclusion. ContextFit used hybrid retrieval, parent/child conversation chunks, session ranking, coverage reranking, structured temporal filters, optional OpenAI fusion, and evidence-certificate reranking with typed rescue. Answer markers were disabled.</p>
+    <p>LongMemEval-S cleaned, 500 total rows, 470 scored after abstention exclusion. ContextFit used hybrid retrieval, parent/child conversation chunks, session ranking, coverage reranking, structured temporal filters, optional OpenAI fusion, route-gated chunk-vector fusion, and evidence-certificate reranking with typed rescue. Answer markers were disabled. The selective route used full-session OpenAI vectors for 340 scored rows and conversation-chunk max vectors for 130 scored rows.</p>
+
+    <h2>Paired Movement</h2>
+    <p>Versus the prior full-session fusion + certificates + typed rescue artifact, the selective chunk-vector run produced <strong>+3 / 0</strong> paired Any@5 movement. Complete-evidence All@5 moved <strong>+6 / -2</strong>, so the All@5 lift is useful but should be described with that tradeoff.</p>
 
     <h2>Reproduction Command</h2>
     <pre><code>.venv/bin/python benchmarks/longmemeval_contextfit.py \
@@ -138,18 +141,19 @@
   --coverage-rerank \
   --structured-temporal-filters \
   --openai-fusion \
-  --evidence-certificate-rerank \
-  --typed-rescue \
-  --evidence-certificate-candidate-k 80 \
-  --out benchmarks/longmemeval_fusion_certificate_promotion_v5_typed_rescue_20260524.json</code></pre>
+  --openai-chunk-fusion selective \
+  --fusion-certificate-promotion \
+  --fusion-typed-rescue \
+  --fusion-final-candidate-k 80 \
+  --out benchmarks/longmemeval_fusion_selective_chunk_promotion_v5_typed_rescue_20260524.json</code></pre>
 
     <h2>Artifact</h2>
-    <p>Raw JSON artifact: <code>benchmarks/longmemeval_fusion_certificate_promotion_v5_typed_rescue_20260524.json</code></p>
-    <p>SHA-256: <code>2b7043391dab26aa58ec4dc4f17ceb4b6d5f708c34b8e2a220fa4b9d580f9de2</code></p>
+    <p>Raw JSON artifact: <code>benchmarks/longmemeval_fusion_selective_chunk_promotion_v5_typed_rescue_20260524.json</code></p>
+    <p>SHA-256: <code>ababf7387cb18c9310e82c35a57594aeef3cd40a2b60d9a1f336f69b65d3dcd2</code></p>
     <p>GitHub report: <a href="https://github.com/ContextFit/cf/blob/contextfit-lockin-20260518/benchmarks/longmemeval_contextfit_report.md#2026-05-24-evidence-certificate-retrieval-rerank">benchmarks/longmemeval_contextfit_report.md</a></p>
 
     <h2>Recommended Wording</h2>
-    <p><strong>ContextFit with optional OpenAI fusion plus auditable evidence-certificate reranking reaches 98.3% Any@5 and 99.2% Any@10 evidence retrieval on LongMemEval-S, with no vector database required.</strong></p>
+    <p><strong>ContextFit with optional route-gated OpenAI chunk-vector fusion plus auditable evidence-certificate reranking reaches 98.94% Any@5 and 99.57% Any@10 evidence retrieval on LongMemEval-S, with no vector database required and zero paired Any@5 losses versus the full-session fusion certificate baseline.</strong></p>
   </main>
 </body>
 </html>

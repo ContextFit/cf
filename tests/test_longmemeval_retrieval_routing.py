@@ -60,3 +60,20 @@ def test_safe_promotion_uses_user_fact_density_not_long_generic_answers() -> Non
     assert "s_fact_a" in ranked
     assert "s_fact_b" in ranked
     assert "s_generic" not in ranked
+
+
+def test_openai_chunk_fusion_selective_uses_route_signals() -> None:
+    mod = _load_module()
+
+    assert mod.should_use_openai_chunk_fusion(
+        "Can you recommend a show or movie for me to watch tonight?",
+        "selective",
+    )
+    assert mod.should_use_openai_chunk_fusion(
+        "What is the total number of siblings I have?",
+        "selective",
+    )
+    assert not mod.should_use_openai_chunk_fusion(
+        "How many days ago did I meet Emma?",
+        "selective",
+    )

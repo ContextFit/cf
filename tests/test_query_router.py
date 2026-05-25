@@ -142,3 +142,15 @@ def test_route_evidence_coverage_to_multi_session():
     r = route_query("What factors should I consider for my upcoming vacation?")
     assert r.mode == "multi_session_rerank"
     assert any("evidence_coverage" in sig for sig in r.signals)
+
+
+def test_route_personal_aggregate_count_to_multi_session():
+    r = route_query("What is the total number of siblings I have?")
+    assert r.mode == "multi_session_rerank"
+    assert "personal_aggregate" in r.signals
+
+
+def test_route_relative_date_math_does_not_use_personal_aggregate():
+    r = route_query("How many days ago did I meet Emma?")
+    assert "personal_aggregate" not in r.signals
+    assert r.mode != "multi_session_rerank"

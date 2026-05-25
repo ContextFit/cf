@@ -29,6 +29,8 @@ from contextfit.retrieval.engine import RetrievalEngine
 from contextfit.retrieval.memory_atoms import augment_query_for_memory_atoms, atom_type_priors, episode_relevance_score, extract_memory_atoms, query_memory_intents
 from contextfit.retrieval.evidence_atoms import rerank_sessions_by_evidence_atoms
 from contextfit.retrieval.evidence_compiler import EvidenceSource, promote_evidence_sources_for_count_list
+from contextfit.extractors.conversation import chunk_conversation
+from contextfit.retrieval.query_router import route_query
 
 
 PREFERENCE_RE = re.compile(
@@ -129,6 +131,41 @@ def vector_rank_sessions(query: str, session_texts: list[tuple[str, str]]) -> li
     sims = docs @ q
     order = np.argsort(-sims)
     return [session_texts[int(i)][0] for i in order]
+
+
+def vector_rank_grouped_texts(query: str, texts: list[tuple[str, str]]) -> list[str]:
+    """Rank group IDs by max OpenAI embedding similarity over their text chunks."""
+    if not texts:
+        return []
+    payload = [query] + [text[:24000] for _, text in texts]
+    embeddings = embed_texts(payload)
+    q = np.array(embeddings[0], dtype=np.float32)
+    docs = np.array(embeddings[1:], dtype=np.float32)
+    q = q / max(float(np.linalg.norm(q)), 1e-9)
+    docs = docs / np.maximum(np.linalg.norm(docs, axis=1, keepdims=True), 1e-9)
+    sims = docs @ q
+    order = np.argsort(-sims)
+
+    best_score: dict[str, float] = {}
+    best_rank: dict[str, int] = {}
+    for rank, idx in enumerate(order, start=1):
+        group_id = texts[int(idx)][0]
+        score = float(sims[int(idx)])
+        if group_id not in best_score or score > best_score[group_id]:
+            best_score[group_id] = score
+            best_rank[group_id] = rank
+    return sorted(best_score, key=lambda sid: (-best_score[sid], best_rank[sid]))
+
+
+def should_use_openai_chunk_fusion(query: str, mode: str) -> bool:
+    if mode == "off":
+        return False
+    if mode == "all":
+        return True
+    if mode != "selective":
+        raise ValueError(f"unknown OpenAI chunk fusion mode: {mode}")
+    route = route_query(query)
+    return route.mode in {"preference_rerank", "multi_session_rerank"}
 
 
 def token_chain_expand_sessions(chunks, base_scores: list[float], top_k: int, anchor_k: int = 3) -> list[str]:
@@ -1268,12 +1305,14 @@ def eval_one(
     structured_temporal_filters: bool = False,
     structured_filter_fusion: str = "none",
     filter_pushdown_threshold: float = 0.50,
+    openai_chunk_fusion: str = "off",
     two_stage_sessions: bool = False,
 ) -> dict[str, Any]:
     tmp = Path(tempfile.mkdtemp(prefix="cf-lme-"))
     try:
         engine = RetrievalEngine.create(tmp)
         session_texts: list[tuple[str, str]] = []
+        conversation_vector_texts: list[tuple[str, str]] = []
         for sid, date, sess in zip(
             item["haystack_session_ids"],
             item["haystack_dates"],
@@ -1293,6 +1332,17 @@ def eval_one(
                 include_answer_marker=include_answer_marker,
             )
             session_texts.append((sid, full_text))
+            if openai_chunk_fusion != "off":
+                for chunk in chunk_conversation(
+                    sid,
+                    date,
+                    sess,
+                    chunk_size=chunk_size,
+                    overlap=overlap,
+                    base_metadata=meta,
+                    include_answer_marker=include_answer_marker,
+                ):
+                    conversation_vector_texts.append((sid, str(chunk["text"])))
             if conversation_chunks:
                 engine.ingest_conversation(
                     sid,
@@ -1452,7 +1502,12 @@ def eval_one(
             token_sessions = unique_sessions_from_chunks(token_result.chunks)
             retrieved_sessions = reciprocal_rank_fusion([cf_sessions, token_sessions])[:top_k_chunks]
         elif openai_vector_rerank or openai_fusion:
-            vector_sessions = vector_rank_sessions(query, session_texts)
+            if should_use_openai_chunk_fusion(item["question"], openai_chunk_fusion):
+                vector_sessions = vector_rank_grouped_texts(query, conversation_vector_texts)
+                vector_mode = "conversation_chunk_max"
+            else:
+                vector_sessions = vector_rank_sessions(query, session_texts)
+                vector_mode = "full_session"
             if openai_fusion:
                 cf_result = engine.query(
                     query,
@@ -1700,6 +1755,7 @@ def eval_one(
             "all_found_at": max(ranks) if len(ranks) == len(gold) and ranks else None,
             "structured_temporal_filters": filters,
             "retrieval_certificates": retrieval_certificates,
+            "openai_vector_mode": vector_mode if (openai_vector_rerank or openai_fusion) else None,
         }
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -1745,6 +1801,12 @@ def main() -> int:
     ap.add_argument("--memory-atoms", action="store_true", help="ingest domain-neutral user memory atoms")
     ap.add_argument("--openai-vector-rerank", action="store_true", help="rank sessions by OpenAI embedding similarity; cached locally")
     ap.add_argument("--openai-fusion", action="store_true", help="reciprocal-rank fuse ContextFit retrieval with OpenAI vector session ranking")
+    ap.add_argument(
+        "--openai-chunk-fusion",
+        choices=["off", "all", "selective"],
+        default="off",
+        help="use OpenAI embeddings over turn-aware conversation chunks for all or selected fusion queries",
+    )
     ap.add_argument("--token-native-rerank", action="store_true", help="rerank ContextFit candidates by token phrase/window/preference/temporal structure")
     ap.add_argument("--token-native-fusion", action="store_true", help="reciprocal-rank fuse baseline ContextFit ranking with token-native structural reranking")
     ap.add_argument("--token-chain-expand", action="store_true", help="promote sessions related to top anchors by rare token overlap")
@@ -1860,6 +1922,7 @@ def main() -> int:
             structured_temporal_filters=args.structured_temporal_filters,
             structured_filter_fusion=args.structured_filter_fusion,
             filter_pushdown_threshold=args.filter_pushdown_threshold,
+            openai_chunk_fusion=args.openai_chunk_fusion,
             two_stage_sessions=args.two_stage_sessions,
         )
         row["seconds"] = time.time() - st
@@ -1883,6 +1946,7 @@ def main() -> int:
         "memory_atoms": args.memory_atoms,
         "openai_vector_rerank": args.openai_vector_rerank,
         "openai_fusion": args.openai_fusion,
+        "openai_chunk_fusion": args.openai_chunk_fusion,
         "token_native_rerank": args.token_native_rerank,
         "token_native_fusion": args.token_native_fusion,
         "token_chain_expand": args.token_chain_expand,
