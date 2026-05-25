@@ -93,6 +93,25 @@ def test_effective_top_k_context_uses_task_specific_overrides() -> None:
     assert qa.effective_top_k_context({"question_type": "single-session-preference"}, args) == 5
 
 
+def test_answerer_router_can_target_only_multi_session_rows() -> None:
+    qa = _load_qa_module()
+    args = SimpleNamespace(
+        answerer_router="question_type_multi_session",
+        generation_model="gpt-5-mini",
+        routed_generation_model="gpt-5",
+        extraction_model="gpt-5-mini",
+        routed_extraction_model=None,
+        answerability_model="gpt-5-mini",
+        routed_answerability_model=None,
+    )
+
+    assert qa.use_routed_answerer(args, {"question_type": "multi-session"}) is True
+    assert qa.generation_model_for_item(args, {"question_type": "multi-session"}) == "gpt-5"
+    assert qa.use_routed_answerer(args, {"question_type": "temporal-reasoning"}) is False
+    assert qa.generation_model_for_item(args, {"question_type": "temporal-reasoning"}) == "gpt-5-mini"
+    assert qa.use_routed_answerer(args, {"question_type": "single-session-preference"}) is False
+
+
 def test_openai_compatible_sanitizer_trims_chat_role_echo_after_answer() -> None:
     qa = _load_qa_module()
     text = "42\nuser\nassistant\nI'm sorry, but I can't help with that."

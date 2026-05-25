@@ -77,6 +77,9 @@ STRUCTURED_FALLBACK_MARKERS = (
     "unknown",
 )
 ANSWERER_ROUTER_TYPES = {
+    "question_type_multi_session": {
+        "multi-session",
+    },
     "question_type_gpt5mini_temporal_preference_multi": {
         "temporal-reasoning",
         "single-session-preference",
@@ -3040,10 +3043,11 @@ def main() -> int:
     ap.add_argument("--answerability-model", default=DEFAULT_JUDGE_MODEL)
     ap.add_argument(
         "--answerer-router",
-        choices=("off", "question_type_gpt5mini_temporal_preference_multi"),
+        choices=("off", "question_type_multi_session", "question_type_gpt5mini_temporal_preference_multi"),
         default="off",
         help=(
             "route answerer/extractor/answerability models for selected question types; "
+            "question_type_multi_session routes only multi-session rows; "
             "question_type_gpt5mini_temporal_preference_multi routes temporal, preference, and multi-session rows"
         ),
     )
