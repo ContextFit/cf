@@ -236,6 +236,30 @@
     }
     .hero-badge::before { content: '●'; font-size: 0.5rem; animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+    .hero-proof {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.42rem;
+      flex-wrap: wrap;
+      color: var(--muted2);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      line-height: 1.45;
+      margin: -1.15rem auto 1.8rem;
+      max-width: 760px;
+    }
+    .hero-proof strong {
+      color: var(--sky);
+      font-weight: 700;
+    }
+    .hero-proof .beat {
+      color: var(--text);
+      font-weight: 600;
+    }
+    .hero-proof .sep {
+      color: var(--border2);
+    }
 
     h1 {
       font-size: clamp(2.4rem, 6vw, 4.2rem);
@@ -1376,6 +1400,12 @@
 <!-- HERO -->
 <section class="hero">
   <div class="hero-badge">research preview · MIT license</div>
+  <div class="hero-proof">
+    <strong>99.0% R@5 fusion</strong>
+    <span class="beat">beats gbrain 97.6% and MemPalace 96.6%</span>
+    <span class="sep">·</span>
+    <span>LongMemEval-S n=500</span>
+  </div>
   <h1 class="scroll-tokenize hero-tokenize">Agent memory that thinks in<br/><em>tokens, not vectors</em></h1>
   <p class="hero-sub">
     ContextFit retrieves the right prior conversation without embedding APIs,
@@ -1406,7 +1436,7 @@
     <div class="stat-pill">
       <span class="val">96.2%</span>
       <span class="lbl">Token-native R@5</span>
-      <span class="sub"><span class="sub-emph">99.0% optional fusion</span> · LongMemEval-S n=500</span>
+      <span class="sub"><span class="sub-emph">99.0% fusion</span> beats gbrain + MemPalace</span>
     </div>
     <div class="stat-pill">
       <span class="val">8.7ms</span>
