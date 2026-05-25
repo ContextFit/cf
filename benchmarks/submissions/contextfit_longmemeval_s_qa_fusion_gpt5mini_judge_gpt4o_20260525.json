@@ -1,0 +1,81 @@
+{
+  "schema": "contextfit.qa_comparison_packet.v1",
+  "date": "2026-05-25",
+  "system": "ContextFit + OpenAI fusion",
+  "benchmark": "LongMemEval-S",
+  "dataset": {
+    "source": "xiaowu0162/longmemeval",
+    "split": "longmemeval_s",
+    "rows": 500,
+    "local_path": "benchmarks/data/longmemeval_s_cleaned.json"
+  },
+  "metric": {
+    "name": "end-to-end QA accuracy",
+    "judge": "gpt-4o-2024-08-06",
+    "notes": [
+      "This is a local LongMemEval-style QA evaluation, not an official leaderboard submission.",
+      "This is end-to-end answer accuracy judged by GPT-4o, not retrieval R@k.",
+      "Retrieval uses the ContextFit fusion artifact listed below."
+    ]
+  },
+  "models": {
+    "answer_generation": "gpt-5-mini",
+    "structured_extraction": "gpt-5-mini",
+    "answerability": "gpt-5-mini",
+    "judge": "gpt-4o-2024-08-06"
+  },
+  "retrieval": {
+    "artifact": "benchmarks/longmemeval_selective_fusion_userpref_token_base_20260523.json",
+    "artifact_sha256": "a4aab490d380e421ac309fa3050f3b3ea91729f411bd0ae99c1cefa649052df6",
+    "mode": "ContextFit selective OpenAI fusion"
+  },
+  "result": {
+    "n": 500,
+    "overall_accuracy": 0.872,
+    "task_averaged_accuracy": 0.8758113231797443,
+    "abstention_accuracy": 0.9333333333333333,
+    "abstention_n": 30,
+    "by_type": {
+      "knowledge-update": {
+        "n": 78,
+        "accuracy": 0.9102564102564102
+      },
+      "multi-session": {
+        "n": 133,
+        "accuracy": 0.7819548872180451
+      },
+      "single-session-assistant": {
+        "n": 56,
+        "accuracy": 1.0
+      },
+      "single-session-preference": {
+        "n": 30,
+        "accuracy": 0.7333333333333333
+      },
+      "single-session-user": {
+        "n": 70,
+        "accuracy": 0.9571428571428572
+      },
+      "temporal-reasoning": {
+        "n": 133,
+        "accuracy": 0.8721804511278195
+      }
+    }
+  },
+  "artifacts": {
+    "summary": {
+      "path": "benchmarks/longmemeval_contextfit_qa_summary_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.json",
+      "sha256": "c9cf70a052f927f1fca7ed234f8ad66dea476a1335de0fcb30372383dcf3609e"
+    },
+    "hypotheses": {
+      "path": "benchmarks/longmemeval_contextfit_qa_hypotheses_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.jsonl",
+      "sha256": "89921e7853e72d87c390823b1d5b25ea887cfc33d29f098596c296a1ebdb14f1"
+    },
+    "judged": {
+      "path": "benchmarks/longmemeval_contextfit_qa_judged_selective_fusion_userpref_agent_blend_full_gpt5mini_judge_gpt4o_20260523.jsonl",
+      "sha256": "92b050139ce8daeee3f5b249437f158bd7fae118657b973269debd3251c7f661"
+    }
+  },
+  "repository": "https://github.com/ContextFit/cf",
+  "commit": "d4b4dd02786fa57cb3ab12e9adb6f543e19598a0"
+}
