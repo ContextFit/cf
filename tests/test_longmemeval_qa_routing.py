@@ -279,6 +279,50 @@ def test_preference_support_packet_uses_only_retrieved_sources() -> None:
     assert "pasta maker" not in prompt
 
 
+def test_profile_event_ledger_adds_source_linked_profile_and_timeline_rows() -> None:
+    qa = _load_qa_module()
+    item = {
+        "question_id": "q1",
+        "question": "What should I pick based on what I like now?",
+        "question_type": "single-session-preference",
+        "question_date": "2023/03/10",
+        "haystack_session_ids": ["s1", "s2"],
+        "haystack_dates": ["2023/02/01", "2023/03/01"],
+        "haystack_sessions": [
+            [{"role": "user", "content": "I love quiet hotels and want to avoid loud nightlife."}],
+            [{"role": "user", "content": "I recently switched to preferring places near hiking trails."}],
+        ],
+    }
+
+    prompt = qa.build_answer_prompt(
+        item,
+        ["s1", "s2"],
+        top_k=2,
+        max_session_chars=2000,
+        cot=False,
+        source_aware=True,
+        source_sufficiency=False,
+        token_evidence=False,
+        evidence_packet=False,
+        fusion_evidence_map=False,
+        fusion_evidence_map_max_items=0,
+        fusion_evidence_map_max_chars=0,
+        evidence_packet_max_items=0,
+        evidence_packet_max_chars=0,
+        token_evidence_max_lines=0,
+        token_evidence_signals=False,
+        count_list_mode=False,
+        strict_missing_final_answer=False,
+        profile_event_ledger="general",
+    )
+
+    assert "Canonical Profile/Event Ledger" in prompt
+    assert "facets=preference" in prompt
+    assert "quiet hotels" in prompt
+    assert "hiking trails" in prompt
+    assert "latest-wins" in prompt
+
+
 def test_verifier_flags_final_answer_after_missing_source_note() -> None:
     qa = _load_qa_module()
     item = {

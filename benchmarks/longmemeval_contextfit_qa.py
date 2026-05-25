@@ -23,10 +23,13 @@ from pathlib import Path
 from typing import Any
 
 from contextfit.retrieval.evidence_compiler import (
+    ACTION_RE,
     DATE_RE,
     NUMBER_RE,
+    PREFERENCE_QUERY_RE,
     TEMPORAL_QUERY_RE,
     TEMPORAL_RE,
+    UPDATE_RE,
     build_count_list_ledger,
     build_deterministic_aggregation_assembly,
     build_evidence_packet,
@@ -37,10 +40,13 @@ from contextfit.retrieval.evidence_compiler import (
     effective_aggregation_assembly_mode,
     effective_fusion_evidence_map_mode,
     is_count_list_question,
+    compact_fact,
+    question_keywords,
     scrub_turn,
     should_use_aggregation_assembly,
     should_use_evidence_packet,
     should_use_fusion_evidence_map,
+    split_fact_candidates,
 )
 from contextfit.retrieval.memory_atoms import build_preference_support_view
 
@@ -516,6 +522,7 @@ def build_run_provenance(args: argparse.Namespace, judged: list[dict[str, Any]])
         "evidence_packet": args.evidence_packet,
         "temporal_evidence_packet": args.temporal_evidence_packet,
         "fusion_evidence_map": args.fusion_evidence_map,
+        "profile_event_ledger": getattr(args, "profile_event_ledger", "off"),
         "aggregation_assembly": args.aggregation_assembly,
         "count_list_ledger": getattr(args, "count_list_ledger", "off"),
         "source_aware": args.source_aware,
@@ -917,6 +924,9 @@ def build_answer_prompt(
     preference_support_packet: str = "off",
     preference_support_max_items: int = 10,
     preference_support_per_source: int = 2,
+    profile_event_ledger: str = "off",
+    profile_event_ledger_max_rows: int = 36,
+    profile_event_ledger_max_chars: int = 10_000,
 ) -> str:
     date_by_sid = dict(zip(item["haystack_session_ids"], item["haystack_dates"], strict=True))
     turns_by_sid = dict(zip(item["haystack_session_ids"], item["haystack_sessions"], strict=True))
@@ -991,6 +1001,17 @@ def build_answer_prompt(
                 + "Preference support is a compact view over the already retrieved sessions. "
                 + "Use it to identify transferable personal context, but verify the final answer against History Chats.\n\n"
             )
+    if should_use_profile_event_ledger(item, profile_event_ledger):
+        profile_ledger = build_profile_event_ledger(
+            item,
+            selected,
+            date_by_sid,
+            turns_by_sid,
+            max_rows=profile_event_ledger_max_rows,
+            max_chars=profile_event_ledger_max_chars,
+        )
+        if profile_ledger:
+            evidence_table += profile_ledger + "\n\n"
     use_count_list_mode = count_list_mode and is_count_list_question(item["question"])
     if use_count_list_mode:
         answer_instruction = (
@@ -1029,6 +1050,7 @@ def build_answer_prompt(
             "Answer the question based on the provided chat history. "
             "Treat each retrieved session as a separate evidence source. "
             "If a Token Evidence Table or Deterministic Evidence Packet is provided, use it as a deterministic hint layer for correlations, counts, dates, updates, and repeated facts, but verify the final answer against the full retrieved sessions. "
+            "If a Canonical Profile/Event Ledger is provided, treat it as the candidate working set: include accepted ledger rows in Source Notes, reject out-of-scope rows explicitly, use latest-wins only when a later row supersedes the same entity/state, and do not answer from a vague match when the ledger shows a more specific missing requirement. "
             "First write Source Notes: for every retrieved session that contains relevant evidence, list the concrete facts from that session. "
             "For multi-session, counting, total, list, and comparison questions, scan all retrieved sessions and combine distinct facts across sources; do not stop after the first matching session. "
             "Use dates and temporal wording to decide whether facts are current, previous, updated, or superseded. "
@@ -1068,6 +1090,150 @@ def build_answer_prompt(
         f"Question: {item['question']}\n"
         f"{answer_label}"
     )
+
+
+def should_use_profile_event_ledger(item: dict[str, Any], mode: str) -> bool:
+    if mode == "off":
+        return False
+    if mode == "all":
+        return True
+    if mode == "general":
+        question = item["question"]
+        return (
+            item["question_type"]
+            in {"knowledge-update", "multi-session", "single-session-preference", "temporal-reasoning"}
+            or bool(TEMPORAL_QUERY_RE.search(question))
+            or bool(UPDATE_RE.search(question))
+            or bool(PREFERENCE_QUERY_RE.search(question))
+            or is_count_list_question(question)
+        )
+    raise ValueError(f"unknown profile event ledger mode: {mode}")
+
+
+PROFILE_EVENT_RE = re.compile(
+    r"\b("
+    r"like|likes|liked|love|loves|loved|enjoy|enjoys|prefer|prefers|favorite|favourite|"
+    r"avoid|avoids|hate|hates|want|wants|trying|goal|need|needs|must|budget|deadline|"
+    r"decided|chose|picked|selected|went with|switched|started|stopped|currently|current|"
+    r"latest|recently|no longer|used to"
+    r")\b",
+    re.I,
+)
+
+
+def build_profile_event_ledger(
+    item: dict[str, Any],
+    selected: list[str],
+    date_by_sid: dict[str, str],
+    turns_by_sid: dict[str, list[dict[str, Any]]],
+    *,
+    max_rows: int,
+    max_chars: int,
+) -> str:
+    """Build a compact canonical profile/event ledger from retrieved sessions.
+
+    The ledger is deterministic and source-linked. It gives the reader a stable
+    working set for the failure modes that plain source-aware prompts often
+    mishandle: indirect preference support, cross-session aggregation,
+    superseded state, and date/window anchoring.
+    """
+    keywords = question_keywords(item["question"])
+    rows: list[tuple[int, str, int, int, str]] = []
+    seen: set[str] = set()
+    count_list = is_count_list_question(item["question"])
+    preference_like = item.get("question_type") == "single-session-preference" or bool(
+        PREFERENCE_QUERY_RE.search(item["question"])
+    )
+
+    for source_idx, sid in enumerate(selected, start=1):
+        date = date_by_sid.get(sid, "")
+        for turn_idx, turn in enumerate(turns_by_sid[sid], start=1):
+            clean = scrub_turn(turn)
+            role = clean["role"]
+            content = clean["content"]
+            if not content:
+                continue
+            for sentence in split_fact_candidates(content):
+                compact = compact_fact(sentence, max_chars=260)
+                if not compact:
+                    continue
+                lower = compact.lower()
+                q_hits = sorted(word for word in keywords if word in lower)
+                facets = profile_event_facets(compact, role=role)
+                has_number = bool(NUMBER_RE.search(compact))
+                has_date = bool(DATE_RE.search(compact) or TEMPORAL_RE.search(compact) or date)
+                keep = bool(
+                    q_hits
+                    or facets
+                    or (count_list and (has_number or ACTION_RE.search(compact)))
+                    or (preference_like and role == "user" and re.search(r"\b(my|i|me|we|our)\b", lower))
+                )
+                if not keep:
+                    continue
+                key = f"{sid}|{turn_idx}|{re.sub(r'[^a-z0-9]+', ' ', lower).strip()}"
+                if key in seen:
+                    continue
+                seen.add(key)
+                weight = (
+                    5 * len(q_hits)
+                    + 3 * len(facets)
+                    + int(has_number)
+                    + int(has_date)
+                    + (2 if role == "user" else 0)
+                )
+                facet_text = ",".join(facets) if facets else "context"
+                q_text = ",".join(q_hits[:8]) if q_hits else "-"
+                rows.append(
+                    (
+                        weight,
+                        date,
+                        source_idx,
+                        turn_idx,
+                        f"source=S{source_idx} sid={sid} date={date} turn={turn_idx} "
+                        f"role={role} facets={facet_text} query_terms={q_text} fact={compact}",
+                    )
+                )
+
+    if not rows:
+        return ""
+    selected_rows = sorted(rows, key=lambda row: (-row[0], row[1], row[2], row[3], row[4]))[:max_rows]
+    selected_rows = sorted(selected_rows, key=lambda row: (row[1], row[2], row[3], row[4]))
+    lines = [
+        "Canonical Profile/Event Ledger:",
+        "- Built deterministically from the retrieved sessions only; rows are evidence candidates, not final conclusions.",
+        "- For preference/recommendation questions, use preference/goal/constraint rows as transferable personal context.",
+        "- For temporal/current/latest questions, order rows by date and apply latest-wins only to the same entity/state.",
+        "- For count/list/total questions, form Candidate Set and Deduped Set from included rows; cite L# ids.",
+        "- Reject adjacent, hypothetical, generic, or out-of-window rows before the final answer.",
+    ]
+    for idx, (_weight, _date, _source_idx, _turn_idx, row) in enumerate(selected_rows, start=1):
+        lines.append(f"L{idx}: {row}")
+    ledger = "\n".join(lines)
+    if len(ledger) > max_chars:
+        return ledger[: max_chars - 63].rstrip() + "\n[canonical profile/event ledger truncated]"
+    return ledger
+
+
+def profile_event_facets(sentence: str, *, role: str) -> list[str]:
+    text = sentence.lower()
+    facets: list[str] = []
+    if role == "user" and re.search(r"\b(love|like|enjoy|prefer|favorite|favourite|hate|avoid|fan of|into)\b", text):
+        facets.append("preference")
+    if role == "user" and re.search(r"\b(can'?t|cannot|must|need to|have to|budget|deadline|allergy|limit|under\s+\$?\d+)\b", text):
+        facets.append("constraint")
+    if role == "user" and re.search(r"\b(want to|trying to|goal|aim|improve|working on|planning to|hope to|looking to)\b", text):
+        facets.append("goal")
+    if re.search(r"\b(current|currently|latest|recent|recently|upcoming|next|this week|changed|switched|started|stopped|no longer|used to)\b", text):
+        facets.append("temporal_state")
+    if re.search(r"\b(decided|chose|picked|selected|went with|settled on|committed)\b", text):
+        facets.append("decision")
+    if DATE_RE.search(sentence) or TEMPORAL_RE.search(sentence):
+        facets.append("dated_event")
+    if NUMBER_RE.search(sentence):
+        facets.append("quantity")
+    if ACTION_RE.search(sentence) or UPDATE_RE.search(sentence) or PROFILE_EVENT_RE.search(sentence):
+        facets.append("event")
+    return list(dict.fromkeys(facets))
 
 
 def build_aggregation_assembly_prompt(
@@ -2628,6 +2794,9 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                     preference_support_packet=args.preference_support_packet,
                     preference_support_max_items=args.preference_support_max_items,
                     preference_support_per_source=args.preference_support_per_source,
+                    profile_event_ledger=args.profile_event_ledger,
+                    profile_event_ledger_max_rows=args.profile_event_ledger_max_rows,
+                    profile_event_ledger_max_chars=args.profile_event_ledger_max_chars,
                 )
                 hypothesis = cached_chat_completion(
                     args,
@@ -2702,6 +2871,9 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                 preference_support_packet=args.preference_support_packet,
                 preference_support_max_items=args.preference_support_max_items,
                 preference_support_per_source=args.preference_support_per_source,
+                profile_event_ledger=args.profile_event_ledger,
+                profile_event_ledger_max_rows=args.profile_event_ledger_max_rows,
+                profile_event_ledger_max_chars=args.profile_event_ledger_max_chars,
             )
             if not args.source_aware:
                 route = "standard"
@@ -3088,6 +3260,24 @@ def main() -> int:
         type=int,
         default=2,
         help="max compact preference-support rows per retrieved source",
+    )
+    ap.add_argument(
+        "--profile-event-ledger",
+        choices=("off", "general", "all"),
+        default="off",
+        help="prepend a deterministic canonical profile/event ledger for preference, temporal, update, and aggregation rows",
+    )
+    ap.add_argument(
+        "--profile-event-ledger-max-rows",
+        type=int,
+        default=36,
+        help="max source-linked rows in the canonical profile/event ledger",
+    )
+    ap.add_argument(
+        "--profile-event-ledger-max-chars",
+        type=int,
+        default=10_000,
+        help="max characters in the canonical profile/event ledger",
     )
     ap.add_argument(
         "--strict-missing-final-answer",
