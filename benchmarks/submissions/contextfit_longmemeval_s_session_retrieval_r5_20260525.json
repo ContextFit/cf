@@ -1,0 +1,57 @@
+{
+  "schema": "contextfit.leaderboard_submission.v1",
+  "date": "2026-05-25",
+  "system": "ContextFit",
+  "benchmark": "LongMemEval-S",
+  "dataset": {
+    "source": "xiaowu0162/longmemeval",
+    "split": "longmemeval_s",
+    "rows": 500,
+    "local_path": "benchmarks/data/longmemeval_s_cleaned.json"
+  },
+  "metric": {
+    "name": "session retrieval recall",
+    "primary": "R@5",
+    "target": "answer_session_ids",
+    "hit_definition": "A row is counted as a hit if at least one ground-truth answer_session_ids entry appears in the top-k retrieved sessions.",
+    "notes": [
+      "This is retrieval recall, not answer generation accuracy.",
+      "This is not an LLM-judge QA score.",
+      "No answer model or judge model is used for this metric."
+    ]
+  },
+  "results": [
+    {
+      "system": "ContextFit token-native",
+      "r_at_1": 0.818,
+      "r_at_3": 0.904,
+      "r_at_5": 0.962,
+      "r_at_10": 0.978,
+      "hits_at_5": 481,
+      "n": 500,
+      "embeddings": false,
+      "vector_store": false,
+      "llm_in_retrieval_loop": false,
+      "artifact": "benchmarks/longmemeval_token_native_certificate_promotion_v5_typed_rescue_tight_20260524.json",
+      "artifact_sha256": "c0e7ebc5d925549e1e3058b6100ab0786654c4d8c1bd4a99fe920c57f3ff2ea6"
+    },
+    {
+      "system": "ContextFit + OpenAI fusion",
+      "r_at_1": 0.846,
+      "r_at_3": 0.952,
+      "r_at_5": 0.99,
+      "r_at_10": 0.996,
+      "hits_at_5": 495,
+      "n": 500,
+      "embeddings": true,
+      "embedding_provider": "OpenAI",
+      "vector_store": false,
+      "llm_in_retrieval_loop": false,
+      "artifact": "benchmarks/longmemeval_fusion_selective_chunk_promotion_v5_typed_rescue_20260524.json",
+      "artifact_sha256": "ababf7387cb18c9310e82c35a57594aeef3cd40a2b60d9a1f336f69b65d3dcd2"
+    }
+  ],
+  "public_report": "https://www.context.fit/longmemeval_gbrain_style_contextfit_20260525.html",
+  "repository": "https://github.com/ContextFit/cf",
+  "commit": "0ddf3a725615011f3ff76146874039455b1409ab"
+}
