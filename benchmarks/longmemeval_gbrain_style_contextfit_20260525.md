@@ -21,10 +21,13 @@ over all 500 questions.
 | System | R@1 | R@3 | R@5 | R@10 | Hits@5 | Embeddings | Vector store |
 |---|---:|---:|---:|---:|---:|---|---|
 | gbrain-hybrid | - | - | 97.60% | - | 488/500 | yes | local |
+| MemPalace raw | - | - | 96.60% | - | 483/500 | yes | local |
 | ContextFit token-native | 81.80% | 90.40% | 96.20% | 97.80% | 481/500 | no | no |
 | ContextFit + OpenAI fusion | 84.60% | 95.20% | 99.00% | 99.60% | 495/500 | yes | no |
 
 The gbrain row is the published `gbrain-evals` headline for LongMemEval `_s`.
+The MemPalace row is the published raw/zero-API baseline cited by both
+`gbrain-evals` and MemPalace's benchmark documentation.
 The ContextFit rows are computed from local full-run artifacts listed below.
 
 ## ContextFit Artifacts
@@ -83,8 +86,8 @@ Recommended concise wording:
 
 > On LongMemEval-S session retrieval, ContextFit reaches 96.20% R@5 with no
 > embeddings or vector database. With optional OpenAI fusion, ContextFit reaches
-> 99.00% R@5, above gbrain-hybrid's published 97.60% R@5 on the same split and
-> top-5 retrieval metric.
+> 99.00% R@5, above gbrain-hybrid's published 97.60% R@5 and MemPalace raw's
+> published 96.60% R@5 on the same split and top-5 retrieval metric.
 
 Keep the qualifier "session retrieval R@5" attached to the claim. Do not call
 this a LongMemEval QA score.

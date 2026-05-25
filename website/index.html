@@ -1653,7 +1653,7 @@
       <div class="bench-summary-item">
         <div class="bench-summary-label">Published reference</div>
         <div class="bench-summary-value">97.60% gbrain</div>
-        <div class="bench-summary-copy">gbrain-hybrid reports 97.60% R@5 on the same LongMemEval-S split and top-5 retrieval metric.</div>
+        <div class="bench-summary-copy">gbrain-hybrid reports 97.60% R@5, compared against MemPalace raw at 96.6% R@5 on the same LongMemEval-S retrieval metric.</div>
       </div>
     </div>
 
@@ -1674,6 +1674,12 @@
           <tr>
             <td>gbrain-hybrid <span style="font-size:0.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">published</span></td>
             <td>—</td><td>—</td><td>97.60%</td><td>—</td>
+            <td class="cost-paid">yes</td>
+            <td class="check">local</td>
+          </tr>
+          <tr>
+            <td>MemPalace raw <span style="font-size:0.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">published</span></td>
+            <td>—</td><td>—</td><td>96.60%</td><td>—</td>
             <td class="cost-paid">yes</td>
             <td class="check">local</td>
           </tr>
@@ -1701,8 +1707,9 @@
     <div class="bench-note">
       LongMemEval-S session retrieval, all 500 questions, top-5 hit against
       <code>answer_session_ids</code>. ContextFit scores are from local full-run artifacts;
-      gbrain is the published <code>gbrain-evals</code> headline. This is retrieval recall,
-      not answer accuracy. Full run notes:
+      gbrain and MemPalace are published reference rows. This is retrieval recall,
+      not answer accuracy. MemPalace raw is the 96.6% R@5 zero-API baseline cited by
+      <code>gbrain-evals</code> and MemPalace benchmark docs. Full run notes:
       <a href="/longmemeval_gbrain_style_contextfit_20260525.html">ContextFit comparison artifact</a>.
     </div>
 
