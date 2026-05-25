@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any
 
 
 def _frontmatter(text: str) -> dict[str, str]:
@@ -90,16 +91,18 @@ def _frontmatter_end(lines: list[str]) -> int:
 def _emit_markdown_chunk(
     chunks: list[dict],
     *,
-    base_meta: dict[str, str],
+    base_meta: dict[str, Any],
     header_text: str,
     heading_path: list[str],
-    blocks: list[str],
+    blocks: list[tuple[str, int, int]],
     ordinal: int,
 ) -> int:
-    body = "\n\n".join(block.strip() for block in blocks if block.strip()).strip()
+    body = "\n\n".join(block.strip() for block, _start, _end in blocks if block.strip()).strip()
     if not body:
         return ordinal
 
+    line_start = min(start for block, start, _end in blocks if block.strip())
+    line_end = max(end for block, _start, end in blocks if block.strip())
     breadcrumb = " > ".join(heading_path)
     context_lines = []
     if header_text:
@@ -107,6 +110,8 @@ def _emit_markdown_chunk(
     if breadcrumb:
         context_lines.append(f"Heading path: {breadcrumb}")
     chunk_text = "\n\n".join(context_lines + [body]).strip()
+    context_text = "\n\n".join(context_lines).strip()
+    context_line_count = context_text.count("\n") + 2 if context_text else 0
 
     chunks.append({
         "text": chunk_text,
@@ -116,6 +121,9 @@ def _emit_markdown_chunk(
             "heading_path": breadcrumb,
             "section_level": str(len(heading_path)),
             "chunk_ordinal": str(ordinal),
+            "line_start": line_start,
+            "line_end": line_end,
+            "chunk_context_line_count": context_line_count,
         },
     })
     return ordinal + 1
@@ -145,16 +153,17 @@ def chunk_markdown(path: Path, text: str, chunk_size: int = 512, overlap: int = 
     header_text = "\n".join(header_lines).strip()
     chunks: list[dict] = []
     heading_stack: list[str] = [base_meta.get("title", path.stem)] if base_meta.get("title") else []
-    current_blocks: list[str] = []
-    current_block: list[str] = []
+    current_blocks: list[tuple[str, int, int]] = []
+    current_block: list[tuple[str, int]] = []
     in_code = False
     ordinal = 0
 
     def flush_block() -> None:
         nonlocal current_block
-        block = "\n".join(current_block).strip("\n")
+        block = "\n".join(line for line, _line_no in current_block).strip("\n")
         if block.strip():
-            current_blocks.append(block)
+            line_numbers = [line_no for line, _line_no in current_block if line.strip()]
+            current_blocks.append((block, min(line_numbers), max(line_numbers)))
         current_block = []
 
     def flush_section() -> None:
@@ -164,12 +173,12 @@ def chunk_markdown(path: Path, text: str, chunk_size: int = 512, overlap: int = 
             return
 
         budget = max(64, chunk_size * 0.8)
-        acc: list[str] = []
+        acc: list[tuple[str, int, int]] = []
         acc_est = _token_estimate(header_text) + _token_estimate(" > ".join(heading_stack))
-        previous_tail: list[str] = []
+        previous_tail: list[tuple[str, int, int]] = []
 
         for block in current_blocks:
-            block_est = _token_estimate(block)
+            block_est = _token_estimate(block[0])
             if acc and acc_est + block_est > budget:
                 ordinal = _emit_markdown_chunk(
                     chunks,
@@ -181,7 +190,7 @@ def chunk_markdown(path: Path, text: str, chunk_size: int = 512, overlap: int = 
                 )
                 previous_tail = acc[-1:] if overlap > 0 else []
                 acc = previous_tail.copy()
-                acc_est = _token_estimate(header_text) + _token_estimate(" > ".join(heading_stack)) + sum(_token_estimate(b) for b in acc)
+                acc_est = _token_estimate(header_text) + _token_estimate(" > ".join(heading_stack)) + sum(_token_estimate(b[0]) for b in acc)
             acc.append(block)
             acc_est += block_est
 
@@ -196,10 +205,10 @@ def chunk_markdown(path: Path, text: str, chunk_size: int = 512, overlap: int = 
             )
         current_blocks = []
 
-    for line in lines[start:]:
+    for line_no, line in enumerate(lines[start:], start + 1):
         stripped = line.strip()
         if stripped.startswith("```") or stripped.startswith("~~~"):
-            current_block.append(line)
+            current_block.append((line, line_no))
             in_code = not in_code
             if not in_code:
                 flush_block()
@@ -216,7 +225,7 @@ def chunk_markdown(path: Path, text: str, chunk_size: int = 512, overlap: int = 
                 else:
                     heading_stack = heading_stack[: max(1, level - 1)]
                     heading_stack.append(title)
-                current_block = [line]
+                current_block = [(line, line_no)]
                 flush_block()
                 continue
 
@@ -226,15 +235,15 @@ def chunk_markdown(path: Path, text: str, chunk_size: int = 512, overlap: int = 
 
             starts_structured = bool(re.match(r"^(- |\* |\d+\. |>|\|)", stripped))
             if current_block and starts_structured:
-                prev = current_block[-1].strip()
+                prev = current_block[-1][0].strip()
                 prev_structured = bool(re.match(r"^(- |\* |\d+\. |>|\|)", prev))
                 if not prev_structured:
                     flush_block()
 
-        current_block.append(line)
+        current_block.append((line, line_no))
 
     flush_section()
-    return chunks if chunks else [{"text": text, "metadata": {**base_meta, "chunk_type": "document"}}]
+    return chunks if chunks else [{"text": text, "metadata": {**base_meta, "chunk_type": "document", "line_start": 1, "line_end": len(lines) or 1}}]
 
 
 def chunk_text(path: Path, text: str, chunk_size: int = 512, overlap: int = 64) -> list[dict]:

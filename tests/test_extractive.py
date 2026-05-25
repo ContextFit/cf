@@ -107,6 +107,20 @@ def test_extract_evidence_offsets_lines_from_chunk_metadata():
     assert evidence[0].line_end == 41
 
 
+def test_extract_evidence_offsets_lines_after_chunk_context():
+    text = "# Guide\n\nHeading path: Guide > Alpha\n\n## Alpha\n\n- target status is blocked"
+
+    evidence = extract_evidence(
+        text,
+        "blocked status",
+        mode="bullets",
+        metadata={"source": "notes.md", "line_start": 10, "chunk_context_line_count": 4},
+    )
+
+    assert evidence[0].line_start == 12
+    assert evidence[0].line_end == 12
+
+
 def test_extract_spans_respects_budget():
     text = "alpha " * 100 + "needle commit 90e4f52 version 0.1.1 " + "omega " * 100
 

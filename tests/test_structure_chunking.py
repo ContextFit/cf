@@ -32,6 +32,16 @@ print('hello')
     assert any("Project Guide > Deploy" in p for p in paths)
     assert any("print('hello')" in c["text"] for c in chunks)
     assert all(c["metadata"]["chunk_type"] == "markdown_section" for c in chunks)
+    assert all(isinstance(c["metadata"].get("line_start"), int) for c in chunks)
+    assert all(isinstance(c["metadata"].get("line_end"), int) for c in chunks)
+
+    install = next(c for c in chunks if "print('hello')" in c["text"])
+    assert install["metadata"]["line_start"] == 5
+    assert install["metadata"]["line_end"] == 11
+
+    deploy = next(c for c in chunks if "- build" in c["text"])
+    assert deploy["metadata"]["line_start"] == 13
+    assert deploy["metadata"]["line_end"] == 16
 
 
 def test_plain_text_chunking_uses_paragraph_groups(tmp_path):
@@ -61,6 +71,30 @@ row2[]: amount=20, note=lunch
     assert chunks[0]["metadata"]["chunk_type"] == "rows"
     assert "# Ledger" in chunks[0]["text"]
     assert "row1[]" in chunks[0]["text"]
+    assert chunks[0]["metadata"]["row_ids"] == ["row1"]
+    assert chunks[0]["metadata"]["chunk_ordinal"] == 0
+    assert chunks[0]["metadata"]["line_start"] == 7
+    assert chunks[0]["metadata"]["line_end"] == 7
+
+
+def test_tmd_chunking_preserves_explicit_row_ids_and_line_ranges(tmp_path):
+    path = tmp_path / "campaign.tmd"
+    text = """---
+schema:
+  status: string
+---
+# Campaign
+
+campaign[video-01]: status=idea
+campaign[video-04]: status=blocked
+campaign[video-08]: status=ready
+"""
+    chunks = tmd.chunk_tmd(path, text, chunk_size=200, overlap=0)
+
+    assert len(chunks) == 1
+    assert chunks[0]["metadata"]["row_ids"] == ["video-01", "video-04", "video-08"]
+    assert chunks[0]["metadata"]["line_start"] == 7
+    assert chunks[0]["metadata"]["line_end"] == 9
 
 
 def test_cli_preprocess_uses_structure_aware_chunks(tmp_path):
@@ -81,6 +115,7 @@ def test_cli_preprocess_uses_structure_aware_chunks(tmp_path):
     metas = [item["metadata"] for item in result["token_items"]]
     assert any(meta.get("chunk_type") == "markdown_section" for meta in metas)
     assert any("Guide > Alpha" in meta.get("heading_path", "") for meta in metas)
+    assert all("line_start" in meta and "line_end" in meta for meta in metas)
 
 
 def test_engine_ingest_file_uses_markdown_structure(tmp_path):
@@ -94,3 +129,4 @@ def test_engine_ingest_file_uses_markdown_structure(tmp_path):
     metas = [chunk.metadata for chunk in chunks]
     assert any(meta.get("chunk_type") == "markdown_section" for meta in metas)
     assert any("Guide > Alpha" in meta.get("heading_path", "") for meta in metas)
+    assert all("line_start" in meta and "line_end" in meta for meta in metas)

@@ -108,37 +108,54 @@ def chunk_tmd(path: Path, text: str, chunk_size: int = 512, overlap: int = 64) -
     
     # Find all data rows
     row_pattern = re.compile(r'^(\w+)\[([^\]]*)\]:\s*(.+)$')
-    rows = []
-    prose_lines = []
+    rows: list[tuple[str, int, str]] = []
+    prose_lines: list[tuple[str, int]] = []
     
-    for line in lines[data_start:]:
+    for line_no, line in enumerate(lines[data_start:], data_start + 1):
         stripped = line.strip()
-        if row_pattern.match(stripped):
-            rows.append(line)
+        row_match = row_pattern.match(stripped)
+        if row_match:
+            key = row_match.group(1)
+            row_id = row_match.group(2).strip() or key
+            rows.append((line, line_no, row_id))
         elif stripped and not stripped.startswith('##'):
-            prose_lines.append(line)
+            prose_lines.append((line, line_no))
     
     # Base metadata
     base_meta = extract(path, text)
     
     # Chunk rows, prepending header to each chunk
-    current_chunk_rows = []
+    current_chunk_rows: list[tuple[str, int, str]] = []
     current_tokens_estimate = len(header_text.split()) * 1.3  # Rough token estimate
+    ordinal = 0
+
+    def emit_rows(chunk_rows: list[tuple[str, int, str]], ordinal_value: int) -> int:
+        row_texts = [row for row, _line_no, _row_id in chunk_rows]
+        row_ids = [row_id for _row, _line_no, row_id in chunk_rows]
+        line_numbers = [line_no for _row, line_no, _row_id in chunk_rows]
+        chunk_text = header_text + '\n\n' + '\n'.join(row_texts) if header_text else '\n'.join(row_texts)
+        context_line_count = header_text.count('\n') + 2 if header_text else 0
+        chunks.append({
+            'text': chunk_text,
+            'metadata': {
+                **base_meta,
+                'chunk_type': 'rows',
+                'row_count_in_chunk': str(len(chunk_rows)),
+                'row_ids': row_ids,
+                'chunk_ordinal': ordinal_value,
+                'line_start': min(line_numbers),
+                'line_end': max(line_numbers),
+                'chunk_context_line_count': context_line_count,
+            }
+        })
+        return ordinal_value + 1
     
     for row in rows:
-        row_tokens = len(row.split()) * 1.3
+        row_text, _line_no, _row_id = row
+        row_tokens = len(row_text.split()) * 1.3
         
         if current_tokens_estimate + row_tokens > chunk_size * 0.8 and current_chunk_rows:
-            # Emit chunk
-            chunk_text = header_text + '\n\n' + '\n'.join(current_chunk_rows)
-            chunks.append({
-                'text': chunk_text,
-                'metadata': {
-                    **base_meta,
-                    'chunk_type': 'rows',
-                    'row_count_in_chunk': str(len(current_chunk_rows)),
-                }
-            })
+            ordinal = emit_rows(current_chunk_rows, ordinal)
             current_chunk_rows = []
             current_tokens_estimate = len(header_text.split()) * 1.3
         
@@ -147,25 +164,23 @@ def chunk_tmd(path: Path, text: str, chunk_size: int = 512, overlap: int = 64) -
     
     # Emit final chunk
     if current_chunk_rows:
-        chunk_text = header_text + '\n\n' + '\n'.join(current_chunk_rows)
-        chunks.append({
-            'text': chunk_text,
-            'metadata': {
-                **base_meta,
-                'chunk_type': 'rows',
-                'row_count_in_chunk': str(len(current_chunk_rows)),
-            }
-        })
+        ordinal = emit_rows(current_chunk_rows, ordinal)
     
     # Add prose as separate chunk if substantial
-    prose_text = '\n'.join(prose_lines).strip()
+    prose_text = '\n'.join(line for line, _line_no in prose_lines).strip()
     if prose_text and len(prose_text) > 100:
+        prose_line_numbers = [line_no for line, line_no in prose_lines if line.strip()]
         chunks.append({
             'text': header_text + '\n\n' + prose_text,
             'metadata': {
                 **base_meta,
                 'chunk_type': 'prose',
+                'chunk_ordinal': ordinal,
+                'line_start': min(prose_line_numbers),
+                'line_end': max(prose_line_numbers),
+                'chunk_context_line_count': header_text.count('\n') + 2 if header_text else 0,
             }
         })
     
-    return chunks if chunks else [{'text': text, 'metadata': base_meta}]
+    line_count = len(text.splitlines()) or 1
+    return chunks if chunks else [{'text': text, 'metadata': {**base_meta, 'line_start': 1, 'line_end': line_count}}]

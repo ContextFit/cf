@@ -574,15 +574,27 @@ def _offset_lines(
         offset = int(base) - 1
     except (TypeError, ValueError):
         return items
-    if offset <= 0:
+    try:
+        context_line_count = int(metadata.get("chunk_context_line_count") or 0)
+    except (TypeError, ValueError):
+        context_line_count = 0
+    if offset <= 0 and context_line_count <= 0:
         return items
+    base_line = offset + 1
+
+    def adjust(line_no: int | None) -> int | None:
+        if line_no is None:
+            return None
+        adjusted = line_no - context_line_count + offset
+        return max(base_line, adjusted)
+
     return [
         EvidenceItem(
             kind=item.kind,
             text=item.text,
             score=item.score,
-            line_start=item.line_start + offset if item.line_start is not None else None,
-            line_end=item.line_end + offset if item.line_end is not None else None,
+            line_start=adjust(item.line_start),
+            line_end=adjust(item.line_end),
             row_id=item.row_id,
             table=item.table,
             fields=item.fields,
