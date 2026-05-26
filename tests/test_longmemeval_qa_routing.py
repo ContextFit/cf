@@ -225,6 +225,26 @@ def test_retrieval_query_rescue_policy_skips_strong_single_user_slice() -> None:
     assert query_spec is None
 
 
+def test_retrieval_query_guarded_all_policy_covers_non_rescue_slices() -> None:
+    spec_path = Path(__file__).resolve().parents[1] / "benchmarks" / "longmemeval_contextfit.py"
+    spec = importlib.util.spec_from_file_location("longmemeval_contextfit", spec_path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    query = "Question date: 2026/05/26\nQuestion: What is the user's current IDE?"
+    variants, query_spec = module.retrieval_query_variants(
+        {"question_type": "knowledge-update", "question": "What is the user's current IDE?"},
+        query,
+        "query_spec_guarded_all_v3",
+    )
+
+    assert module.uses_guarded_query_spec("query_spec_guarded_all_v3")
+    assert query_spec is not None
+    assert query_spec["answer_type"] == "knowledge_update"
+    assert len(variants) > 1
+
+
 def test_retrieval_query_guarded_policy_keeps_original_top_five() -> None:
     spec_path = Path(__file__).resolve().parents[1] / "benchmarks" / "longmemeval_contextfit.py"
     spec = importlib.util.spec_from_file_location("longmemeval_contextfit", spec_path)

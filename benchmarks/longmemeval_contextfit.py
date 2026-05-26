@@ -1218,7 +1218,12 @@ def build_retrieval_query_spec(item: dict[str, Any], query: str, policy: str) ->
     """
     if policy == "off":
         return None
-    if policy not in {"query_spec_v1", "query_spec_rescue_v1", "query_spec_guarded_v2"}:
+    if policy not in {
+        "query_spec_v1",
+        "query_spec_rescue_v1",
+        "query_spec_guarded_v2",
+        "query_spec_guarded_all_v3",
+    }:
         raise ValueError(f"unknown retrieval query policy: {policy}")
 
     question = str(item.get("question") or "")
@@ -1320,7 +1325,7 @@ def retrieval_query_variants(item: dict[str, Any], query: str, policy: str) -> t
 
 
 def uses_guarded_query_spec(policy: str) -> bool:
-    return policy == "query_spec_guarded_v2"
+    return policy in {"query_spec_guarded_v2", "query_spec_guarded_all_v3"}
 
 
 def query_spec_guarded_sessions(
@@ -2120,7 +2125,13 @@ def main() -> int:
     ap.add_argument("--query-auto", action="store_true", help="Use production deterministic query router and routed retrieval modes")
     ap.add_argument(
         "--retrieval-query-policy",
-        choices=["off", "query_spec_v1", "query_spec_rescue_v1", "query_spec_guarded_v2"],
+        choices=[
+            "off",
+            "query_spec_v1",
+            "query_spec_rescue_v1",
+            "query_spec_guarded_v2",
+            "query_spec_guarded_all_v3",
+        ],
         default="off",
         help="deterministically translate each question into evidence-oriented retrieval query variants and RRF-fuse them",
     )
