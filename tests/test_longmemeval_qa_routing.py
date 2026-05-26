@@ -225,6 +225,43 @@ def test_retrieval_query_rescue_policy_skips_strong_single_user_slice() -> None:
     assert query_spec is None
 
 
+def test_retrieval_query_guarded_policy_keeps_original_top_five() -> None:
+    spec_path = Path(__file__).resolve().parents[1] / "benchmarks" / "longmemeval_contextfit.py"
+    spec = importlib.util.spec_from_file_location("longmemeval_contextfit", spec_path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    query = "Question date: 2026/05/26\nQuestion: How many Project Orion items did I buy?"
+    item = {
+        "question_type": "multi-session",
+        "haystack_session_ids": ["s1", "s2", "s3", "s4", "s5", "s6"],
+        "haystack_sessions": [],
+    }
+    session_texts = [
+        ("s1", "Turn 1 (user): I bought one Project Orion adapter."),
+        ("s2", "Turn 1 (user): I bought one Project Orion cable."),
+        ("s3", "Turn 1 (user): I bought one Project Orion case."),
+        ("s4", "Turn 1 (user): I bought one Project Orion battery."),
+        ("s5", "Turn 1 (user): I bought one Project Orion dock."),
+        ("s6", "Turn 1 (user): I bought two Project Orion chargers."),
+    ]
+
+    ranked, traces = module.query_spec_guarded_sessions(
+        query,
+        item,
+        session_texts,
+        ["s1", "s2", "s3", "s4", "s5", "s6"],
+        [["s6", "s1", "s2", "s3", "s4", "s5"]],
+        top_k=6,
+        candidate_k=6,
+    )
+
+    assert ranked[:5] == ["s1", "s2", "s3", "s4", "s5"]
+    assert ranked[5] == "s6"
+    assert traces[0]["action"] == "query_spec_tail_promote"
+
+
 def test_openai_compatible_sanitizer_trims_chat_role_echo_after_answer() -> None:
     qa = _load_qa_module()
     text = "42\nuser\nassistant\nI'm sorry, but I can't help with that."

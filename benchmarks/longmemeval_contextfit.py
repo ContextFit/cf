@@ -1218,12 +1218,12 @@ def build_retrieval_query_spec(item: dict[str, Any], query: str, policy: str) ->
     """
     if policy == "off":
         return None
-    if policy not in {"query_spec_v1", "query_spec_rescue_v1"}:
+    if policy not in {"query_spec_v1", "query_spec_rescue_v1", "query_spec_guarded_v2"}:
         raise ValueError(f"unknown retrieval query policy: {policy}")
 
     question = str(item.get("question") or "")
     question_type = str(item.get("question_type") or "")
-    rescue_only = policy == "query_spec_rescue_v1"
+    rescue_only = policy in {"query_spec_rescue_v1", "query_spec_guarded_v2"}
     if rescue_only and question_type not in {"multi-session", "single-session-preference"}:
         return None
 
@@ -1317,6 +1317,111 @@ def retrieval_query_variants(item: dict[str, Any], query: str, policy: str) -> t
     if not spec:
         return [query], None
     return list(spec["queries"]), spec
+
+
+def uses_guarded_query_spec(policy: str) -> bool:
+    return policy == "query_spec_guarded_v2"
+
+
+def query_spec_guarded_sessions(
+    query: str,
+    item: dict[str, Any],
+    session_texts: list[tuple[str, str]],
+    original_order: list[str],
+    variant_orders: list[list[str]],
+    top_k: int,
+    candidate_k: int,
+    session_dates: dict[str, str] | None = None,
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """Let QuerySpec variants add certified tail evidence without disturbing top-5.
+
+    The earlier QuerySpec gate showed better top-10 evidence recovery but a small
+    Any@5 regression. This guarded version treats the original query as the
+    authority for the first five slots and allows intent variants to compete only
+    for the tail unless a later version explicitly enables stronger promotion.
+    """
+    original = [str(sid) for sid in original_order]
+    if top_k <= 5 or not variant_orders:
+        return original[:top_k], []
+
+    text_by_sid = {str(sid): text for sid, text in session_texts}
+    protected = [sid for sid in original[: min(5, top_k)] if sid in text_by_sid]
+    if len(protected) < min(5, top_k):
+        return original[:top_k], []
+
+    fused_variants = reciprocal_rank_fusion(variant_orders)
+    original_pos = {sid: rank for rank, sid in enumerate(original, start=1)}
+    variant_pos = {sid: rank for rank, sid in enumerate(fused_variants, start=1)}
+    pool: list[str] = []
+    seen = set(protected)
+    for sid in fused_variants:
+        sid = str(sid)
+        if sid in seen or sid not in text_by_sid:
+            continue
+        if variant_pos.get(sid, 10**9) > candidate_k:
+            continue
+        seen.add(sid)
+        pool.append(sid)
+    for sid in original[5:]:
+        sid = str(sid)
+        if sid not in seen and sid in text_by_sid:
+            seen.add(sid)
+            pool.append(sid)
+
+    certified: list[tuple[float, int, str, str]] = []
+    for sid in pool:
+        rank = variant_pos.get(sid, original_pos.get(sid, 10**9))
+        certificate = _certificate_for_candidate(
+            query,
+            item.get("question_type"),
+            sid,
+            rank,
+            text_by_sid,
+            session_dates,
+            protected,
+        )
+        if not certificate:
+            continue
+        reason, strength = certificate
+        # Tail promotion should require more than generic lexical overlap.
+        if strength < 2.0:
+            continue
+        certified.append((strength, rank, sid, reason))
+
+    certified.sort(key=lambda row: (-row[0], row[1]))
+    out = list(protected)
+    traces: list[dict[str, Any]] = []
+    for strength, old_rank, sid, reason in certified:
+        if len(out) >= top_k:
+            break
+        if sid in out:
+            continue
+        out.append(sid)
+        traces.append(
+            {
+                "action": "query_spec_tail_promote",
+                "source_id": sid,
+                "from_rank": old_rank if old_rank < 10**9 else None,
+                "to_rank": len(out),
+                "certificate": reason,
+                "strength": round(strength, 4),
+            }
+        )
+
+    for sid in original[5:]:
+        if len(out) >= top_k:
+            break
+        sid = str(sid)
+        if sid not in out:
+            out.append(sid)
+    for sid in fused_variants:
+        if len(out) >= top_k:
+            break
+        sid = str(sid)
+        if sid not in out:
+            out.append(sid)
+
+    return out[:top_k], traces
 
 
 def structured_temporal_date_filters(
@@ -1511,6 +1616,7 @@ def eval_one(
         )
         retrieval_certificates: list[dict[str, Any]] = []
         certificate_candidate_order: list[str] | None = None
+        query_spec_guarded_traces: list[dict[str, Any]] = []
         if two_stage_sessions:
             two_stage = engine.query_two_stage_sessions(
                 query,
@@ -1716,7 +1822,38 @@ def eval_one(
                     filter_pushdown_threshold=filter_pushdown_threshold,
                 )
                 group_lists.append([g["value"] for g in groups])
-            retrieved_sessions = reciprocal_rank_fusion(group_lists) if len(group_lists) > 1 else group_lists[0]
+            if uses_guarded_query_spec(retrieval_query_policy) and len(group_lists) > 1:
+                original_order = group_lists[0]
+                variant_orders = group_lists[1:]
+                if coverage_rerank and str(item.get("question_type") or "").startswith("multi-session"):
+                    original_order = coverage_rerank_sessions(
+                        query,
+                        session_texts,
+                        original_order,
+                        top_k=top_k_chunks,
+                    )
+                    variant_orders = [
+                        coverage_rerank_sessions(
+                            query,
+                            session_texts,
+                            order,
+                            top_k=min(group_pool, max(top_k_chunks, fusion_final_candidate_k)),
+                        )
+                        for order in variant_orders
+                    ]
+                session_dates = dict(zip(item["haystack_session_ids"], item["haystack_dates"], strict=True))
+                retrieved_sessions, query_spec_guarded_traces = query_spec_guarded_sessions(
+                    query,
+                    item,
+                    session_texts,
+                    original_order,
+                    variant_orders,
+                    top_k=top_k_chunks,
+                    candidate_k=min(retrieval_k, max(top_k_chunks, fusion_final_candidate_k)),
+                    session_dates=session_dates,
+                )
+            else:
+                retrieved_sessions = reciprocal_rank_fusion(group_lists) if len(group_lists) > 1 else group_lists[0]
             certificate_candidate_order = list(retrieved_sessions)
             if filters and structured_filter_fusion == "rrf":
                 broad_lists: list[list[str]] = []
@@ -1736,7 +1873,12 @@ def eval_one(
                     [retrieved_sessions, broad_sessions]
                 )
                 certificate_candidate_order = list(retrieved_sessions)
-            if coverage_rerank and not safe_promotion_rerank and str(item.get("question_type") or "").startswith("multi-session"):
+            if (
+                not query_spec_guarded_traces
+                and coverage_rerank
+                and not safe_promotion_rerank
+                and str(item.get("question_type") or "").startswith("multi-session")
+            ):
                 retrieved_sessions = coverage_rerank_sessions(
                     query,
                     session_texts,
@@ -1774,7 +1916,7 @@ def eval_one(
                     retrieved_sessions,
                     top_k=top_k_chunks,
                 )
-            else:
+            elif not query_spec_guarded_traces:
                 retrieved_sessions = retrieved_sessions[:top_k_chunks]
         elif structural_rerank:
             # BM25 retrieval + token-native structural reranker (same as query_auto bm25 route)
@@ -1852,7 +1994,20 @@ def eval_one(
                     )
                 retrieved_sessions = (reciprocal_rank_fusion(scored_lists) if len(scored_lists) > 1 else scored_lists[0])[:top_k_chunks]
             else:
-                retrieved_sessions = (reciprocal_rank_fusion(result_lists) if len(result_lists) > 1 else result_lists[0])[:top_k_chunks]
+                if uses_guarded_query_spec(retrieval_query_policy) and len(result_lists) > 1:
+                    session_dates = dict(zip(item["haystack_session_ids"], item["haystack_dates"], strict=True))
+                    retrieved_sessions, query_spec_guarded_traces = query_spec_guarded_sessions(
+                        query,
+                        item,
+                        session_texts,
+                        result_lists[0],
+                        result_lists[1:],
+                        top_k=top_k_chunks,
+                        candidate_k=min(retrieval_k, max(top_k_chunks, fusion_final_candidate_k)),
+                        session_dates=session_dates,
+                    )
+                else:
+                    retrieved_sessions = (reciprocal_rank_fusion(result_lists) if len(result_lists) > 1 else result_lists[0])[:top_k_chunks]
         if fusion_certificate_promotion and not openai_fusion:
             session_dates = dict(zip(item["haystack_session_ids"], item["haystack_dates"], strict=True))
             candidate_order = certificate_candidate_order or retrieved_sessions
@@ -1901,6 +2056,7 @@ def eval_one(
             "all_found_at": max(ranks) if len(ranks) == len(gold) and ranks else None,
             "structured_temporal_filters": filters,
             "retrieval_certificates": retrieval_certificates,
+            "query_spec_guarded_traces": query_spec_guarded_traces,
             "openai_vector_mode": vector_mode if (openai_vector_rerank or openai_fusion) else None,
             "retrieval_query_spec": retrieval_query_spec,
         }
@@ -1964,7 +2120,7 @@ def main() -> int:
     ap.add_argument("--query-auto", action="store_true", help="Use production deterministic query router and routed retrieval modes")
     ap.add_argument(
         "--retrieval-query-policy",
-        choices=["off", "query_spec_v1", "query_spec_rescue_v1"],
+        choices=["off", "query_spec_v1", "query_spec_rescue_v1", "query_spec_guarded_v2"],
         default="off",
         help="deterministically translate each question into evidence-oriented retrieval query variants and RRF-fuse them",
     )
