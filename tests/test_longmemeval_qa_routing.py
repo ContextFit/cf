@@ -164,6 +164,67 @@ def test_conservative_policy_keeps_baseline_rows_on_baseline_ledger_mode() -> No
     assert qa.effective_profile_event_ledger_mode({"question_type": "temporal-reasoning"}, args) == "general"
 
 
+def test_retrieval_query_spec_preference_adds_memory_intent() -> None:
+    spec_path = Path(__file__).resolve().parents[1] / "benchmarks" / "longmemeval_contextfit.py"
+    spec = importlib.util.spec_from_file_location("longmemeval_contextfit", spec_path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    item = {
+        "question_id": "example",
+        "question_type": "single-session-preference",
+        "question_date": "2026/05/26",
+        "question": "What restaurant should I pick for Project Orion based on what I like?",
+    }
+    query = "Question date: 2026/05/26\nQuestion: What restaurant should I pick for Project Orion based on what I like?"
+
+    query_spec = module.build_retrieval_query_spec(item, query, "query_spec_v1")
+
+    assert query_spec["answer_type"] == "preference_recommendation"
+    assert "user_preference" in query_spec["facets"]
+    assert "user_constraint" in query_spec["facets"]
+    assert query_spec["time_policy"] == "latest_supported_state"
+    assert len(query_spec["queries"]) >= 3
+    assert any("Retrieval intent:" in variant for variant in query_spec["queries"])
+
+
+def test_retrieval_query_policy_off_returns_original_only() -> None:
+    spec_path = Path(__file__).resolve().parents[1] / "benchmarks" / "longmemeval_contextfit.py"
+    spec = importlib.util.spec_from_file_location("longmemeval_contextfit", spec_path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    query = "Question date: 2026/05/26\nQuestion: What did the user decide?"
+    variants, query_spec = module.retrieval_query_variants(
+        {"question_type": "multi-session", "question": "What did the user decide?"},
+        query,
+        "off",
+    )
+
+    assert variants == [query]
+    assert query_spec is None
+
+
+def test_retrieval_query_rescue_policy_skips_strong_single_user_slice() -> None:
+    spec_path = Path(__file__).resolve().parents[1] / "benchmarks" / "longmemeval_contextfit.py"
+    spec = importlib.util.spec_from_file_location("longmemeval_contextfit", spec_path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    query = "Question date: 2026/05/26\nQuestion: What is the user's favorite IDE?"
+    variants, query_spec = module.retrieval_query_variants(
+        {"question_type": "single-session-user", "question": "What is the user's favorite IDE?"},
+        query,
+        "query_spec_rescue_v1",
+    )
+
+    assert variants == [query]
+    assert query_spec is None
+
+
 def test_openai_compatible_sanitizer_trims_chat_role_echo_after_answer() -> None:
     qa = _load_qa_module()
     text = "42\nuser\nassistant\nI'm sorry, but I can't help with that."

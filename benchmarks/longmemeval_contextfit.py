@@ -1210,6 +1210,115 @@ def augment_query_with_temporal_date_hint(query: str) -> str:
     return query + "\nTemporal date hint: " + "; ".join(labels)
 
 
+def build_retrieval_query_spec(item: dict[str, Any], query: str, policy: str) -> dict[str, Any] | None:
+    """Build deterministic retrieval-intent query variants for QA retrieval.
+
+    This deliberately avoids answer-label information. The variants describe
+    the kind of evidence needed, not the expected answer.
+    """
+    if policy == "off":
+        return None
+    if policy not in {"query_spec_v1", "query_spec_rescue_v1"}:
+        raise ValueError(f"unknown retrieval query policy: {policy}")
+
+    question = str(item.get("question") or "")
+    question_type = str(item.get("question_type") or "")
+    rescue_only = policy == "query_spec_rescue_v1"
+    if rescue_only and question_type not in {"multi-session", "single-session-preference"}:
+        return None
+
+    answer_type = "fact_lookup"
+    facets: list[str] = ["direct_evidence"]
+    time_policy = "as_of_question_date"
+    must_not_count: list[str] = []
+    variants: list[str] = [query]
+
+    lower_q = question.lower()
+    count_like = bool(re.search(r"\b(how many|total|count|list|average|older|younger|years?)\b", lower_q))
+    if count_like:
+        answer_type = "count_or_list"
+        facets.extend(["distinct_items", "user_confirmed_actions", "dedupe"])
+        must_not_count.extend([
+            "assistant suggestions unless the user accepted them",
+            "duplicate mentions of the same item or event",
+        ])
+        variants.append(
+            query
+            + "\nRetrieval intent: find all distinct user-confirmed items, events, actions, or numeric facts needed to count or list the answer; include companion sessions with the same category even when wording differs."
+        )
+
+    if question_type == "single-session-preference" or re.search(
+        r"\b(should i|recommend|suggest|choose|pick|prefer|like|dislike|favorite|best for me)\b",
+        lower_q,
+    ):
+        answer_type = "preference_recommendation"
+        facets.extend(["user_preference", "user_constraint", "prior_success", "decision"])
+        time_policy = "latest_supported_state"
+        must_not_count.append("assistant suggestions unless the user accepted or endorsed them")
+        variants.append(
+            query
+            + "\nRetrieval intent: find user-stated preferences, dislikes, constraints, prior accepted choices, and successful outcomes that support a personalized recommendation."
+        )
+        variants.append(augment_query_for_memory_atoms(query))
+
+    if question_type == "temporal-reasoning" or re.search(
+        r"\b(now|current|currently|latest|these days|changed|switched|before|after|ago|last|previous)\b",
+        lower_q,
+    ):
+        answer_type = "temporal_state" if answer_type == "fact_lookup" else answer_type
+        facets.extend(["temporal_update", "recency", "prior_state", "current_state"])
+        time_policy = "latest_supported_state"
+        variants.append(augment_query_with_temporal_date_hint(query))
+        variants.append(
+            query
+            + "\nRetrieval intent: find dated updates, state changes, previous values, current/latest values, and before/after evidence needed to answer as of the question date."
+        )
+
+    if question_type == "knowledge-update":
+        answer_type = "knowledge_update"
+        facets.extend(["updated_value", "superseded_value", "recency"])
+        time_policy = "latest_supported_state"
+        variants.append(
+            query
+            + "\nRetrieval intent: find the updated/current fact and any earlier superseded fact so the answer uses the latest supported value."
+        )
+
+    if question_type == "single-session-user":
+        answer_type = "user_fact"
+        facets.extend(["user_statement", "personal_fact"])
+        variants.append(
+            query
+            + "\nRetrieval intent: find the user's own statement containing the requested personal fact, entity, quantity, or choice."
+        )
+
+    if question_type == "single-session-assistant":
+        answer_type = "assistant_fact"
+        facets.extend(["assistant_statement", "response_content"])
+        variants.append(
+            query
+            + "\nRetrieval intent: find the assistant response that stated the requested recommendation, explanation, plan, or answer."
+        )
+
+    deduped_variants = list(dict.fromkeys(v for v in variants if v.strip()))
+    return {
+        "policy": policy,
+        "semantic_query": deduped_variants[1] if len(deduped_variants) > 1 else query,
+        "answer_type": answer_type,
+        "speaker_scope": "user" if answer_type in {"preference_recommendation", "user_fact"} else "mixed",
+        "facets": sorted(set(facets)),
+        "time_policy": time_policy,
+        "must_not_count": list(dict.fromkeys(must_not_count)),
+        "queries": deduped_variants,
+    }
+
+
+def retrieval_query_variants(item: dict[str, Any], query: str, policy: str) -> tuple[list[str], dict[str, Any] | None]:
+    spec = build_retrieval_query_spec(item, query, policy)
+    if not spec:
+        return [query], None
+    return list(spec["queries"]), spec
+
+
 def structured_temporal_date_filters(
     query: str,
     question_type: str | None,
@@ -1307,6 +1416,7 @@ def eval_one(
     filter_pushdown_threshold: float = 0.50,
     openai_chunk_fusion: str = "off",
     two_stage_sessions: bool = False,
+    retrieval_query_policy: str = "off",
 ) -> dict[str, Any]:
     tmp = Path(tempfile.mkdtemp(prefix="cf-lme-"))
     try:
@@ -1393,6 +1503,7 @@ def eval_one(
         query = f"Question date: {item.get('question_date','')}\nQuestion: {item['question']}"
         if temporal_date_rerank and str(item.get("question_type") or "").startswith("temporal-reasoning"):
             query = augment_query_with_temporal_date_hint(query)
+        query_variant_list, retrieval_query_spec = retrieval_query_variants(item, query, retrieval_query_policy)
         filters = (
             structured_temporal_date_filters(query, item.get("question_type"))
             if structured_temporal_filters
@@ -1502,24 +1613,31 @@ def eval_one(
             token_sessions = unique_sessions_from_chunks(token_result.chunks)
             retrieved_sessions = reciprocal_rank_fusion([cf_sessions, token_sessions])[:top_k_chunks]
         elif openai_vector_rerank or openai_fusion:
+            vector_lists: list[list[str]] = []
             if should_use_openai_chunk_fusion(item["question"], openai_chunk_fusion):
-                vector_sessions = vector_rank_grouped_texts(query, conversation_vector_texts)
                 vector_mode = "conversation_chunk_max"
+                for retrieval_query in query_variant_list:
+                    vector_lists.append(vector_rank_grouped_texts(retrieval_query, conversation_vector_texts))
             else:
-                vector_sessions = vector_rank_sessions(query, session_texts)
                 vector_mode = "full_session"
+                for retrieval_query in query_variant_list:
+                    vector_lists.append(vector_rank_sessions(retrieval_query, session_texts))
+            vector_sessions = reciprocal_rank_fusion(vector_lists) if len(vector_lists) > 1 else vector_lists[0]
             if openai_fusion:
-                cf_result = engine.query(
-                    query,
-                    top_k=max(top_k_chunks, retrieval_k),
-                    method=method,
-                    max_tokens=200_000,
-                    token_rerank=token_native_rerank,
-                    relationship_boost=relationship_boost,
-                    filters=filters,
-                    filter_pushdown_threshold=filter_pushdown_threshold,
-                )
-                cf_sessions = unique_sessions_from_chunks(cf_result.chunks)
+                cf_lists: list[list[str]] = []
+                for retrieval_query in query_variant_list:
+                    cf_result = engine.query(
+                        retrieval_query,
+                        top_k=max(top_k_chunks, retrieval_k),
+                        method=method,
+                        max_tokens=200_000,
+                        token_rerank=token_native_rerank,
+                        relationship_boost=relationship_boost,
+                        filters=filters,
+                        filter_pushdown_threshold=filter_pushdown_threshold,
+                    )
+                    cf_lists.append(unique_sessions_from_chunks(cf_result.chunks))
+                cf_sessions = reciprocal_rank_fusion(cf_lists) if len(cf_lists) > 1 else cf_lists[0]
                 fused_sessions = reciprocal_rank_fusion([cf_sessions, vector_sessions])
                 if fusion_certificate_promotion:
                     session_dates = dict(zip(item["haystack_session_ids"], item["haystack_dates"], strict=True))
@@ -1584,30 +1702,36 @@ def eval_one(
                 group_pool = max(group_pool, min(retrieval_k, 50))
             if temporal_date_rerank:
                 group_pool = max(group_pool, min(retrieval_k, 100))
-            groups = engine.query_groups(
-                query,
-                group_by="session_id",
-                top_k_groups=group_pool,
-                retrieval_k=retrieval_k,
-                method=method,
-                max_tokens=200_000,
-                relationship_boost=relationship_boost,
-                filters=filters,
-                filter_pushdown_threshold=filter_pushdown_threshold,
-            )
-            retrieved_sessions = [g["value"] for g in groups]
-            certificate_candidate_order = list(retrieved_sessions)
-            if filters and structured_filter_fusion == "rrf":
-                broad_groups = engine.query_groups(
-                    query,
+            group_lists: list[list[str]] = []
+            for retrieval_query in query_variant_list:
+                groups = engine.query_groups(
+                    retrieval_query,
                     group_by="session_id",
                     top_k_groups=group_pool,
                     retrieval_k=retrieval_k,
                     method=method,
                     max_tokens=200_000,
                     relationship_boost=relationship_boost,
+                    filters=filters,
+                    filter_pushdown_threshold=filter_pushdown_threshold,
                 )
-                broad_sessions = [g["value"] for g in broad_groups]
+                group_lists.append([g["value"] for g in groups])
+            retrieved_sessions = reciprocal_rank_fusion(group_lists) if len(group_lists) > 1 else group_lists[0]
+            certificate_candidate_order = list(retrieved_sessions)
+            if filters and structured_filter_fusion == "rrf":
+                broad_lists: list[list[str]] = []
+                for retrieval_query in query_variant_list:
+                    broad_groups = engine.query_groups(
+                        retrieval_query,
+                        group_by="session_id",
+                        top_k_groups=group_pool,
+                        retrieval_k=retrieval_k,
+                        method=method,
+                        max_tokens=200_000,
+                        relationship_boost=relationship_boost,
+                    )
+                    broad_lists.append([g["value"] for g in broad_groups])
+                broad_sessions = reciprocal_rank_fusion(broad_lists) if len(broad_lists) > 1 else broad_lists[0]
                 retrieved_sessions = reciprocal_rank_fusion(
                     [retrieved_sessions, broad_sessions]
                 )
@@ -1670,43 +1794,65 @@ def eval_one(
                 query, bm25_order, sess_text_map, top_k=top_k_chunks,
             )
         else:
-            result = engine.query(
-                query,
-                top_k=max(top_k_chunks, retrieval_k),
-                method=method,
-                max_tokens=200_000,
-                token_rerank=token_native_rerank,
-                relationship_boost=relationship_boost,
-                filters=filters,
-                filter_pushdown_threshold=filter_pushdown_threshold,
-            )
-            if filters and structured_filter_fusion == "rrf":
-                broad_result = engine.query(
-                    query,
+            result_lists: list[list[str]] = []
+            result = None
+            for retrieval_query in query_variant_list:
+                result = engine.query(
+                    retrieval_query,
                     top_k=max(top_k_chunks, retrieval_k),
                     method=method,
                     max_tokens=200_000,
                     token_rerank=token_native_rerank,
                     relationship_boost=relationship_boost,
+                    filters=filters,
+                    filter_pushdown_threshold=filter_pushdown_threshold,
                 )
-                filtered_sessions = unique_sessions_from_chunks(result.chunks)
-                broad_sessions = unique_sessions_from_chunks(broad_result.chunks)
+                result_lists.append(unique_sessions_from_chunks(result.chunks))
+            if filters and structured_filter_fusion == "rrf":
+                filtered_sessions = reciprocal_rank_fusion(result_lists) if len(result_lists) > 1 else result_lists[0]
+                broad_lists: list[list[str]] = []
+                for retrieval_query in query_variant_list:
+                    broad_result = engine.query(
+                        retrieval_query,
+                        top_k=max(top_k_chunks, retrieval_k),
+                        method=method,
+                        max_tokens=200_000,
+                        token_rerank=token_native_rerank,
+                        relationship_boost=relationship_boost,
+                    )
+                    broad_lists.append(unique_sessions_from_chunks(broad_result.chunks))
+                broad_sessions = reciprocal_rank_fusion(broad_lists) if len(broad_lists) > 1 else broad_lists[0]
                 retrieved_sessions = reciprocal_rank_fusion(
                     [filtered_sessions, broad_sessions]
                 )[:top_k_chunks]
             elif score_pool != "first" or recency_weight > 0:
                 # Session-level score pooling + optional date-aware recency
                 session_dates = dict(zip(item["haystack_session_ids"], item["haystack_dates"]))
-                retrieved_sessions = scored_bm25_sessions(
-                    result.chunks,
-                    result.scores,
-                    query,
-                    session_dates=session_dates,
-                    score_pool=score_pool,
-                    recency_weight=recency_weight,
-                )[:top_k_chunks]
+                scored_lists: list[list[str]] = []
+                for retrieval_query in query_variant_list:
+                    scored_result = engine.query(
+                        retrieval_query,
+                        top_k=max(top_k_chunks, retrieval_k),
+                        method=method,
+                        max_tokens=200_000,
+                        token_rerank=token_native_rerank,
+                        relationship_boost=relationship_boost,
+                        filters=filters,
+                        filter_pushdown_threshold=filter_pushdown_threshold,
+                    )
+                    scored_lists.append(
+                        scored_bm25_sessions(
+                            scored_result.chunks,
+                            scored_result.scores,
+                            retrieval_query,
+                            session_dates=session_dates,
+                            score_pool=score_pool,
+                            recency_weight=recency_weight,
+                        )
+                    )
+                retrieved_sessions = (reciprocal_rank_fusion(scored_lists) if len(scored_lists) > 1 else scored_lists[0])[:top_k_chunks]
             else:
-                retrieved_sessions = unique_sessions_from_chunks(result.chunks)[:top_k_chunks]
+                retrieved_sessions = (reciprocal_rank_fusion(result_lists) if len(result_lists) > 1 else result_lists[0])[:top_k_chunks]
         if fusion_certificate_promotion and not openai_fusion:
             session_dates = dict(zip(item["haystack_session_ids"], item["haystack_dates"], strict=True))
             candidate_order = certificate_candidate_order or retrieved_sessions
@@ -1756,6 +1902,7 @@ def eval_one(
             "structured_temporal_filters": filters,
             "retrieval_certificates": retrieval_certificates,
             "openai_vector_mode": vector_mode if (openai_vector_rerank or openai_fusion) else None,
+            "retrieval_query_spec": retrieval_query_spec,
         }
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -1815,6 +1962,12 @@ def main() -> int:
     ap.add_argument("--episode-score-fusion", action="store_true", help="RRF-fuse ContextFit retrieval with numeric episode relevance scorer")
     ap.add_argument("--structural-rerank", action="store_true", help="BM25 retrieval + token-native structural reranker (same as production query_auto bm25 route)")
     ap.add_argument("--query-auto", action="store_true", help="Use production deterministic query router and routed retrieval modes")
+    ap.add_argument(
+        "--retrieval-query-policy",
+        choices=["off", "query_spec_v1", "query_spec_rescue_v1"],
+        default="off",
+        help="deterministically translate each question into evidence-oriented retrieval query variants and RRF-fuse them",
+    )
     ap.add_argument("--evidence-atom-rerank", action="store_true", help="use token-native evidence-atom/facet selection for multi-session reranking")
     ap.add_argument("--score-pool", choices=["first", "sum", "softmax_sum"], default="first", help="Session-level BM25 score pooling: 'first'=original dedup, 'sum'=sum all chunk scores, 'softmax_sum'=softmax-weighted sum")
     ap.add_argument("--recency-weight", type=float, default=0.0, help="Date-aware recency bias weight [0,1] for temporal queries. 0=disabled.")
@@ -1924,6 +2077,7 @@ def main() -> int:
             filter_pushdown_threshold=args.filter_pushdown_threshold,
             openai_chunk_fusion=args.openai_chunk_fusion,
             two_stage_sessions=args.two_stage_sessions,
+            retrieval_query_policy=args.retrieval_query_policy,
         )
         row["seconds"] = time.time() - st
         rows.append(row)
@@ -1954,6 +2108,7 @@ def main() -> int:
         "episode_score": args.episode_score,
         "episode_score_fusion": args.episode_score_fusion,
         "query_auto": args.query_auto,
+        "retrieval_query_policy": args.retrieval_query_policy,
         "evidence_atom_rerank": args.evidence_atom_rerank,
         "coverage_rerank": args.coverage_rerank,
         "targeted_expansion": args.targeted_expansion,
