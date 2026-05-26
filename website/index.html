@@ -1743,82 +1743,65 @@
       <a href="/longmemeval_gbrain_style_contextfit_20260525.html">ContextFit comparison artifact</a>.
     </div>
 
-    <div class="bench-table-wrap reveal">
-      <table class="bench-table">
+    <div class="section-label" style="margin-top:3rem;">What ContextFit Adds</div>
+    <p class="behavior-lead scroll-tokenize">
+      <strong>Agent memory is not just raw Recall@1.</strong> Embeddings are a useful
+      signal, but production agents need routing, source aggregation, temporal state,
+      citations, abstention, and local deployment controls. ContextFit is built around
+      those agent behaviors first.
+    </p>
+    <div class="compare-table-wrap reveal">
+      <table class="compare-table">
         <thead>
           <tr>
-            <th>Agent-memory eval</th>
-            <th>R@1</th>
-            <th>R@3</th>
-            <th>MRR</th>
-            <th>API Cost</th>
-            <th>GPU</th>
+            <th>Capability</th>
+            <th class="cf-col">ContextFit</th>
+            <th>Raw embedding search</th>
+            <th>LLM-extracted memories</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>Mem0 <span style="font-size:0.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">79-case</span></td>
-            <td>54.4%</td><td>91.1%</td><td>0.716</td>
-            <td class="cost-paid">LLM + embed</td>
-            <td class="cross">—</td>
+            <td class="row-label">Temporal updates</td>
+            <td class="cf-col check">Evidence certificates + routed rescue</td>
+            <td>Similarity only</td>
+            <td>Depends on extraction quality</td>
           </tr>
           <tr>
-            <td>Cohere embed-english-v3</td>
-            <td>58.7%</td><td>91.4%</td><td>0.751</td>
-            <td class="cost-paid">embed API</td>
-            <td class="cross">—</td>
-          </tr>
-          <tr class="row-cf">
-            <td>ContextFit <span style="font-size:0.72rem;color:var(--sky);font-family:'JetBrains Mono',monospace;">+ routed rerankers</span></td>
-            <td class="highlight-num">62.7%</td>
-            <td class="highlight-num">94.0%</td>
-            <td class="highlight-num">0.784</td>
-            <td class="cost-free">$0</td>
-            <td class="check">✓ CPU</td>
+            <td class="row-label">Multi-session synthesis</td>
+            <td class="cf-col check">Complementary source-set coverage</td>
+            <td>Top-k nearest chunks</td>
+            <td>Often loses episode context</td>
           </tr>
           <tr>
-            <td>OpenAI text-embedding-3-small</td>
-            <td>63.1%</td><td>96.6%</td><td>0.792</td>
-            <td class="cost-paid">embed API</td>
-            <td class="cross">—</td>
+            <td class="row-label">Provenance</td>
+            <td class="cf-col check">Expiring <code>@r</code> handles to source lines</td>
+            <td>Chunk IDs need app wiring</td>
+            <td>Derived facts need tracebacks</td>
+          </tr>
+          <tr>
+            <td class="row-label">Abstention</td>
+            <td class="cf-col check">Answerability and evidence gates</td>
+            <td>Returns nearest neighbor anyway</td>
+            <td>Can preserve stale facts</td>
+          </tr>
+          <tr>
+            <td class="row-label">Privacy and deployment</td>
+            <td class="cf-col check">Local files, CPU, no vector DB required</td>
+            <td>Usually API + vector store</td>
+            <td>Usually LLM API + embeddings</td>
           </tr>
         </tbody>
       </table>
     </div>
     <div class="bench-note">
-      Agent-memory retrieval eval. Mem0 was measured on the original 79-case subset;
-      Cohere, ContextFit, and OpenAI were measured on the expanded 499-case benchmark. ContextFit beats
-      Cohere and Mem0 on aggregate R@1, but still trails OpenAI text-embedding-3-small on aggregate R@1/R@3.
-      LongMemEval evidence and QA results are separate:
-      <a href="/longmemeval-fusion-20260519.html">retrieval artifact</a> and
-      <a href="/longmemeval-fusion-qa-20260519.html">QA artifact</a>.
+      The internal 499-case agent-memory eval is still useful for engineering, but it is
+      not a clean homepage leaderboard: Mem0 was measured on a 79-case subset, and
+      aggregate embedding recall does not explain ContextFit's product advantage.
+      Detailed QA and retrieval artifacts remain available in the research notes.
     </div>
 
-    <div class="bar-chart reveal">
-      <div class="bar-chart-label">Recall@1 — agent memory eval (Mem0 79-case; others 499-case)</div>
-      <div class="bar-row">
-        <div class="bar-label">Mem0</div>
-        <div class="bar-track"><div class="bar-fill mem0" data-pct="54.4"></div></div>
-        <div class="bar-val">54.4%</div>
-      </div>
-      <div class="bar-row">
-        <div class="bar-label">Cohere embed-v3</div>
-        <div class="bar-track"><div class="bar-fill cohere" data-pct="58.7"></div></div>
-        <div class="bar-val">58.7%</div>
-      </div>
-      <div class="bar-row">
-        <div class="bar-label" style="color:var(--sky)">ContextFit</div>
-        <div class="bar-track"><div class="bar-fill cf" data-pct="62.7"></div></div>
-        <div class="bar-val cf">62.7%</div>
-      </div>
-      <div class="bar-row">
-        <div class="bar-label">OpenAI embed-3-small</div>
-        <div class="bar-track"><div class="bar-fill openai" data-pct="63.1"></div></div>
-        <div class="bar-val">63.1%</div>
-      </div>
-    </div>
-
-    <div class="section-label" style="margin-top:3rem;">Per-Behavior · vs OpenAI embed-3-small</div>
+    <div class="section-label" style="margin-top:3rem;">Per-Behavior · agent-memory eval</div>
     <p class="behavior-lead scroll-tokenize">
       <strong>Strengths where AI agents most need them.</strong> The hardest memory
       failures are rarely simple keyword lookups — they are open loops, preferences,

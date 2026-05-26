@@ -29,21 +29,23 @@ The emotional point is trust. Agent memory is intimate: preferences, decisions, 
 
 ## Benchmarks
 
-On the 499-case domain-agnostic agent-memory benchmark (Mem0 measured on the original 79-case subset):
+LongMemEval-S session retrieval asks a clean retrieval question: did the system put a ground-truth answer session in the top 5, with no answer generation and no LLM judge.
 
-| System | R@1 | R@3 | MRR | Cost |
-|---|---:|---:|---:|---:|
-| Mem0 (GPT-4o-mini + embed, 79-case) | 54.4% | 91.1% | 0.716 | LLM + embed API |
-| Cohere embed-english-v3 | 58.7% | 91.4% | 0.751 | embed API |
-| ContextFit + routed rerankers + certificates | 62.7% | 94.0% | 0.784 | $0 core path |
-| OpenAI text-embedding-3-small | 63.1% | 96.6% | 0.792 | embed API |
+| System | R@1 | R@3 | R@5 | R@10 | Retrieval path |
+|---|---:|---:|---:|---:|---|
+| ContextFit token-native | 81.80% | 90.40% | 96.20% | 97.80% | no embeddings, no vector DB, no LLM in retrieval |
+| ContextFit + OpenAI fusion | 84.60% | 95.20% | 99.00% | 99.60% | route-gated chunk-vector fusion, no vector DB |
+| gbrain-hybrid published reference | - | - | 97.60% | - | published reference |
+| MemPalace raw published reference | - | - | 96.60% | - | published reference |
 
-Behavior highlights:
+Agent-memory behavior highlights from the internal engineering eval:
 
 - Preference recommendation: ContextFit 85.5% R@1 vs OpenAI 77.4%.
+- Open-loop retrieval: ContextFit 80.3% R@1 vs OpenAI 63.9%.
+- Temporal supersession: ContextFit 49.2% R@1 vs OpenAI 47.6%.
 - Multi-session synthesis: ContextFit 82.1% R@1 vs OpenAI 87.5%.
-- Aggregate: ContextFit beats Cohere and Mem0 on R@1, but still trails OpenAI text-embedding-3-small overall (62.7% vs 63.1% R@1).
-- LongMemEval-S: pure token-native ContextFit with conversation-aware parent/child chunks reaches 95.1% Any@5. It matches OpenAI fusion on preference Any@5 (83.3%) and narrows multi-session Any@5 to within ~0.8 pts. The companion-evidence coverage reranker preserves 95.1% Any@5 while improving overall All@5 from 77.9% to 80.4% and multi-session All@5 from 55.4% to 65.3%; adding token-native evidence certificates and typed rescue lifts the same non-fusion path to 96.8% Any@5 and 84.3% All@5 with paired top-5 movement +8 / 0. A fresh optional OpenAI fusion artifact reaches 96.6% Any@5 and 98.7% Any@10 evidence retrieval with no vector database required; evidence certificates lift that path to 98.3% Any@5 and 99.2% Any@10, and route-gated turn-aware chunk-vector fusion lifts it again to 98.94% Any@5, 99.57% Any@10, and 87.45% All@5. The selective chunk-vector run had zero paired Any@5 losses versus the full-session fusion certificate baseline, while complete-evidence All@5 moved +6 / -2. Current end-to-end QA progress reports 85.2% overall with a GPT-4o-only selective-fusion run, and 87.2% overall / 87.6% task-averaged with a GPT-5-mini answerer/extractor plus GPT-4o judging. These are local LongMemEval-style evaluations, not official leaderboard submissions.
+
+The 499-case agent-memory eval is useful for engineering, but it is not the homepage leaderboard claim: Mem0 was measured on a 79-case subset, and aggregate embedding recall does not capture ContextFit's product advantage. The product claim is that ContextFit adds routing, source aggregation, temporal handling, provenance handles, abstention, and local deployment controls around retrieval.
 
 ## Install
 
