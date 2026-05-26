@@ -52,6 +52,9 @@ from contextfit.retrieval.memory_atoms import build_preference_support_view
 
 DEFAULT_GENERATION_MODEL = "gpt-4o-2024-08-06"
 DEFAULT_JUDGE_MODEL = "gpt-4o-2024-08-06"
+DEFAULT_RETRIEVAL_ARTIFACT = Path("benchmarks/longmemeval_token_only_leaderboard_run_20260516.json")
+CONSERVATIVE_ROUTED_V5_ARTIFACT = Path("benchmarks/longmemeval_fusion_certificate_promotion_v5_typed_rescue_20260524.json")
+CONSERVATIVE_ROUTED_BASELINE_ARTIFACT = Path("benchmarks/longmemeval_selective_fusion_userpref_token_base_20260523.json")
 OPENCLAW_MODEL_PREFIX = "openclaw:"
 OPENAI_COMPATIBLE_MODEL_PREFIX = "openai-compatible:"
 UNANSWERABLE_RESPONSE = "The information is not available in the provided history."
@@ -86,6 +89,67 @@ ANSWERER_ROUTER_TYPES = {
         "multi-session",
     },
 }
+CONSERVATIVE_ROUTED_SOURCE_SET_TYPES = {"multi-session", "knowledge-update", "single-session-user"}
+CONSERVATIVE_ROUTED_TEMPORAL_TYPES = {"temporal-reasoning"}
+CONSERVATIVE_ROUTED_BASELINE_TYPES = {"single-session-preference", "single-session-assistant"}
+
+
+def qa_policy_lane(item: dict[str, Any], args: argparse.Namespace) -> str | None:
+    policy = getattr(args, "qa_policy", "off")
+    if policy == "off":
+        return None
+    if policy != "conservative_type_routed_20260526":
+        raise ValueError(f"unknown QA policy: {policy}")
+    question_type = item.get("question_type")
+    if question_type in CONSERVATIVE_ROUTED_SOURCE_SET_TYPES:
+        return "source_set_aware"
+    if question_type in CONSERVATIVE_ROUTED_TEMPORAL_TYPES:
+        return "v5_source_aware"
+    if question_type in CONSERVATIVE_ROUTED_BASELINE_TYPES:
+        return "baseline_source_aware"
+    raise ValueError(f"unhandled question type for {policy}: {question_type}")
+
+
+def should_use_source_set_aware_for_item(item: dict[str, Any], args: argparse.Namespace) -> bool:
+    return bool(args.source_set_aware or qa_policy_lane(item, args) == "source_set_aware")
+
+
+def should_use_baseline_retrieval_for_item(item: dict[str, Any], args: argparse.Namespace) -> bool:
+    return qa_policy_lane(item, args) == "baseline_source_aware"
+
+
+def effective_profile_event_ledger_mode(item: dict[str, Any], args: argparse.Namespace) -> str:
+    if qa_policy_lane(item, args) == "baseline_source_aware":
+        return "off"
+    return args.profile_event_ledger
+
+
+def apply_qa_policy_defaults(args: argparse.Namespace) -> None:
+    if args.qa_policy == "off":
+        return
+    if args.qa_policy != "conservative_type_routed_20260526":
+        raise ValueError(f"unknown QA policy: {args.qa_policy}")
+
+    if args.retrieval_artifact == DEFAULT_RETRIEVAL_ARTIFACT:
+        args.retrieval_artifact = CONSERVATIVE_ROUTED_V5_ARTIFACT
+    if args.primary_retrieval_artifact is None:
+        args.primary_retrieval_artifact = CONSERVATIVE_ROUTED_BASELINE_ARTIFACT
+
+    args.source_aware = True
+    if args.evidence_packet == "off":
+        args.evidence_packet = "general"
+    if args.fusion_evidence_map == "off":
+        args.fusion_evidence_map = "temporal"
+    if args.profile_event_ledger == "off":
+        args.profile_event_ledger = "general"
+    if args.multi_session_top_k_context == 0:
+        args.multi_session_top_k_context = 10
+    if args.temporal_top_k_context == 0:
+        args.temporal_top_k_context = 10
+    if args.generation_max_tokens == 500:
+        args.generation_max_tokens = 16_000
+    if args.extraction_max_tokens == 1200:
+        args.extraction_max_tokens = 8_000
 
 
 def should_use_evidence_packet_for_item(item: dict[str, Any], args: argparse.Namespace) -> bool:
@@ -514,6 +578,7 @@ def build_run_provenance(args: argparse.Namespace, judged: list[dict[str, Any]])
     git_status = git_output(["status", "--short"])
     args_payload = sanitized_args_dict(args)
     route_settings = {
+        "qa_policy": getattr(args, "qa_policy", "off"),
         "top_k_context": args.top_k_context,
         "multi_session_top_k_context": args.multi_session_top_k_context,
         "temporal_top_k_context": args.temporal_top_k_context,
@@ -2230,10 +2295,24 @@ def build_source_set_aware_prompt(
         "Then write Source Notes with separate Primary and Companion bullets. "
         "For count, list, total, cross-thread, and comparison questions, write Candidate Set "
         "and Deduped Set before the final answer. Count each real-world item/event once unless "
-        "the question asks for mentions. For temporal wording, preserve ordering and current "
+        "the question asks for mentions. For questions phrased as the user's own actions, "
+        "possessions, preferences, purchases, attendance, or usage, count user-stated facts; "
+        "do not count assistant suggestions, hypotheticals, examples, or options unless the "
+        "user explicitly confirms they used, did, bought, attended, owned, or preferred them. "
+        "For current ownership or inventory questions, do not remove an earlier owned item "
+        "just because a later source calls it old, previous, or replaced; exclude it only when "
+        "the user explicitly says it was sold, discarded, dismantled, given away, or no longer "
+        "owned. For temporal wording, preserve ordering and current "
         "versus previous state. If companions do not change the candidate set, answer from "
         "Primary Sources only. If the combined source sets still lack required evidence, say "
-        "that the information is not available in the provided history.\n\n"
+        "that the information is not available in the provided history. Match the requested "
+        "category at the same granularity: do not promote adjacent facts such as ingredients, "
+        "tools, techniques, diets, examples, or one-off dishes into requested categories such "
+        "as cuisines, events, stores, people, or owned items unless the user/source explicitly "
+        "frames them that way. For repeated mentions of the same activity, purchase, item, or "
+        "event, dedupe them unless the dates or wording clearly show separate real-world "
+        "instances; give one best final count rather than a range whenever the evidence "
+        "supports a reasonable deduped count.\n\n"
         f"Primary Sources:\n\n{primary_context}\n\n"
         f"Added Companion Sources:\n\n{companion_context}\n\n"
         f"Current Date: {item.get('question_date', '')}\n"
@@ -2462,9 +2541,9 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
             raise RuntimeError("--evidence-contract requires --supporting-retrieval-artifact")
         supporting_retrieval = json.loads(args.supporting_retrieval_artifact.read_text())
         supporting_rows_by_qid = {row["question_id"]: row for row in supporting_retrieval["rows"]}
-    if args.source_set_aware:
+    if args.source_set_aware or args.qa_policy != "off":
         if not args.primary_retrieval_artifact:
-            raise RuntimeError("--source-set-aware requires --primary-retrieval-artifact")
+            raise RuntimeError("--source-set-aware or --qa-policy requires --primary-retrieval-artifact")
         primary_retrieval = json.loads(args.primary_retrieval_artifact.read_text())
         primary_rows_by_qid = {row["question_id"]: row for row in primary_retrieval["rows"]}
 
@@ -2475,18 +2554,19 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
         qid = item["question_id"]
         if qid in done:
             continue
-        retrieval_row = rows_by_qid[qid]
+        policy_lane = qa_policy_lane(item, args)
+        retrieval_row = primary_rows_by_qid[qid] if should_use_baseline_retrieval_for_item(item, args) else rows_by_qid[qid]
         retrieved = retrieval_row["retrieved_sessions"]
         top_k_context = effective_top_k_context(item, args)
-        route = "source_aware"
+        route = policy_lane or "source_aware"
         aggregation_report: dict[str, Any] | None = None
         count_list_ledger_report: dict[str, Any] | None = None
         multi_session_evidence_set_report: dict[str, Any] | None = None
-        if args.source_set_aware:
+        if should_use_source_set_aware_for_item(item, args):
             primary_row = primary_rows_by_qid.get(qid)
             if not primary_row:
                 raise RuntimeError(f"missing primary retrieval row for {qid}")
-            route = "source_set_aware"
+            route = policy_lane or "source_set_aware"
             prompt = build_source_set_aware_prompt(
                 item,
                 primary_row["retrieved_sessions"],
@@ -2797,7 +2877,7 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                     preference_support_packet=args.preference_support_packet,
                     preference_support_max_items=args.preference_support_max_items,
                     preference_support_per_source=args.preference_support_per_source,
-                    profile_event_ledger=args.profile_event_ledger,
+                    profile_event_ledger=effective_profile_event_ledger_mode(item, args),
                     profile_event_ledger_max_rows=args.profile_event_ledger_max_rows,
                     profile_event_ledger_max_chars=args.profile_event_ledger_max_chars,
                 )
@@ -2874,7 +2954,7 @@ def generate_hypotheses(args: argparse.Namespace) -> None:
                 preference_support_packet=args.preference_support_packet,
                 preference_support_max_items=args.preference_support_max_items,
                 preference_support_per_source=args.preference_support_per_source,
-                profile_event_ledger=args.profile_event_ledger,
+                profile_event_ledger=effective_profile_event_ledger_mode(item, args),
                 profile_event_ledger_max_rows=args.profile_event_ledger_max_rows,
                 profile_event_ledger_max_chars=args.profile_event_ledger_max_chars,
             )
@@ -3034,7 +3114,7 @@ def filter_items(data: list[dict[str, Any]], args: argparse.Namespace) -> list[d
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", type=Path, default=Path("benchmarks/data/longmemeval_s_cleaned.json"))
-    ap.add_argument("--retrieval-artifact", type=Path, default=Path("benchmarks/longmemeval_token_only_leaderboard_run_20260516.json"))
+    ap.add_argument("--retrieval-artifact", type=Path, default=DEFAULT_RETRIEVAL_ARTIFACT)
     ap.add_argument("--hypotheses-out", type=Path, default=Path("benchmarks/longmemeval_contextfit_token_only_qa_hypotheses_20260516.jsonl"))
     ap.add_argument("--judged-out", type=Path, default=Path("benchmarks/longmemeval_contextfit_token_only_qa_judged_20260516.jsonl"))
     ap.add_argument("--generation-model", default=DEFAULT_GENERATION_MODEL)
@@ -3109,6 +3189,16 @@ def main() -> int:
     ap.add_argument("--cot", action="store_true", help="use extract-then-reason answer prompt")
     ap.add_argument("--source-aware", action="store_true", help="use source-notes plus final-answer prompt")
     ap.add_argument("--source-sufficiency", action="store_true", help="use source notes plus an in-answer sufficiency decision")
+    ap.add_argument(
+        "--qa-policy",
+        choices=("off", "conservative_type_routed_20260526"),
+        default="off",
+        help=(
+            "single-command end-to-end QA policy preset; conservative_type_routed_20260526 uses "
+            "question_type routing: source-set for multi-session/knowledge-update/single-session-user, "
+            "V5 retrieval for temporal-reasoning, and baseline retrieval for preference/assistant rows"
+        ),
+    )
     ap.add_argument(
         "--expert-ensemble",
         choices=("off", "moe"),
@@ -3388,6 +3478,7 @@ def main() -> int:
     ap.add_argument("--summary-out", type=Path, default=Path("benchmarks/longmemeval_contextfit_token_only_qa_summary_20260516.json"))
     args = ap.parse_args()
     args.limit = args.limit if args.limit > 0 else 0
+    apply_qa_policy_defaults(args)
     args.api_key = os.environ.get("OPENAI_API_KEY")
     uses_openclaw_generation = args.generation_model.startswith(OPENCLAW_MODEL_PREFIX)
     uses_openclaw_judge = args.judge_model.startswith(OPENCLAW_MODEL_PREFIX)

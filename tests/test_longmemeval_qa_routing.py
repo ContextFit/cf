@@ -112,6 +112,58 @@ def test_answerer_router_can_target_only_multi_session_rows() -> None:
     assert qa.use_routed_answerer(args, {"question_type": "single-session-preference"}) is False
 
 
+def test_conservative_type_routed_policy_lanes() -> None:
+    qa = _load_qa_module()
+    args = SimpleNamespace(qa_policy="conservative_type_routed_20260526", source_set_aware=False)
+
+    assert qa.qa_policy_lane({"question_type": "multi-session"}, args) == "source_set_aware"
+    assert qa.qa_policy_lane({"question_type": "knowledge-update"}, args) == "source_set_aware"
+    assert qa.qa_policy_lane({"question_type": "single-session-user"}, args) == "source_set_aware"
+    assert qa.qa_policy_lane({"question_type": "temporal-reasoning"}, args) == "v5_source_aware"
+    assert qa.qa_policy_lane({"question_type": "single-session-preference"}, args) == "baseline_source_aware"
+    assert qa.qa_policy_lane({"question_type": "single-session-assistant"}, args) == "baseline_source_aware"
+    assert qa.should_use_source_set_aware_for_item({"question_type": "knowledge-update"}, args) is True
+    assert qa.should_use_baseline_retrieval_for_item({"question_type": "single-session-assistant"}, args) is True
+
+
+def test_conservative_type_routed_policy_defaults() -> None:
+    qa = _load_qa_module()
+    args = SimpleNamespace(
+        qa_policy="conservative_type_routed_20260526",
+        retrieval_artifact=qa.DEFAULT_RETRIEVAL_ARTIFACT,
+        primary_retrieval_artifact=None,
+        source_aware=False,
+        evidence_packet="off",
+        fusion_evidence_map="off",
+        profile_event_ledger="off",
+        multi_session_top_k_context=0,
+        temporal_top_k_context=0,
+        generation_max_tokens=500,
+        extraction_max_tokens=1200,
+    )
+
+    qa.apply_qa_policy_defaults(args)
+
+    assert args.retrieval_artifact == qa.CONSERVATIVE_ROUTED_V5_ARTIFACT
+    assert args.primary_retrieval_artifact == qa.CONSERVATIVE_ROUTED_BASELINE_ARTIFACT
+    assert args.source_aware is True
+    assert args.evidence_packet == "general"
+    assert args.fusion_evidence_map == "temporal"
+    assert args.profile_event_ledger == "general"
+    assert args.multi_session_top_k_context == 10
+    assert args.temporal_top_k_context == 10
+    assert args.generation_max_tokens == 16_000
+    assert args.extraction_max_tokens == 8_000
+
+
+def test_conservative_policy_keeps_baseline_rows_on_baseline_ledger_mode() -> None:
+    qa = _load_qa_module()
+    args = SimpleNamespace(qa_policy="conservative_type_routed_20260526", profile_event_ledger="general")
+
+    assert qa.effective_profile_event_ledger_mode({"question_type": "single-session-preference"}, args) == "off"
+    assert qa.effective_profile_event_ledger_mode({"question_type": "temporal-reasoning"}, args) == "general"
+
+
 def test_openai_compatible_sanitizer_trims_chat_role_echo_after_answer() -> None:
     qa = _load_qa_module()
     text = "42\nuser\nassistant\nI'm sorry, but I can't help with that."
@@ -227,6 +279,7 @@ def test_summary_includes_run_provenance(tmp_path: Path) -> None:
         preference_support_per_source=2,
         multi_session_evidence_set="off",
         multi_session_evidence_set_min_confidence=0.72,
+        qa_policy="conservative_type_routed_20260526",
         evidence_packet="general",
         temporal_evidence_packet="off",
         fusion_evidence_map="temporal",
@@ -251,6 +304,7 @@ def test_summary_includes_run_provenance(tmp_path: Path) -> None:
     assert provenance["inputs"]["data"]
     assert provenance["route_settings"]["temporal_top_k_context"] == 8
     assert provenance["route_settings"]["multi_session_evidence_set_min_confidence"] == 0.72
+    assert provenance["route_settings"]["qa_policy"] == "conservative_type_routed_20260526"
     assert provenance["cache"]["by_purpose"]["generation"]["system_fingerprints"] == ["fp_test"]
 
 
@@ -553,6 +607,10 @@ def test_source_set_aware_prompt_separates_primary_and_companion_sources() -> No
     assert "Companion Audit" in prompt
     assert "changes_candidate_set: yes" in prompt
     assert "Candidate Set" in prompt
+    assert "do not count assistant suggestions" in prompt
+    assert "do not remove an earlier owned item" in prompt
+    assert "Match the requested category at the same granularity" in prompt
+    assert "give one best final count rather than a range" in prompt
     assert "Session ID: s3" in prompt
     assert prompt.count("Session ID: s1") == 1
 
