@@ -30,6 +30,14 @@ def extract(path: Path, text: str) -> dict[str, str]:
         from contextfit.extractors import tmd as _tmd
         return _tmd.extract(path, text)
 
+    # SMD (Story Markdown) signals
+    if (
+        path.suffix == ".smd"
+        or re.search(r"(?m)^::scene(?:\s|$)", text)
+    ):
+        from contextfit.extractors import smd as _smd
+        return _smd.extract(path, text)
+
     # Email signals
     if (
         path.suffix in (".eml",)

@@ -1513,6 +1513,7 @@ class RetrievalEngine:
         from contextfit.extractors import code as code_extractor
         from contextfit.extractors import document as document_extractor
         from contextfit.extractors import email as email_extractor
+        from contextfit.extractors import smd as smd_extractor
         from contextfit.extractors import structured as structured_extractor
         from contextfit.extractors import tmd as tmd_extractor
 
@@ -1523,6 +1524,8 @@ class RetrievalEngine:
 
         if suffix == ".tmd":
             text_chunks = tmd_extractor.chunk_tmd(path, text, chunk_size=chunk_size, overlap=overlap)
+        elif suffix == ".smd":
+            text_chunks = smd_extractor.chunk_smd(path, text, chunk_size=chunk_size, overlap=overlap)
         elif suffix == ".md":
             text_chunks = document_extractor.chunk_markdown(path, text, chunk_size=chunk_size, overlap=overlap)
         elif suffix == ".txt":

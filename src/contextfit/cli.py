@@ -35,6 +35,7 @@ from contextfit.extractors import calendar as calendar_extractor
 from contextfit.extractors import code as code_extractor
 from contextfit.extractors import document as document_extractor
 from contextfit.extractors import structured as structured_extractor
+from contextfit.extractors import smd as smd_extractor
 from contextfit.extractors import tmd as tmd_extractor
 
 
@@ -461,7 +462,7 @@ def _extract_email_text(raw: str, path: Path) -> tuple[str, dict]:
 def _discover_files(source: Path) -> list[Path]:
     if source.is_file():
         return [source]
-    patterns = ("*.txt", "*.md", "*.tmd", "*.eml", "*.ics", "*.json", "*.jsonl", "*.csv", "*.tsv") + tuple(f"*{ext}" for ext in sorted(code_extractor.CODE_EXTENSIONS))
+    patterns = ("*.txt", "*.md", "*.tmd", "*.smd", "*.eml", "*.ics", "*.json", "*.jsonl", "*.csv", "*.tsv") + tuple(f"*{ext}" for ext in sorted(code_extractor.CODE_EXTENSIONS))
     files: list[Path] = []
     for pattern in patterns:
         files.extend(source.rglob(pattern))
@@ -491,6 +492,8 @@ def _preprocess_file(
     is_email = any(k in email_meta for k in ("from", "to", "subject", "date"))
     if path.suffix == ".tmd":
         text_chunks = tmd_extractor.chunk_tmd(path, text, chunk_size=chunk_size, overlap=overlap)
+    elif path.suffix == ".smd":
+        text_chunks = smd_extractor.chunk_smd(path, text, chunk_size=chunk_size, overlap=overlap)
     elif path.suffix == ".md" and not is_email:
         text_chunks = document_extractor.chunk_markdown(path, text, chunk_size=chunk_size, overlap=overlap)
     elif path.suffix == ".txt" and not is_email:
