@@ -89,6 +89,7 @@
       gap: 0.68rem;
       height: 50px;
       min-width: 0;
+      flex: 0 0 auto;
     }
     .nav-logo img {
       width: 46px;
@@ -150,6 +151,30 @@
       font-weight: 650;
     }
     .nav-links .nav-external:hover { color: var(--cyan); }
+
+    @media (max-width: 1180px) {
+      nav {
+        padding: 0 1.35rem;
+      }
+      .nav-section-links {
+        display: none;
+      }
+      .nav-links {
+        gap: 0.9rem;
+        flex: 0 1 auto;
+        min-width: 0;
+      }
+      .nav-page-links {
+        margin-left: 0;
+        padding-left: 0;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .nav-links {
+        display: none;
+      }
+    }
 
     /* ── INSTALL STRIP ────────────────────────────────── */
     .install-strip {
