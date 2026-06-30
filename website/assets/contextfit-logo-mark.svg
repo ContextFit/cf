@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">ContextFit logo mark</title>
+  <desc id="desc">A bracketed context window with three left-aligned token rows forming an abstract F.</desc>
+  <path d="M44 34H34c-6.1 0-11 4.9-11 11v38c0 6.1 4.9 11 11 11h10"
+        fill="none" stroke="#eef6ff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M84 34h10c6.1 0 11 4.9 11 11v38c0 6.1-4.9 11-11 11H84"
+        fill="none" stroke="#eef6ff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="45" y="42" width="39" height="8" rx="4" fill="#8b96aa" opacity=".72"/>
+  <rect x="45" y="60" width="34" height="8" rx="4" fill="#38d7fb"/>
+  <rect x="45" y="78" width="16" height="8" rx="4" fill="#8b96aa" opacity=".72"/>
+</svg>
