@@ -18,12 +18,15 @@ Endpoints:
 Usage:
   python server.py --kb memory:/path/to/memory-kb --kb email:/path/to/email-kb
   python server.py --kb memory:/path/to/memory-kb --port 8765
+  python server.py --kb memory:/path/to/memory-kb --ingest-root /path/to/authorized/files
+  CONTEXTFIT_ACCESS_KEY=secret python server.py --host 0.0.0.0 --kb memory:/path/to/memory-kb
 """
 from __future__ import annotations
 
 import argparse
 import os
 import re
+import secrets
 import sys
 import time
 from pathlib import Path
@@ -31,11 +34,15 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from contextfit.retrieval.engine import RetrievalEngine
-from contextfit.retrieval.extractive import default_reference_expiry, extract_evidence, format_evidence_compact
 from contextfit.core.tokenizer import Tokenizer
+from contextfit.retrieval.engine import RetrievalEngine
+from contextfit.retrieval.extractive import (
+    default_reference_expiry,
+    extract_evidence,
+    format_evidence_compact,
+)
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import uvicorn
@@ -96,11 +103,111 @@ class RebuildExpandersRequest(BaseModel):
 # App + state
 # ---------------------------------------------------------------------------
 
-app = FastAPI(title="ContextFit", version="0.1.1")
+app = FastAPI(title="ContextFit", version="0.1.2")
 
 # kb_name -> {engine, path, loaded_at}
 _engines: dict[str, dict[str, Any]] = {}
 _kb_paths: dict[str, Path] = {}
+_ingest_roots: list[Path] = []
+_access_key: str | None = None
+
+
+def _path_is_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def _normalize_ingest_roots(paths: list[str] | None) -> list[Path]:
+    roots: list[Path] = []
+    for raw in paths or []:
+        raw = raw.strip()
+        if not raw:
+            continue
+        root = Path(raw).expanduser().resolve()
+        if not root.exists():
+            raise ValueError(f"ingest root does not exist: {root}")
+        if not root.is_dir():
+            raise ValueError(f"ingest root is not a directory: {root}")
+        if root not in roots:
+            roots.append(root)
+    return roots
+
+
+def _ingest_roots_from_env() -> list[str]:
+    raw = os.environ.get("CONTEXTFIT_INGEST_ROOTS", "")
+    return [part for part in raw.split(os.pathsep) if part.strip()]
+
+
+def _configured_ingest_roots() -> list[Path]:
+    return _ingest_roots or [Path.cwd().resolve()]
+
+
+def _set_access_key(raw: str | None) -> None:
+    global _access_key
+    clean = (raw or "").strip()
+    _access_key = clean or None
+
+
+def _is_local_bind(host: str) -> bool:
+    return host in {"127.0.0.1", "localhost", "::1"}
+
+
+def _require_access(
+    authorization: str | None = Header(default=None),
+    x_contextfit_access_key: str | None = Header(default=None),
+) -> None:
+    if not _access_key:
+        return
+
+    presented = x_contextfit_access_key if isinstance(x_contextfit_access_key, str) else ""
+    if isinstance(authorization, str) and authorization:
+        scheme, _, token = authorization.partition(" ")
+        if scheme.lower() == "bearer" and token.strip():
+            presented = token.strip()
+
+    if not presented or not secrets.compare_digest(presented, _access_key):
+        raise HTTPException(
+            status_code=401,
+            detail="ContextFit access key required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+def _resolve_authorized_ingest_path(raw_path: str) -> Path:
+    if not str(raw_path).strip():
+        raise HTTPException(status_code=400, detail="empty ingest path")
+
+    roots = _configured_ingest_roots()
+    candidate = Path(raw_path).expanduser()
+    if not candidate.is_absolute():
+        candidate = Path.cwd() / candidate
+
+    try:
+        resolved = candidate.resolve(strict=True)
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"ingest path does not exist: {raw_path}",
+        ) from exc
+    except OSError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unable to resolve ingest path: {raw_path}: {exc}",
+        ) from exc
+
+    if not any(_path_is_within(resolved, root) for root in roots):
+        allowed = ", ".join(str(root) for root in roots)
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"ingest path is outside authorized roots: {raw_path}. "
+                f"Authorized roots: {allowed}"
+            ),
+        )
+    return resolved
 
 
 def _load_engine(name: str, path: Path) -> RetrievalEngine:
@@ -206,7 +313,7 @@ def _find_tmd_rows(text: str, query: str, max_rows: int = 5) -> list[dict[str, A
 # ---------------------------------------------------------------------------
 
 @app.get("/status")
-def status():
+def status(_auth: None = Depends(_require_access)):
     result = {"status": "ok", "kbs": {}}
     for name, info in _engines.items():
         stats = info["engine"].stats()
@@ -225,7 +332,7 @@ def status():
 
 
 @app.post("/query")
-def query(req: QueryRequest):
+def query(req: QueryRequest, _auth: None = Depends(_require_access)):
     engine = _get_engine(req.kb)
 
     filter_field = tuple(req.filter_field) if req.filter_field and len(req.filter_field) == 2 else None
@@ -332,7 +439,7 @@ def query(req: QueryRequest):
 
 
 @app.post("/query_auto")
-def query_auto(req: QueryAutoRequest):
+def query_auto(req: QueryAutoRequest, _auth: None = Depends(_require_access)):
     """Route a query to the best retrieval mode automatically.
 
     Uses the deterministic query router to pick between episode_score, bm25,
@@ -450,7 +557,7 @@ def query_auto(req: QueryAutoRequest):
 
 
 @app.post("/ingest")
-def ingest(req: IngestRequest):
+def ingest(req: IngestRequest, _auth: None = Depends(_require_access)):
     if req.kb not in _kb_paths:
         raise HTTPException(status_code=404, detail=f"KB '{req.kb}' not configured")
 
@@ -470,12 +577,9 @@ def ingest(req: IngestRequest):
     src_path = str(Path(__file__).parent / "src")
     cli_env["PYTHONPATH"] = src_path + (os.pathsep + cli_env["PYTHONPATH"] if cli_env.get("PYTHONPATH") else "")
 
-    for raw_path in req.paths:
-        src = Path(raw_path)
-        if not src.exists():
-            errors.append(f"missing: {src}")
-            continue
+    authorized_paths = [_resolve_authorized_ingest_path(raw_path) for raw_path in req.paths]
 
+    for src in authorized_paths:
         cmd = [
             cli, "-m", "contextfit.cli",
             "--kb", str(kb_path),
@@ -513,7 +617,7 @@ def ingest(req: IngestRequest):
 
 
 @app.post("/rebuild-expanders")
-def rebuild_expanders(req: RebuildExpandersRequest):
+def rebuild_expanders(req: RebuildExpandersRequest, _auth: None = Depends(_require_access)):
     if req.kb not in _kb_paths:
         raise HTTPException(status_code=404, detail=f"KB '{req.kb}' not configured")
 
@@ -551,10 +655,32 @@ def main():
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--lazy", action="store_true", help="Don't pre-load KBs; load on first query")
+    parser.add_argument(
+        "--access-key",
+        default=os.environ.get("CONTEXTFIT_ACCESS_KEY", ""),
+        help="Require this API key via Authorization: Bearer or X-ContextFit-Access-Key.",
+    )
+    parser.add_argument(
+        "--ingest-root",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help=(
+            "Directory that /ingest may read from. Repeat for multiple roots. "
+            "Defaults to CONTEXTFIT_INGEST_ROOTS or the server working directory."
+        ),
+    )
     args = parser.parse_args()
 
     if not args.kb:
         parser.error("At least one --kb NAME:PATH is required")
+
+    _set_access_key(args.access_key)
+    if not _is_local_bind(args.host) and not _access_key:
+        parser.error(
+            "Binding outside localhost requires --access-key or CONTEXTFIT_ACCESS_KEY. "
+            "Use --host 127.0.0.1 for unauthenticated local-only development."
+        )
 
     for spec in args.kb:
         if ":" not in spec:
@@ -565,6 +691,17 @@ def main():
             print(f"[cf-server] WARNING: KB path does not exist yet: {path}", flush=True)
             path.mkdir(parents=True, exist_ok=True)
         _kb_paths[name] = path
+
+    global _ingest_roots
+    try:
+        _ingest_roots = _normalize_ingest_roots(args.ingest_root or _ingest_roots_from_env())
+    except ValueError as exc:
+        parser.error(str(exc))
+    roots_for_log = _configured_ingest_roots()
+    print(
+        "[cf-server] Authorized ingest roots: " + ", ".join(str(root) for root in roots_for_log),
+        flush=True,
+    )
 
     if not args.lazy:
         for name, path in _kb_paths.items():

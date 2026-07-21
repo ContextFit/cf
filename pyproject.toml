@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "contextfit"
-version = "0.1.1"
+version = "0.1.2"
 description = "Token-native knowledge base for LLM scale"
 readme = "README.md"
 license = "MIT"
@@ -36,11 +36,17 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+server = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.29.0",
+]
 dev = [
+    "fastapi>=0.110.0",
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
+    "uvicorn>=0.29.0",
 ]
 rust = [
     # Rust extensions when ready

@@ -149,6 +149,23 @@ contextfit --kb ~/contextfit_kb mcp
 
 `--json` is intended for OpenClaw/agent use. Query JSON includes `input_ids`, retrieved chunk metadata, SID predictions, semantic IDs, and decoded previews. `contextfit search --json --extractive auto` also returns deterministic query-focused evidence (`tmd_row`, `bullet`, or `span`) with source line and row IDs when available. Add `--compact` to emit a TMD-like `compact_context` string that preserves citations while avoiding JSON-heavy metadata in an LLM prompt.
 
+## HTTP Server Safety
+
+The HTTP server is intended to bind to localhost by default. If you use `/ingest`, always configure explicit authorized roots so callers cannot ask ContextFit to read arbitrary operating-system files:
+
+```bash
+python server.py --kb memory:~/contextfit_kb --ingest-root ~/contextfit-imports
+```
+
+When binding anywhere other than localhost, the server now requires an access key:
+
+```bash
+CONTEXTFIT_ACCESS_KEY="$(openssl rand -hex 32)" \
+  python server.py --host 0.0.0.0 --kb memory:~/contextfit_kb --ingest-root ~/contextfit-imports
+```
+
+Send the key as `Authorization: Bearer <key>` or `X-ContextFit-Access-Key: <key>`.
+
 ## Current Storage Layout
 
 ```text
