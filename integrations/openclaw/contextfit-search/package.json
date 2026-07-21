@@ -1,6 +1,6 @@
 {
   "name": "@contextfit/openclaw-contextfit-search",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "OpenClaw ContextFit search tool and context engine plugin",
   "type": "module",

@@ -73,6 +73,7 @@ function contextFitConfig(api) {
   const engine = cfg.engine && typeof cfg.engine === "object" ? cfg.engine : {};
   return {
     baseUrl: cleanBaseUrl(engine.baseUrl || cfg.baseUrl),
+    accessKey: readString(engine, "accessKey", readString(cfg, "accessKey", "")),
     defaultKb: readString(engine, "defaultKb", readString(cfg, "defaultKb", "memory")),
     autoRecall: readBool(engine, "autoRecall", true),
     topK: readInt(engine, "topK", 5, 1, 20),
@@ -95,7 +96,10 @@ async function queryContextFit(cfg, query, overrides = {}) {
   };
   const response = await fetch(`${cfg.baseUrl}/query`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      ...(cfg.accessKey ? { "x-contextfit-access-key": cfg.accessKey } : {})
+    },
     body: JSON.stringify(body)
   });
   const text = await response.text();
