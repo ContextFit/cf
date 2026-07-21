@@ -1,9 +1,21 @@
 {
   "name": "@contextfit/openclaw-contextfit-search",
   "version": "0.1.2",
-  "private": true,
   "description": "OpenClaw ContextFit search tool and context engine plugin",
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ContextFit/cf.git",
+    "directory": "integrations/openclaw/contextfit-search"
+  },
+  "files": [
+    "index.js",
+    "openclaw.plugin.json"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "openclaw": {
     "extensions": ["./index.js"]
   }
