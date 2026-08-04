@@ -458,6 +458,24 @@ def _extract_email_text(raw: str, path: Path) -> tuple[str, dict]:
         return text, {"source": str(path)}
 
 
+def _looks_like_email(path: Path, raw: str) -> bool:
+    """True only for real emails: .eml files, markdown-exported emails, or files
+    that open with RFC-5322 headers.
+
+    Everything else must NOT be routed through MIME extraction: compat32
+    ``get_payload(decode=True)`` on a str payload round-trips the text through
+    raw-unicode-escape + utf-8/ignore, which silently deletes every char in
+    U+0080..U+00FF (umlauts, ß, accents) and turns chars above U+00FF into
+    literal ``\\uXXXX`` sequences.
+    """
+    return (
+        path.suffix == ".eml"
+        or bool(re.match(r"#\s+Email:", raw.lstrip()))
+        or "**From:**" in raw[:500]
+        or bool(re.match(r"(From|Return-Path|Received|Delivered-To):", raw))
+    )
+
+
 def _discover_files(source: Path) -> list[Path]:
     if source.is_file():
         return [source]
@@ -481,8 +499,11 @@ def _preprocess_file(
     if max_file_bytes and size > max_file_bytes:
         return {"path": str(path), "status": "skipped", "reason": f"file_too_large:{size}", "bytes": size, "seconds": time.time() - started}
 
-    raw = path.read_text(errors="ignore")
-    text, email_meta = _extract_email_text(raw, path)
+    raw = path.read_text(encoding="utf-8", errors="ignore")
+    if _looks_like_email(path, raw):
+        text, email_meta = _extract_email_text(raw, path)
+    else:
+        text, email_meta = raw, {"source": str(path)}
     tokenizer = Tokenizer.load(tokenizer_name)
 
     # Structure-aware pre-chunking by file type.  The tokenizer remains the
